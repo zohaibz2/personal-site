@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <>
       {/* Social pills — fixed top-right */}
-      <nav className="fixed top-5 right-5 z-50 flex gap-2">
+      <nav className="fixed top-5 right-5 z-50 hidden md:flex gap-2">
         {socialLinks.map(({ label, href }) => (
           <a
             key={label}
