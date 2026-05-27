@@ -1,9 +1,9 @@
 import Image from "next/image";
 
 const socialLinks = [
-  { label: "LinkedIn", href: "#" },
-  { label: "Twitter", href: "#" },
-  { label: "Instagram", href: "#" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" },
+  { label: "Twitter", href: "https://x.com/NarejoZohaib" },
+  { label: "Instagram", href: "https://www.instagram.com/zohaibnarejo._/" },
 ];
 
 export default function Home() {
@@ -15,6 +15,8 @@ export default function Home() {
           <a
             key={label}
             href={href}
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-3 py-1 text-xs border border-[#1a1a1a] rounded-full text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-colors duration-150"
             style={{ fontFamily: "system-ui, sans-serif" }}
           >
@@ -106,11 +108,11 @@ export default function Home() {
           . I read everything.
         </p>
         <p className="text-sm text-[#1a1a1a]/60" style={{ fontFamily: "system-ui, sans-serif" }}>
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">LinkedIn</a>
+          <a href="https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">LinkedIn</a>
           <span className="mx-2">·</span>
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">Twitter</a>
+          <a href="https://x.com/NarejoZohaib" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">Twitter</a>
           <span className="mx-2">·</span>
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">Instagram</a>
+          <a href="https://www.instagram.com/zohaibnarejo._/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">Instagram</a>
         </p>
       </section>
     </>
