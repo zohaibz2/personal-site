@@ -30,7 +30,7 @@ export default function Home() {
         <div className="flex justify-center md:justify-end md:w-[40%]">
           <div className="relative w-[260px] h-[340px] md:w-[360px] md:h-[460px] lg:w-[400px] lg:h-[500px]">
             <Image
-              src="/me.png.png"
+              src="/me.png"
               alt="Zohaib Narejo"
               fill
               className="object-contain object-bottom"
