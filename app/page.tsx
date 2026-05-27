@@ -78,7 +78,7 @@ export default function Home() {
         <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-6">
           Things on my mind lately
         </h2>
-        <ul className="flex flex-col gap-4">
+        <ul className="list-none flex flex-col gap-4">
           {[
             "How AI is changing what one person can build in a week — not just coding, but the whole stack: design, copy, research, marketing",
             "What it would take to make small parts of Pakistan's food system more sustainable",
