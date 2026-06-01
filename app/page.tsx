@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 const socialLinks = [
   { label: "LinkedIn", href: "https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" },
@@ -93,6 +94,35 @@ export default function Home() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* Work */}
+      <section className="mx-auto max-w-[640px] px-6 pb-16 md:pb-24">
+        <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-6">
+          Work
+        </h2>
+        <Link
+          href="/work/fittree"
+          className="group block cursor-pointer overflow-hidden rounded-2xl border border-[#1a1a1a]/10 shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#1a1a1a]/25 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        >
+          <div className="relative aspect-[1512/982] overflow-hidden bg-[#f5f5f4]">
+            <Image
+              src="/work/fittree/splash.png"
+              alt="FitTree"
+              fill
+              className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
+              sizes="(max-width: 768px) 100vw, 640px"
+            />
+          </div>
+          <div className="px-5 py-4">
+            <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
+              FitTree
+            </h3>
+            <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
+              Custom training plans with one shared link.
+            </p>
+          </div>
+        </Link>
       </section>
 
       {/* Contact */}
