@@ -18,7 +18,7 @@ const features = [
 
 export default function FitTree() {
   return (
-    <article className="mx-auto max-w-[720px] px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
         href="/"
