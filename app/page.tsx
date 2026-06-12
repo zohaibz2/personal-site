@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import MillionDollarSprint from "@/components/MillionDollarSprint";
 
 const socialLinks = [
   { label: "LinkedIn", href: "https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" },
@@ -77,8 +76,6 @@ export default function Home() {
         </p>
       </section>
 
-      <MillionDollarSprint />
-
       {/* Things on my mind */}
       <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24">
         <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-6">
@@ -146,6 +143,28 @@ export default function Home() {
               </h3>
               <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
                 From ideas to MVPs in 3-4 weeks.
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/work/stratai"
+            className="group flex h-full flex-col cursor-pointer overflow-hidden rounded-2xl border border-[#1a1a1a]/10 shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#1a1a1a]/25 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          >
+            <div className="relative aspect-[1512/982] overflow-hidden bg-[#f4f4f5]">
+              <Image
+                src="/work/stratai/main-header.jpeg"
+                alt="StratAI"
+                fill
+                className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
+              />
+            </div>
+            <div className="px-5 py-4">
+              <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
+                StratAI
+              </h3>
+              <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
+                AI strategy platform — built and launched in under 3 weeks.
               </p>
             </div>
           </Link>
