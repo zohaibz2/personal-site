@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -8,7 +9,7 @@ interface SprintData {
   earned: number;
   logs: { id: string; date: string; text: string }[];
   milestones: { id: string; label: string; amount: number; completed: boolean }[];
-  comments: { id: string; name: string; comment: string; website?: string; created_at: string }[];
+  comments: { id: string; name: string; comment: string; created_at: string }[];
 }
 
 interface TimeLeft {
@@ -22,7 +23,7 @@ interface TimeLeft {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TARGET = 1_000_000;
-const DEADLINE_UTC = "2027-01-01T00:00:00Z"; // Jan 1 2027 00:00 UTC — timezone offset applied client-side
+const DEADLINE_UTC = "2027-01-01T00:00:00Z";
 
 const TIMEZONES = [
   { label: "Karachi (PKT)", value: "Asia/Karachi" },
@@ -34,33 +35,13 @@ const TIMEZONES = [
 
 const STORAGE_KEY = "sprint_tz";
 
-// ─── Helper: compute countdown relative to selected timezone ─────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getTimeLeft(tz: string): TimeLeft {
-  // We want "Jan 1 2027 00:00:00 in <tz>" – convert that to a UTC ms timestamp
   try {
-    // Build the deadline in the given timezone using Intl
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-    // Find the UTC epoch for "2027-01-01 00:00:00" in tz by binary-searching
-    // Simpler: just compute offset from known UTC deadline
-    const deadlineUTC = new Date(DEADLINE_UTC).getTime();
-    // Get current time in that timezone and compare to deadline in that timezone
     const now = new Date();
-    const nowInTZ = new Date(
-      now.toLocaleString("en-US", { timeZone: tz })
-    ).getTime();
-    const deadlineInTZ = new Date(
-      new Date(DEADLINE_UTC).toLocaleString("en-US", { timeZone: tz })
-    ).getTime();
+    const nowInTZ = new Date(now.toLocaleString("en-US", { timeZone: tz })).getTime();
+    const deadlineInTZ = new Date(new Date(DEADLINE_UTC).toLocaleString("en-US", { timeZone: tz })).getTime();
     const diff = deadlineInTZ - nowInTZ;
     if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0 };
     return {
@@ -70,9 +51,7 @@ function getTimeLeft(tz: string): TimeLeft {
       minutes: Math.floor((diff / (1000 * 60)) % 60),
       seconds: Math.floor((diff / 1000) % 60),
     };
-    void deadlineUTC; // silence unused
   } catch {
-    // Fallback: straight UTC diff
     const diff = new Date(DEADLINE_UTC).getTime() - Date.now();
     if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, total: 0 };
     return {
@@ -85,12 +64,11 @@ function getTimeLeft(tz: string): TimeLeft {
   }
 }
 
-function fmt(n: number) {
-  return String(n).padStart(2, "0");
-}
+function fmt(n: number) { return String(n).padStart(2, "0"); }
+function fmtMoney(n: number) { return "$" + n.toLocaleString("en-US"); }
 
-function fmtMoney(n: number) {
-  return "$" + n.toLocaleString("en-US");
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -108,22 +86,29 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
 
 function CommentForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [comment, setComment] = useState("");
-  const [website, setWebsite] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
 
   async function submit() {
-    if (!name.trim() || !comment.trim()) {
-      setMsg("Name and comment are required.");
+    if (!name.trim() || !email.trim() || !comment.trim()) {
+      setMsg("Name, email, and comment are all required.");
+      setStatus("error");
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setMsg("Please enter a valid email address.");
+      setStatus("error");
       return;
     }
     setStatus("sending");
+    setMsg("");
     try {
       const res = await fetch("/api/sprint/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), comment: comment.trim(), website: website.trim() }),
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), comment: comment.trim() }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -131,7 +116,7 @@ function CommentForm({ onSubmitted }: { onSubmitted: () => void }) {
       }
       setStatus("done");
       setMsg("Comment submitted — it'll appear once approved. Thanks!");
-      setName(""); setComment(""); setWebsite("");
+      setName(""); setEmail(""); setComment("");
       onSubmitted();
     } catch (e: unknown) {
       setStatus("error");
@@ -153,9 +138,10 @@ function CommentForm({ onSubmitted }: { onSubmitted: () => void }) {
         />
         <input
           className="sprint-input"
-          placeholder="Website (optional)"
-          value={website}
-          onChange={e => setWebsite(e.target.value)}
+          placeholder="Email address *"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
           maxLength={200}
           disabled={status === "sending"}
         />
@@ -191,7 +177,6 @@ export default function MillionDollarSprint() {
   const [data, setData] = useState<SprintData | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // Load persisted timezone
   useEffect(() => {
     setMounted(true);
     try {
@@ -200,13 +185,11 @@ export default function MillionDollarSprint() {
     } catch { /* no-op */ }
   }, []);
 
-  // Persist timezone change
   function changeTz(val: string) {
     setTz(val);
     try { localStorage.setItem(STORAGE_KEY, val); } catch { /* no-op */ }
   }
 
-  // Countdown tick
   useEffect(() => {
     if (!mounted) return;
     setTimeLeft(getTimeLeft(tz));
@@ -214,7 +197,6 @@ export default function MillionDollarSprint() {
     return () => clearInterval(id);
   }, [tz, mounted]);
 
-  // Load sprint data
   const loadData = useCallback(async () => {
     try {
       const res = await fetch("/api/sprint/data");
@@ -227,17 +209,29 @@ export default function MillionDollarSprint() {
   const earned = data?.earned ?? 0;
   const pct = Math.min(100, (earned / TARGET) * 100);
 
-  if (!mounted) return null; // avoid hydration mismatch for countdown
+  if (!mounted) return null;
 
   return (
     <section className="sprint-section">
-      {/* Header */}
-      <div className="sprint-header">
-        <div className="sprint-eyebrow">Public challenge</div>
-        <h2 className="sprint-title">The Million Dollar Sprint</h2>
-        <p className="sprint-subtitle">
-          My public challenge to reach $1,000,000 before 2027. Every day counts.
-        </p>
+
+      {/* ── CHANGE #1: Hero image with text in sky ── */}
+      <div className="sprint-hero">
+        <Image
+          src="/sprint-hero.jpg"
+          alt="Zohaib Narejo at Daman-e-Koh, Islamabad, looking over the city at night"
+          fill
+          className="sprint-hero-img"
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 80rem"
+          priority
+        />
+        {/* Text sits in the dark sky at the top */}
+        <div className="sprint-hero-text">
+          <p className="sprint-hero-eyebrow">Public challenge</p>
+          <h2 className="sprint-hero-title">The Million Dollar Sprint</h2>
+          <p className="sprint-hero-sub">
+            My public challenge to reach $1,000,000 before 2027. Every day counts.
+          </p>
+        </div>
       </div>
 
       {/* Countdown */}
@@ -281,13 +275,9 @@ export default function MillionDollarSprint() {
             <span className="sprint-stat-value">{fmtMoney(TARGET - earned)}</span>
           </div>
         </div>
-
         <div className="sprint-progress-wrap">
           <div className="sprint-progress-bar-bg">
-            <div
-              className="sprint-progress-bar-fill"
-              style={{ width: `${pct}%` }}
-            />
+            <div className="sprint-progress-bar-fill" style={{ width: `${pct}%` }} />
           </div>
           <div className="sprint-progress-pct">{pct.toFixed(1)}% Complete</div>
         </div>
@@ -335,14 +325,10 @@ export default function MillionDollarSprint() {
             {data.comments.map(c => (
               <div key={c.id} className="sprint-comment">
                 <div className="sprint-comment-header">
-                  {c.website ? (
-                    <a href={c.website} target="_blank" rel="noopener noreferrer" className="sprint-comment-name sprint-comment-name-link">
-                      {c.name}
-                    </a>
-                  ) : (
-                    <span className="sprint-comment-name">{c.name}</span>
-                  )}
-                  <span className="sprint-comment-date">{new Date(c.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric", day: "numeric" })}</span>
+                  <span className="sprint-comment-name">{c.name}</span>
+                  <span className="sprint-comment-date">
+                    {new Date(c.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric", day: "numeric" })}
+                  </span>
                 </div>
                 <p className="sprint-comment-body">{c.comment}</p>
               </div>

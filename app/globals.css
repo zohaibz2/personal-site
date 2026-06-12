@@ -514,3 +514,83 @@ body {
 .sprint-header {
   margin-bottom: 2rem;
 }
+
+/* ─── Sprint Hero Image ─────────────────────────────────────────────────────── */
+
+.sprint-hero {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .sprint-hero {
+    height: 540px;
+  }
+}
+
+.sprint-hero-img {
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+/* Text sits in the dark sky — top-left, no box, no background */
+.sprint-hero-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem 2rem 0;
+}
+
+.sprint-hero-eyebrow {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 0.5rem;
+  font-family: system-ui, sans-serif;
+}
+
+.sprint-hero-title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.6rem;
+  font-family: var(--font-eb-garamond), Georgia, serif;
+}
+
+@media (min-width: 480px) {
+  .sprint-hero-title {
+    font-size: 2.4rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .sprint-hero-title {
+    font-size: 3rem;
+  }
+  .sprint-hero-text {
+    padding: 2.5rem 2.5rem 0;
+  }
+}
+
+.sprint-hero-sub {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 480px;
+  font-family: system-ui, sans-serif;
+}
+
+@media (min-width: 768px) {
+  .sprint-hero-sub {
+    font-size: 1.05rem;
+  }
+}
