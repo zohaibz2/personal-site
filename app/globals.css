@@ -594,3 +594,27 @@ body {
     font-size: 1.05rem;
   }
 }
+
+/* Sprint Log — scrollable timeline (shows ~3 entries, scroll for more) */
+.sprint-timeline {
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.sprint-timeline::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sprint-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sprint-timeline::-webkit-scrollbar-thumb {
+  background: rgba(26,26,26,0.15);
+  border-radius: 99px;
+}
+
+.sprint-timeline::-webkit-scrollbar-thumb:hover {
+  background: rgba(26,26,26,0.25);
+}
