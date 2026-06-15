@@ -595,41 +595,27 @@ body {
   }
 }
 
-/* Sprint Log — scrollable timeline (shows ~3 entries, scroll for more) */
 .sprint-timeline {
-  max-height: 620px;
+  max-height: 360px;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 1.5rem;
   padding-right: 0.5rem;
+  margin-left: 0.13rem;
 }
-
+.sprint-log-dot {
+  left: -1.37rem;
+}
 .sprint-timeline::-webkit-scrollbar {
   width: 6px;
 }
-
 .sprint-timeline::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .sprint-timeline::-webkit-scrollbar-thumb {
   background: rgba(26,26,26,0.15);
   border-radius: 99px;
 }
-
 .sprint-timeline::-webkit-scrollbar-thumb:hover {
   background: rgba(26,26,26,0.25);
-}
-.sprint-timeline {
-  max-height: 420px;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-.sprint-timeline::-webkit-scrollbar {
-  width: 6px;
-}
-.sprint-timeline::-webkit-scrollbar-track {
-  background: transparent;
-}
-.sprint-timeline::-webkit-scrollbar-thumb {
-  background: rgba(26,26,26,0.15);
-  border-radius: 99px;
 }
