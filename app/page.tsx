@@ -170,7 +170,29 @@ export default function Home() {
                 AI strategy platform — built and launched in under 3 weeks.
               </p>
             </div>
-          </Link>
+            </Link>
+            <Link
+                      href="/work/kodex"
+                      className="group flex h-full flex-col cursor-pointer overflow-hidden rounded-2xl border border-[#1a1a1a]/10 shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#1a1a1a]/25 hover:shadow-xl motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                  >
+                      <div className="relative aspect-[1512/982] overflow-hidden bg-[#f5f5f4]">
+                          <Image
+                              src="/work/kodex/main-header.png"
+                              alt="Kodex"
+                              fill
+                              className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
+                          />
+                      </div>
+                      <div className="px-5 py-4">
+                          <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
+                              Kodex
+                          </h3>
+                          <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
+                              Video-first knowledge platform for fast, searchable team onboarding.
+                          </p>
+                      </div>
+                  </Link>
         </div>
       </section>
 
