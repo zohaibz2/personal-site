@@ -133,7 +133,7 @@ export default function Home() {
           >
             <div className="relative aspect-[1512/982] overflow-hidden bg-[#f4f4f5]">
               <Image
-                src="/work/venfound/main-header.jpeg"
+                src="/work/venfound/main-header-v2.png"
                 alt="Venfound"
                 fill
                 className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
