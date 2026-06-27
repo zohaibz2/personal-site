@@ -67,7 +67,7 @@ export default function Venfound() {
       {/* Splash */}
       <div className="relative aspect-[1600/734] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
         <Image
-          src="/work/venfound/main-header.jpeg"
+          src="/work/venfound/main-header-v2.jpeg"
           alt="Venfound — From Ideas to Impact"
           fill
           className="object-cover object-top"
@@ -135,7 +135,7 @@ export default function Venfound() {
         </div>
         <figure className="relative mt-8 aspect-[1307/711] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
           <Image
-            src="/work/venfound/our-process.jpeg"
+            src="/work/venfound/our-process-v2.jpeg"
             alt="Venfound process — Discovery, Design, Development"
             fill
             className="object-cover object-top"
@@ -159,7 +159,7 @@ export default function Venfound() {
         </p>
         <figure className="relative mt-6 aspect-[1293/759] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
           <Image
-            src="/work/venfound/our-team.jpeg"
+            src="/work/venfound/our-team-v2.jpeg"
             alt="Meet the builders behind Venfound"
             fill
             className="object-cover object-top"
@@ -191,7 +191,7 @@ export default function Venfound() {
         </ul>
         <figure className="relative mt-6 aspect-[1321/733] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
           <Image
-            src="/work/venfound/our-work.jpeg"
+            src="/work/venfound/our-work-v2.jpeg"
             alt="Recent Venfound work — Kodex, StratAI, Odycy"
             fill
             className="object-cover object-top"
