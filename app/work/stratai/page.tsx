@@ -38,13 +38,13 @@ export default function StratAI() {
           AI-powered strategy platform — built and launched in under 3 weeks.
         </p>
         <a
-          href="https://stratai.io"
+          href="https://www.youtube.com/watch?v=aX0CQCXA8L0&t=5s"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit StratAI →
+        Watch demo →
         </a>
       </header>
 
@@ -168,13 +168,13 @@ export default function StratAI() {
       {/* Visit — closing */}
       <div className="mt-14">
         <a
-          href="https://stratai.io"
+          href="https://www.youtube.com/watch?v=aX0CQCXA8L0&t=5s"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit StratAI →
+        Watch demo →
         </a>
       </div>
     </article>
