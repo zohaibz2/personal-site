@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privately — Zohaib Narejo",
+  title: "Privately Property — Zohaib Narejo",
   description: "Privately — peer-to-peer real estate marketplace cutting out the middleman for direct property transactions.",
 };
 
@@ -47,7 +47,7 @@ export default function Privately() {
       {/* Title */}
       <header className="mt-8 mb-10">
         <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a]">
-          Privately
+          Privately Property
         </h1>
         <p className="mt-2 text-lg md:text-xl text-[#c2410c]">
           Peer-to-peer real estate marketplace cutting out the middleman for direct property transactions.
@@ -59,7 +59,7 @@ export default function Privately() {
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit Privately →
+          Visit Privately Property →
         </a>
       </header>
 
@@ -205,7 +205,7 @@ export default function Privately() {
           className="inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit Privately →
+          Visit Privately Property →
         </a>
       </div>
     </article>

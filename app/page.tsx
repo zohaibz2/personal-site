@@ -200,7 +200,7 @@ export default function Home() {
                       <div className="relative aspect-[1512/982] overflow-hidden bg-[#f5f5f4]">
                           <Image
                               src="/work/privately/landing-page.png"
-                              alt="Privately Property"
+                              alt="Privately"
                               fill
                               className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
                               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
@@ -208,7 +208,7 @@ export default function Home() {
                       </div>
                       <div className="px-5 py-4">
                           <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
-                              Privately
+                              Privately Property
                           </h3>
                           <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
                               Peer-to-peer real estate marketplace cutting out the middleman.
