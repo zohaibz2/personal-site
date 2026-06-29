@@ -200,7 +200,7 @@ export default function Home() {
                       <div className="relative aspect-[1512/982] overflow-hidden bg-[#f5f5f4]">
                           <Image
                               src="/work/privately/landing-page.png"
-                              alt="Privately"
+                              alt="Privately Property"
                               fill
                               className="object-cover object-top transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
                               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
