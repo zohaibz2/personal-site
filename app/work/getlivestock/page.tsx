@@ -39,11 +39,13 @@ export default function Getlivestock() {
           farm-to-table efficiency.
         </p>
         <a
-          href="#"
+          href="https://getivestock-site.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Watch demo →
+          Visit site →
         </a>
       </header>
 
@@ -151,11 +153,13 @@ export default function Getlivestock() {
       {/* Watch demo — closing */}
       <div className="mt-14">
         <a
-          href="#"
+          href="https://getivestock-site.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Watch demo →
+          Visit site →
         </a>
       </div>
     </article>
