@@ -124,7 +124,7 @@ export default function Work() {
           <Link
             key={p.href}
             href={p.href}
-            className="group flex h-full flex-col cursor-pointer rounded-2xl bg-white p-3 border border-[#ea580c]/10 shadow-[0_8px_30px_-8px_rgba(234,88,12,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#ea580c]/25 hover:shadow-[0_18px_44px_-10px_rgba(234,88,12,0.30)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group flex h-full flex-col cursor-pointer rounded-2xl bg-white p-3 shadow-[0_8px_20px_-14px_rgba(234,88,12,0.18)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-1.5 hover:shadow-[0_26px_50px_-16px_rgba(234,88,12,0.45)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
             <div className={`relative aspect-[1512/982] overflow-hidden rounded-xl ${p.bg}`}>
               {/* Category badge */}
