@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import MillionDollarSprint from "@/components/MillionDollarSprint";
 
 const socialLinks = [
   { label: "LinkedIn", href: "https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" },
@@ -76,8 +75,6 @@ export default function Home() {
           getting through.
         </p>
       </section>
-
-      <MillionDollarSprint />
 
       {/* Things on my mind */}
       <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24">
