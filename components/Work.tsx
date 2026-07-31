@@ -124,9 +124,9 @@ export default function Work() {
           <Link
             key={p.href}
             href={p.href}
-            className="group flex h-full flex-col cursor-pointer overflow-hidden rounded-2xl border border-[#ea580c]/10 shadow-[0_8px_30px_-8px_rgba(234,88,12,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#ea580c]/25 hover:shadow-[0_18px_44px_-10px_rgba(234,88,12,0.30)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+            className="group flex h-full flex-col cursor-pointer rounded-2xl bg-white p-3 border border-[#ea580c]/10 shadow-[0_8px_30px_-8px_rgba(234,88,12,0.18)] transition-[transform,box-shadow,border-color] duration-300 ease-out hover:-translate-y-1.5 hover:border-[#ea580c]/25 hover:shadow-[0_18px_44px_-10px_rgba(234,88,12,0.30)] motion-reduce:transition-none motion-reduce:hover:translate-y-0"
           >
-            <div className={`relative aspect-[1512/982] overflow-hidden ${p.bg}`}>
+            <div className={`relative aspect-[1512/982] overflow-hidden rounded-xl ${p.bg}`}>
               {/* Category badge */}
               <span className="absolute top-3 left-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[#1a1a1a] shadow-sm backdrop-blur-sm">
                 {p.category}
@@ -139,7 +139,7 @@ export default function Work() {
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
               />
             </div>
-            <div className="flex flex-1 flex-col px-5 py-4">
+            <div className="flex flex-1 flex-col px-2 pt-4 pb-2">
               <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
                 {p.title}
               </h3>
