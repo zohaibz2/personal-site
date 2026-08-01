@@ -1,30 +1,12 @@
 import Image from "next/image";
 import Work from "@/components/Work";
-
-const socialLinks = [
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" },
-  { label: "Twitter", href: "https://x.com/NarejoZohaib" },
-  { label: "Instagram", href: "https://www.instagram.com/zohaibnarejo._/" },
-];
+import Header from "@/components/Header";
 
 export default function Home() {
   return (
     <>
-      {/* Social pills — fixed top-right */}
-      <nav className="fixed top-5 right-5 z-50 hidden md:flex gap-2">
-        {socialLinks.map(({ label, href }) => (
-          <a
-            key={label}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1 text-xs border border-[#1a1a1a] rounded-full text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-white transition-colors duration-150"
-            style={{ fontFamily: "system-ui, sans-serif" }}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
+      {/* Header */}
+      <Header />
 
       {/* Hero */}
       <section className="flex flex-col md:flex-row md:min-h-screen md:items-center px-6 md:px-16 lg:px-24 py-16 md:py-0 gap-8 md:gap-12">
@@ -61,7 +43,7 @@ export default function Home() {
       </section>
 
       {/* Story paragraph */}
-      <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
+      <section id="about" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24 scroll-mt-24">
         <p className="text-lg md:text-xl text-[#1a1a1a] leading-[1.8]">
           I have been making stuff and putting it online since I was 13 — a
           YouTube channel, a couple of e-commerce stores, small steps trying to

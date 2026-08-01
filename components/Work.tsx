@@ -89,7 +89,7 @@ export default function Work() {
   );
 
   return (
-    <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24">
+    <section id="work" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24">
       <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-6">
         Work
       </h2>
