@@ -8,10 +8,10 @@ const navLinks = [
 export default function Header() {
   return (
     <header
-      className="sticky top-0 z-50 bg-white px-6 pt-6"
+      className="sticky top-0 z-50 bg-white px-6 pt-[13px]"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="flex items-center justify-between gap-6 rounded-3xl bg-[#0a0a0a] px-8 py-5 md:px-10 md:py-6 shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
+      <nav className="flex items-center justify-between gap-6 rounded-3xl bg-[#0a0a0a] px-8 py-2.5 md:px-10 shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#f97316] to-[#c2410c] text-sm font-bold text-white">
@@ -38,7 +38,7 @@ export default function Header() {
         {/* CTA */}
         <a
           href="mailto:narejozohaib33@gmail.com"
-          className="flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-[#0a0a0a] transition-colors hover:bg-white/85 md:px-7 md:py-3.5"
+          className="flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-2 text-base font-semibold text-[#0a0a0a] transition-colors hover:bg-white/85 md:px-7"
         >
           Let&apos;s talk
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
