@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const navLinks = [
   { label: "Work", href: "#work" },
@@ -11,19 +12,24 @@ export default function Header() {
       className="sticky top-0 z-50 bg-white px-6 pt-[13px]"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="flex items-center justify-between gap-6 rounded-3xl bg-[#0a0a0a] px-8 py-3 md:px-10 shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
+      <nav className="relative flex items-center justify-between gap-6 rounded-[20.4px] bg-[#0a0a0a] px-8 py-[15.6px] md:px-10 shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#f97316] to-[#c2410c] text-sm font-bold text-white">
-            ZN
-          </span>
-          <span className="hidden text-base font-semibold tracking-[0.14em] text-white sm:inline">
+          <Image
+            src="/z-mark.png"
+            alt="Zohaib Narejo"
+            width={36}
+            height={36}
+            className="h-9 w-9"
+            priority
+          />
+          <span className="hidden text-[9.6px] font-semibold tracking-[0.14em] text-white sm:inline">
             ZOHAIB NAREJO
           </span>
         </Link>
 
-        {/* Center nav */}
-        <div className="hidden items-center gap-10 md:flex">
+        {/* Center nav — absolutely centered in the bar */}
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-10 md:flex">
           {navLinks.map(({ label, href }) => (
             <Link
               key={label}
