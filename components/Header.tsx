@@ -2,8 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 
 const navLinks = [
-  { label: "Work", href: "#work" },
-  { label: "About", href: "#about" },
+  { label: "Work", href: "/#work" },
+  { label: "Articles", href: "/articles" },
+  { label: "About", href: "/#about" },
 ];
 
 export default function Header() {
@@ -12,7 +13,7 @@ export default function Header() {
       className="sticky top-0 z-50 bg-white px-6 pt-[13px]"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative flex items-center justify-between gap-6 rounded-[20.4px] bg-[#0a0a0a] px-8 py-[15.6px] md:px-10 shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
+      <nav className="relative flex items-center justify-between gap-6 rounded-[20.4px] bg-[#0a0a0a] px-6 py-[15.6px] md:px-[30px] shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image

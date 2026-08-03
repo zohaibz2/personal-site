@@ -1,13 +1,9 @@
 import Image from "next/image";
 import Work from "@/components/Work";
-import Header from "@/components/Header";
 
 export default function Home() {
   return (
     <>
-      {/* Header */}
-      <Header />
-
       {/* Hero */}
       <section className="flex flex-col md:flex-row md:min-h-screen md:items-center px-6 md:px-16 lg:px-24 py-16 md:py-0 gap-8 md:gap-12">
 
