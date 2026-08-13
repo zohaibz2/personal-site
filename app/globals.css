@@ -619,3 +619,37 @@ body {
 .sprint-timeline::-webkit-scrollbar-thumb:hover {
   background: rgba(26,26,26,0.25);
 }
+/* ─── Articles ──────────────────────────────────────────────────────────────── */
+
+.article-body {
+  font-size: 1.075rem;
+  line-height: 1.85;
+  color: #1a1a1a;
+}
+
+.article-body p {
+  margin-bottom: 1.15rem;
+}
+
+.article-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Drop cap on the first paragraph, echoing the magazine reference */
+.article-body p:first-of-type::first-letter {
+  float: left;
+  font-size: 3.9rem;
+  line-height: 0.8;
+  font-weight: 700;
+  padding-right: 0.09em;
+  margin-top: 0.05em;
+  color: #c2410c;
+}
+
+/* Two columns on wider screens for an editorial feel; single column on mobile */
+@media (min-width: 900px) {
+  .article-body {
+    columns: 2;
+    column-gap: 2.75rem;
+  }
+}

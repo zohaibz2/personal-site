@@ -1,32 +1,29 @@
 import Link from "next/link";
+import { getServiceClient, isSupabaseConfigured } from "@/lib/supabase";
 
-type Article = {
-  title: string;
-  date: string;
-  excerpt: string;
-  href: string;
+export const dynamic = "force-dynamic";
+
+type ArticleCard = {
+  slug: string;
+  heading: string;
+  subheading: string | null;
+  created_at: string;
 };
 
-// Add your articles here. `href` can be an external link (Medium, Substack, etc.)
-// or an internal path once you create individual article pages.
-const articles: Article[] = [
-  {
-    title: "How AI changes what one person can build in a week",
-    date: "2026",
-    excerpt:
-      "Not just coding — the whole stack: design, copy, research, and marketing, and what that shift means for small teams that ship.",
-    href: "#",
-  },
-  {
-    title: "The Pakistani startup ecosystem deserves better documentation",
-    date: "2026",
-    excerpt:
-      "Why it gets written about less than it should, and what I keep learning from the founders quietly building here.",
-    href: "#",
-  },
-];
+async function getArticles(): Promise<ArticleCard[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("articles")
+    .select("slug, heading, subheading, created_at")
+    .eq("published", true)
+    .order("created_at", { ascending: false });
+  return (data as ArticleCard[]) ?? [];
+}
 
-export default function ArticlesPage() {
+export default async function ArticlesPage() {
+  const articles = await getArticles();
+
   return (
     <main className="mx-auto max-w-[640px] lg:max-w-3xl px-6 py-20 md:py-28">
       <h1 className="text-3xl md:text-4xl font-medium text-[#1a1a1a] mb-3">
@@ -41,15 +38,22 @@ export default function ArticlesPage() {
       ) : (
         <ul className="flex flex-col divide-y divide-[#1a1a1a]/10">
           {articles.map((a) => (
-            <li key={a.title} className="py-8 first:pt-0">
-              <Link href={a.href} className="group block">
-                <div className="text-sm text-[#c2410c] mb-2">{a.date}</div>
+            <li key={a.slug} className="py-8 first:pt-0">
+              <Link href={`/articles/${a.slug}`} className="group block">
+                <div className="text-sm text-[#c2410c] mb-2">
+                  {new Date(a.created_at).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                  })}
+                </div>
                 <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
-                  {a.title}
+                  {a.heading}
                 </h2>
-                <p className="mt-2 text-base md:text-lg leading-relaxed text-[#1a1a1a]/70">
-                  {a.excerpt}
-                </p>
+                {a.subheading && (
+                  <p className="mt-2 text-base md:text-lg leading-relaxed text-[#1a1a1a]/70">
+                    {a.subheading}
+                  </p>
+                )}
                 <span className="mt-3 inline-block text-sm text-[#c2410c]">
                   Read &rarr;
                 </span>
