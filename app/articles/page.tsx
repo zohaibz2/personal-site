@@ -8,60 +8,220 @@ type ArticleCard = {
   heading: string;
   subheading: string | null;
   created_at: string;
+  category?: string | null;
+  cover_image?: string | null;
 };
+
+const BASE_COLUMNS = "slug, heading, subheading, created_at";
+const RICH_COLUMNS = "slug, heading, subheading, created_at, category, cover_image";
 
 async function getArticles(): Promise<ArticleCard[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = getServiceClient();
-  const { data } = await supabase
+
+  // Try the richer columns first (category / cover_image). If those columns
+  // don't exist on the table yet, Supabase returns an error — in that case we
+  // fall back to the base column set so the page keeps working. This means the
+  // category pills and real thumbnails light up automatically once those two
+  // columns are added, with no further change to this file.
+  const rich = await supabase
     .from("articles")
-    .select("slug, heading, subheading, created_at")
+    .select(RICH_COLUMNS)
     .eq("published", true)
     .order("created_at", { ascending: false });
-  return (data as ArticleCard[]) ?? [];
+
+  if (!rich.error) return (rich.data as ArticleCard[]) ?? [];
+
+  const base = await supabase
+    .from("articles")
+    .select(BASE_COLUMNS)
+    .eq("published", true)
+    .order("created_at", { ascending: false });
+
+  return (base.data as ArticleCard[]) ?? [];
 }
 
-export default async function ArticlesPage() {
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+const SANS = { fontFamily: "system-ui, sans-serif" } as const;
+
+export default async function ArticlesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
   const articles = await getArticles();
 
-  return (
-    <main className="mx-auto max-w-[640px] lg:max-w-3xl px-6 py-20 md:py-28">
-      <h1 className="text-3xl md:text-4xl font-medium text-[#1a1a1a] mb-3">
-        Articles
-      </h1>
-      <p className="text-lg text-[#1a1a1a]/70 mb-14">
-        Things I&apos;ve been writing about — building, startups, and the web.
-      </p>
+  // Categories are derived from the data. The filter is done server-side via
+  // the ?category= query param, so it works without any client-side JS.
+  const categories = Array.from(
+    new Set(
+      articles
+        .map((a) => (a.category ?? "").trim())
+        .filter((c) => c.length > 0)
+    )
+  );
 
-      {articles.length === 0 ? (
-        <p className="text-[#1a1a1a]/60">New writing is on the way.</p>
-      ) : (
-        <ul className="flex flex-col divide-y divide-[#1a1a1a]/10">
-          {articles.map((a) => (
-            <li key={a.slug} className="py-8 first:pt-0">
-              <Link href={`/articles/${a.slug}`} className="group block">
-                <div className="text-sm text-[#c2410c] mb-2">
-                  {new Date(a.created_at).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                  })}
-                </div>
-                <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
-                  {a.heading}
-                </h2>
-                {a.subheading && (
-                  <p className="mt-2 text-base md:text-lg leading-relaxed text-[#1a1a1a]/70">
-                    {a.subheading}
-                  </p>
-                )}
-                <span className="mt-3 inline-block text-sm text-[#c2410c]">
-                  Read &rarr;
-                </span>
-              </Link>
-            </li>
+  const active = (category ?? "all").trim();
+  const isAll = active.toLowerCase() === "all";
+  const visible = isAll
+    ? articles
+    : articles.filter(
+        (a) => (a.category ?? "").toLowerCase() === active.toLowerCase()
+      );
+
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+      {/* Page header */}
+      <header className="mb-10 md:mb-14">
+        <h1 className="text-3xl md:text-4xl font-medium text-[#1a1a1a] mb-3">
+          Articles
+        </h1>
+        <p className="text-lg text-[#1a1a1a]/70">
+          Things I&apos;ve been writing about — building, startups, and the web.
+        </p>
+      </header>
+
+      {/* Category filter row (only shown when categories exist in the data) */}
+      {categories.length > 0 && (
+        <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-[#1a1a1a]/10 pb-6">
+          <span
+            className="mr-1 text-[11px] uppercase tracking-[0.14em] text-[#1a1a1a]/40"
+            style={SANS}
+          >
+            Categories
+          </span>
+
+          <FilterPill label="All" href="/articles" active={isAll} />
+          {categories.map((c) => (
+            <FilterPill
+              key={c}
+              label={c}
+              href={`/articles?category=${encodeURIComponent(c)}`}
+              active={!isAll && active.toLowerCase() === c.toLowerCase()}
+            />
           ))}
-        </ul>
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <p className="text-[#1a1a1a]/60">
+          {articles.length === 0
+            ? "New writing is on the way."
+            : "Nothing in this category yet."}
+        </p>
+      ) : (
+        // Connected-line grid: outer frame from top/left on the wrapper,
+        // right/bottom from each card. Handles partial last rows cleanly.
+        <div className="border-t border-l border-[#1a1a1a]/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((a) => (
+              <ArticleCardItem key={a.slug} article={a} />
+            ))}
+          </div>
+        </div>
       )}
     </main>
+  );
+}
+
+function FilterPill({
+  label,
+  href,
+  active,
+}: {
+  label: string;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      style={SANS}
+      className={
+        "rounded-full border px-3.5 py-1 text-xs transition-colors " +
+        (active
+          ? "border-[#1a1a1a] bg-[#1a1a1a] text-white"
+          : "border-[#1a1a1a]/20 text-[#1a1a1a]/70 hover:border-[#1a1a1a]/40 hover:text-[#1a1a1a]")
+      }
+    >
+      {label}
+    </Link>
+  );
+}
+
+function ArticleCardItem({ article: a }: { article: ArticleCard }) {
+  const href = `/articles/${a.slug}`;
+
+  return (
+    <article className="group flex flex-col border-b border-r border-[#1a1a1a]/10 p-5 md:p-6">
+      {/* Date + category tag */}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <span
+          className="text-[11px] uppercase tracking-[0.1em] text-[#1a1a1a]/40"
+          style={SANS}
+        >
+          {formatDate(a.created_at)}
+        </span>
+        {a.category && (
+          <span
+            className="rounded-full border border-[#1a1a1a]/20 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.08em] text-[#1a1a1a]/55"
+            style={SANS}
+          >
+            {a.category}
+          </span>
+        )}
+      </div>
+
+      {/* Thumbnail — real cover image if present, otherwise a branded placeholder */}
+      <Link href={href} className="block overflow-hidden">
+        <div className="relative aspect-[3/2] w-full overflow-hidden bg-[#f6ede7]">
+          {a.cover_image ? (
+            // Plain <img> avoids needing next.config remotePatterns for
+            // Supabase-hosted images, keeping this change to a single file.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={a.cover_image}
+              alt={a.heading}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#fdece3] to-[#f4d6c4]">
+              <span className="text-5xl font-semibold text-[#c2410c]/30 select-none">
+                {a.heading.trim().charAt(0).toUpperCase() || "•"}
+              </span>
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* Heading */}
+      <h2 className="mt-5 text-xl font-medium leading-snug text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
+        <Link href={href}>{a.heading}</Link>
+      </h2>
+
+      {/* Excerpt */}
+      {a.subheading && (
+        <p className="mt-2 text-[15px] leading-relaxed text-[#1a1a1a]/65">
+          {a.subheading}
+        </p>
+      )}
+
+      {/* Read more */}
+      <Link
+        href={href}
+        style={SANS}
+        className="mt-auto pt-5 text-xs uppercase tracking-[0.12em] text-[#c2410c] underline decoration-[#c2410c]/30 underline-offset-4 transition-colors hover:decoration-[#c2410c]"
+      >
+        Read more
+      </Link>
+    </article>
   );
 }
