@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
     heading?: string;
     subheading?: string;
     content?: string;
+    category?: string;
     published?: boolean;
   };
 
@@ -133,6 +134,7 @@ export async function POST(req: NextRequest) {
           heading,
           subheading,
           content,
+          category: (payload.category ?? "").trim() || null,
           published: payload.published ?? true,
         })
         .select()
@@ -159,6 +161,7 @@ export async function POST(req: NextRequest) {
           heading,
           subheading: (payload.subheading ?? "").trim(),
           content,
+          category: (payload.category ?? "").trim() || null,
           published: payload.published ?? true,
         })
         .eq("id", payload.id)

@@ -8,6 +8,7 @@ interface Article {
   heading: string;
   subheading: string | null;
   content: string;
+  category: string | null;
   published: boolean;
   created_at: string;
 }
@@ -61,6 +62,7 @@ export default function AdminArticlesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [heading, setHeading] = useState("");
   const [subheading, setSubheading] = useState("");
+  const [category, setCategory] = useState("");
   const [content, setContent] = useState("");
   const [published, setPublished] = useState(true);
 
@@ -68,6 +70,7 @@ export default function AdminArticlesPage() {
     setEditingId(null);
     setHeading("");
     setSubheading("");
+    setCategory("");
     setContent("");
     setPublished(true);
   }
@@ -76,6 +79,7 @@ export default function AdminArticlesPage() {
     setEditingId(a.id);
     setHeading(a.heading);
     setSubheading(a.subheading ?? "");
+    setCategory(a.category ?? "");
     setContent(a.content);
     setPublished(a.published);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -88,8 +92,8 @@ export default function AdminArticlesPage() {
     }
     setStatus("Saving…");
     const res = editingId
-      ? await api("update", { id: editingId, heading, subheading, content, published }, pw)
-      : await api("create", { heading, subheading, content, published }, pw);
+      ? await api("update", { id: editingId, heading, subheading, category, content, published }, pw)
+      : await api("create", { heading, subheading, category, content, published }, pw);
     if (res.error) {
       setStatus(res.error);
       return;
@@ -181,6 +185,9 @@ export default function AdminArticlesPage() {
           <label style={label}>Subheading</label>
           <input style={input} value={subheading} onChange={(e) => setSubheading(e.target.value)} placeholder="A short line under the title (optional)" />
 
+          <label style={label}>Category</label>
+          <input style={input} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Startups (optional) — becomes a filter on the Articles page" />
+
           <label style={label}>Text</label>
           <textarea
             style={{ ...input, minHeight: 320, resize: "vertical", lineHeight: 1.6 }}
@@ -258,6 +265,7 @@ export default function AdminArticlesPage() {
               <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>
                 /articles/{a.slug}
                 <span> · {new Date(a.created_at).toLocaleDateString()}</span>
+                {a.category && <span> · {a.category}</span>}
                 {a.published ? (
                   <span style={{ color: "#16a34a" }}> · published</span>
                 ) : (
