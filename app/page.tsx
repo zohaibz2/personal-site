@@ -2,6 +2,35 @@ import Image from "next/image";
 import Work from "@/components/Work";
 
 export default function Home() {
+  const companies = [
+    {
+      name: "Narejo Farms",
+      role: "Founder",
+      since: "2020",
+      tagline:
+        "I wasn't here for the quick buck. I was here to fix the supply chain.",
+    },
+    {
+      name: "Venfound",
+      role: "Co-founder",
+      since: "2023",
+      tagline: "From ideas to impact.",
+    },
+    {
+      name: "FitTree",
+      role: "Co-founder",
+      since: "2026",
+      tagline: "Train your clients with one simple link.",
+    },
+    {
+      name: "StaLab",
+      role: "Founder",
+      since: "2026",
+      tagline:
+        "The Pakistani startup ecosystem, and why it deserves better documentation than it gets.",
+    },
+  ];
+
   return (
     <>
       {/* Hero */}
@@ -72,6 +101,41 @@ export default function Home() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* Companies I've built */}
+      <section id="companies" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24">
+        <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-8">
+          Companies I&apos;ve built
+        </h2>
+        <div className="flex flex-col">
+          {companies.map((c, i) => (
+            <div
+              key={c.name}
+              className={`py-5 ${i > 0 ? "border-t border-[#1a1a1a]/10" : ""}`}
+            >
+              <div className="flex items-baseline justify-between gap-4">
+                <h3 className="text-lg md:text-xl font-semibold text-[#1a1a1a]">
+                  {c.name}
+                </h3>
+                <div
+                  className="flex shrink-0 items-baseline gap-3 text-right"
+                  style={{ fontFamily: "system-ui, sans-serif" }}
+                >
+                  <span className="text-sm text-[#1a1a1a]/70 md:text-base">
+                    {c.role}
+                  </span>
+                  <span className="text-sm text-[#1a1a1a]/40">
+                    Since {c.since}
+                  </span>
+                </div>
+              </div>
+              <p className="mt-1.5 text-base text-[#1a1a1a]/65 leading-relaxed md:text-lg">
+                {c.tagline}
+              </p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Work */}
