@@ -18,12 +18,12 @@ export default function Header() {
       <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-[22px] border border-black/[0.06] bg-white px-4 py-2.5 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
-          <span className="relative block h-10 w-10">
+          <span className="relative block h-7 w-7">
             <Image
               src="/z-logo.png"
               alt="Zohaib Narejo"
               fill
-              sizes="40px"
+              sizes="28px"
               className="object-contain"
               priority
             />
