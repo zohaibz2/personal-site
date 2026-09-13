@@ -14,17 +14,16 @@ type ArticleCard = {
 };
 
 const BASE_COLUMNS = "slug, heading, subheading, created_at";
-const RICH_COLUMNS = "slug, heading, subheading, created_at, category, cover_image";
+const RICH_COLUMNS = "slug, heading, subheading, created_at, category";
 
 async function getArticles(): Promise<ArticleCard[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = getServiceClient();
 
-  // Try the richer columns first (category / cover_image). If those columns
-  // don't exist on the table yet, Supabase returns an error — in that case we
-  // fall back to the base column set so the page keeps working. This means the
-  // category pills and real thumbnails light up automatically once those two
-  // columns are added, with no further change to this file.
+  // Try to include the optional `category` column. If it doesn't exist on the
+  // table (older DB), Supabase returns an error — in that case we fall back to
+  // the base column set so the page keeps working. Cover images are resolved
+  // locally from /public/articles by slug, so they aren't fetched here.
   const rich = await supabase
     .from("articles")
     .select(RICH_COLUMNS)
