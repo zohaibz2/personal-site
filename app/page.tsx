@@ -53,7 +53,7 @@ export default function Home() {
         <div className="md:w-[60%] flex flex-col justify-center gap-5">
           <div className="flex flex-col gap-1">
             <p className="text-lg md:text-xl text-[#c2410c]">
-              Founder &amp; podcaster.
+              Founder &amp; Marketeer.
             </p>
             <h1 className="text-2xl md:text-3xl font-bold leading-tight tracking-tight text-[#1a1a1a]">
               based in Karachi,&nbsp;Pakistan
@@ -103,6 +103,9 @@ export default function Home() {
         </ul>
       </section>
 
+      {/* Work */}
+      <Work />
+
       {/* Companies I've built */}
       <section id="companies" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24">
         <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-8">
@@ -137,9 +140,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
-      {/* Work */}
-      <Work />
 
       {/* Contact */}
       <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-28 md:pb-36 text-center">
