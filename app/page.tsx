@@ -107,33 +107,34 @@ export default function Home() {
       <Work />
 
       {/* Companies I've built */}
-      <section id="companies" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24">
-        <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-8">
+      <section
+        id="companies"
+        className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24"
+        style={{ fontFamily: "system-ui, sans-serif" }}
+      >
+        <h2 className="mb-10 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">
           Companies I&apos;ve built
         </h2>
         <div className="flex flex-col">
           {companies.map((c, i) => (
             <div
               key={c.name}
-              className={`py-5 ${i > 0 ? "border-t border-[#1a1a1a]/10" : ""}`}
+              className={`py-6 md:py-7 ${i > 0 ? "border-t border-[#1a1a1a]/[0.08]" : ""}`}
             >
               <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-lg md:text-xl font-semibold text-[#1a1a1a]">
+                <h3 className="text-lg md:text-xl font-semibold tracking-tight text-[#1a1a1a]">
                   {c.name}
                 </h3>
-                <div
-                  className="flex shrink-0 items-baseline gap-3 text-right"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
-                >
-                  <span className="text-sm text-[#1a1a1a]/70 md:text-base">
+                <div className="flex shrink-0 items-baseline gap-4 text-right">
+                  <span className="text-sm md:text-[15px] font-medium text-[#1a1a1a]/70">
                     {c.role}
                   </span>
-                  <span className="text-sm text-[#1a1a1a]/40">
+                  <span className="text-sm text-[#1a1a1a]/35">
                     Since {c.since}
                   </span>
                 </div>
               </div>
-              <p className="mt-1.5 text-base text-[#1a1a1a]/65 leading-relaxed md:text-lg">
+              <p className="mt-2 max-w-xl text-sm md:text-[15px] leading-relaxed text-[#1a1a1a]/50">
                 {c.tagline}
               </p>
             </div>
