@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ArticleCover from "./ArticleCover";
 import { getServiceClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -180,25 +181,14 @@ function ArticleCardItem({ article: a }: { article: ArticleCard }) {
         )}
       </div>
 
-      {/* Thumbnail — real cover image if present, otherwise a branded placeholder */}
+      {/* Thumbnail — local image from /public/articles, else a branded placeholder */}
       <Link href={href} className="block overflow-hidden">
         <div className="relative aspect-[3/2] w-full overflow-hidden bg-[#f6ede7]">
-          {a.cover_image ? (
-            // Plain <img> avoids needing next.config remotePatterns for
-            // Supabase-hosted images, keeping this change to a single file.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={a.cover_image}
-              alt={a.heading}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#fdece3] to-[#f4d6c4]">
-              <span className="text-5xl font-semibold text-[#c2410c]/30 select-none">
-                {a.heading.trim().charAt(0).toUpperCase() || "•"}
-              </span>
-            </div>
-          )}
+          <ArticleCover
+            slug={a.slug}
+            heading={a.heading}
+            imageUrl={a.cover_image}
+          />
         </div>
       </Link>
 
