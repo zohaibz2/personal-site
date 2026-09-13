@@ -7,56 +7,61 @@ const navLinks = [
   { label: "About", href: "/#about" },
 ];
 
+const ACCENT = "#ea580c";
+
 export default function Header() {
   return (
     <header
-      className="sticky top-0 z-50 bg-white px-6 pt-[13px]"
+      className="sticky top-0 z-50 bg-white px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative flex items-center justify-between gap-6 rounded-[20.4px] bg-[#0a0a0a] px-6 py-[15.6px] md:px-[30px] shadow-[0_16px_44px_-18px_rgba(0,0,0,0.55)]">
-        {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-3">
-          <Image
-            src="/z-mark.png"
-            alt="Zohaib Narejo"
-            width={36}
-            height={36}
-            className="h-9 w-9"
-            priority
-          />
-          <span className="hidden text-[9.6px] font-semibold tracking-[0.14em] text-white sm:inline">
-            ZOHAIB NAREJO
+      <nav className="relative mx-auto flex max-w-5xl items-center justify-between gap-6 rounded-full border border-black/[0.06] bg-white px-4 py-2.5 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
+        {/* Avatar / home */}
+        <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
+          <span className="relative block h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5">
+            <Image
+              src="/me.png"
+              alt="Zohaib Narejo"
+              fill
+              sizes="40px"
+              className="object-cover"
+              priority
+            />
           </span>
         </Link>
 
-        {/* Center nav — absolutely centered in the bar */}
-        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-10 md:flex">
-          {navLinks.map(({ label, href }) => (
-            <Link
-              key={label}
-              href={href}
-              className="text-base font-medium text-white/80 transition-colors hover:text-white"
-            >
-              {label}
-            </Link>
+        {/* Center nav with orange diamond separators */}
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-5 md:flex">
+          {navLinks.map(({ label, href }, i) => (
+            <div key={label} className="flex items-center gap-5">
+              {i > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 rotate-45 rounded-[1px]"
+                  style={{ backgroundColor: ACCENT }}
+                />
+              )}
+              <Link
+                href={href}
+                className="text-[15px] font-medium text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
+              >
+                {label}
+              </Link>
+            </div>
           ))}
         </div>
 
-        {/* CTA */}
+        {/* Email */}
         <a
           href="mailto:narejozohaib33@gmail.com"
-          className="flex shrink-0 items-center gap-2 rounded-full bg-white px-6 py-3 text-base font-semibold text-[#0a0a0a] transition-colors hover:bg-white/85 md:px-7"
+          className="flex shrink-0 items-center gap-2 text-[15px] font-medium transition-opacity hover:opacity-80"
+          style={{ color: ACCENT }}
         >
-          Let&apos;s talk
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2Z"
-              fill="#ea580c"
-              stroke="#ea580c"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6" />
+            <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
+          <span className="hidden lg:inline">narejozohaib33@gmail.com</span>
         </a>
       </nav>
     </header>
