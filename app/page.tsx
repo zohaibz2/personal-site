@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Work from "@/components/Work";
+import Typewriter from "@/components/Typewriter";
 
 export default function Home() {
   const companies = [
@@ -59,10 +60,10 @@ export default function Home() {
               based in Karachi,&nbsp;Pakistan
             </h1>
           </div>
-          <p className="text-lg md:text-xl text-[#1a1a1a] leading-relaxed max-w-md">
-            Hi, I am Zohaib Narejo. I build things on the internet and talk to
-            people who do the same.
-          </p>
+          <Typewriter
+            className="text-lg md:text-xl text-[#1a1a1a] leading-relaxed max-w-md"
+            text="Hi, I am Zohaib Narejo. I build things on the internet and talk to people who do the same."
+          />
         </div>
 
       </section>
