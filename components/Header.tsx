@@ -15,16 +15,16 @@ export default function Header() {
       className="sticky top-0 z-50 bg-white px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-full border border-black/[0.06] bg-white px-4 py-2.5 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
-        {/* Avatar / home */}
+      <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-[22px] border border-black/[0.06] bg-white px-4 py-2.5 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
+        {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
-          <span className="relative block h-10 w-10 overflow-hidden rounded-full ring-1 ring-black/5">
+          <span className="relative block h-10 w-10">
             <Image
-              src="/me.png"
+              src="/z-logo.png"
               alt="Zohaib Narejo"
               fill
               sizes="40px"
-              className="object-cover"
+              className="object-contain"
               priority
             />
           </span>
