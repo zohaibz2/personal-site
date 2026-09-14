@@ -13,6 +13,7 @@ type Article = {
   heading: string;
   subheading: string | null;
   content: string;
+  cover_image: string | null;
   published: boolean;
   created_at: string;
 };
@@ -76,7 +77,7 @@ export default async function ArticlePage({
 
         {/* Cover image */}
         <div className="relative mt-8 aspect-[3/2] w-full overflow-hidden bg-[#e7e2d7]">
-          <ArticleCover slug={article.slug} heading={article.heading} />
+          <ArticleCover slug={article.slug} heading={article.heading} imageUrl={article.cover_image} />
         </div>
 
         {/* Optional italic lead (the subheading) */}

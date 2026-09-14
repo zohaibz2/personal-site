@@ -9,6 +9,7 @@ interface Article {
   subheading: string | null;
   content: string;
   category: string | null;
+  cover_image: string | null;
   published: boolean;
   created_at: string;
 }
@@ -65,6 +66,46 @@ export default function AdminArticlesPage() {
   const [category, setCategory] = useState("");
   const [content, setContent] = useState("");
   const [published, setPublished] = useState(true);
+  // cover holds: "" (none) | http URL (existing) | data:… URL (newly picked)
+  const [cover, setCover] = useState("");
+
+  // Shrink the picked image in the browser before sending, so uploads stay small.
+  function fileToResizedDataURL(file: File, maxW = 1600, quality = 0.85): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      const img = new window.Image();
+      reader.onload = () => {
+        img.src = reader.result as string;
+      };
+      reader.onerror = () => reject(new Error("read failed"));
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("no canvas"));
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("bad image"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setStatus("Processing image…");
+    try {
+      setCover(await fileToResizedDataURL(file));
+      setStatus("");
+    } catch {
+      setStatus("Couldn't read that image.");
+    }
+  }
 
   function resetForm() {
     setEditingId(null);
@@ -73,6 +114,7 @@ export default function AdminArticlesPage() {
     setCategory("");
     setContent("");
     setPublished(true);
+    setCover("");
   }
 
   function startEdit(a: Article) {
@@ -82,6 +124,7 @@ export default function AdminArticlesPage() {
     setCategory(a.category ?? "");
     setContent(a.content);
     setPublished(a.published);
+    setCover(a.cover_image ?? "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -92,8 +135,8 @@ export default function AdminArticlesPage() {
     }
     setStatus("Saving…");
     const res = editingId
-      ? await api("update", { id: editingId, heading, subheading, category, content, published }, pw)
-      : await api("create", { heading, subheading, category, content, published }, pw);
+      ? await api("update", { id: editingId, heading, subheading, category, content, published, coverImage: cover }, pw)
+      : await api("create", { heading, subheading, category, content, published, coverImage: cover }, pw);
     if (res.error) {
       setStatus(res.error);
       return;
@@ -188,6 +231,29 @@ export default function AdminArticlesPage() {
           <label style={label}>Category</label>
           <input style={input} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g. Startups (optional) — becomes a filter on the Articles page" />
 
+          <label style={label}>Cover image</label>
+          <div style={{ marginBottom: "1rem" }}>
+            {cover && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cover}
+                alt="cover preview"
+                style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb", marginBottom: "0.5rem", display: "block" }}
+              />
+            )}
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <input type="file" accept="image/*" onChange={onPickCover} style={{ fontSize: "0.85rem" }} />
+              {cover && (
+                <button type="button" onClick={() => setCover("")} style={{ ...btn("#6b7280"), padding: "0.35rem 0.7rem", fontSize: "0.8rem" }}>
+                  Remove
+                </button>
+              )}
+            </div>
+            <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginTop: "0.4rem" }}>
+              Shown as the card cover and at the top of the article. Landscape (roughly 3:2) looks best.
+            </p>
+          </div>
+
           <label style={label}>Text</label>
           <textarea
             style={{ ...input, minHeight: 320, resize: "vertical", lineHeight: 1.6 }}
@@ -218,30 +284,39 @@ export default function AdminArticlesPage() {
           <div style={{ padding: "0.75rem 1.25rem", borderBottom: "1px solid #e5e7eb", fontSize: "0.8rem", color: "#6b7280" }}>
             Preview
           </div>
-          <div
-            style={{
-              backgroundImage: "url('/background.jpg')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              padding: "2rem 1.25rem",
-            }}
-          >
-            <div style={{ maxWidth: 620, margin: "0 auto", background: "#fff", borderRadius: 16, padding: "2.25rem 1.75rem", boxShadow: "0 30px 80px -30px rgba(0,0,0,0.6)" }}>
-              <div style={{ textAlign: "center", marginBottom: "1.75rem", fontFamily: "var(--font-eb-garamond), Georgia, serif" }}>
-                <h1 style={{ fontSize: "2rem", lineHeight: 1.08, fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", margin: 0 }}>
-                  {heading || "Your heading"}
-                </h1>
-                {subheading && (
-                  <p style={{ marginTop: "0.9rem", fontSize: "1.05rem", lineHeight: 1.5, color: "rgba(26,26,26,0.7)" }}>
-                    {subheading}
-                  </p>
-                )}
-              </div>
-              <div className="article-body" style={{ fontFamily: "var(--font-eb-garamond), Georgia, serif" }}>
+          <div style={{ background: "#f4f1ea", padding: "2.5rem 1.5rem" }}>
+            <div style={{ maxWidth: 620, margin: "0 auto", fontFamily: "var(--font-eb-garamond), Georgia, serif" }}>
+              <h1 style={{ fontSize: "2rem", lineHeight: 1.12, fontWeight: 700, letterSpacing: "-0.01em", color: "#1a1a1a", margin: 0 }}>
+                {heading || "Your heading"}
+              </h1>
+
+              {cover && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cover}
+                  alt=""
+                  style={{ display: "block", width: "100%", aspectRatio: "3 / 2", objectFit: "cover", marginTop: "1.5rem", background: "#e7e2d7" }}
+                />
+              )}
+
+              {subheading && (
+                <p style={{ marginTop: "1.75rem", fontSize: "1.15rem", fontStyle: "italic", lineHeight: 1.6, color: "rgba(26,26,26,0.75)" }}>
+                  {subheading}
+                </p>
+              )}
+
+              <div style={{ marginTop: subheading ? "1.25rem" : "1.75rem" }}>
                 {paragraphs.length ? (
-                  paragraphs.map((p, i) => <p key={i}>{p}</p>)
+                  paragraphs.map((p, i) => (
+                    <p
+                      key={i}
+                      style={{ margin: i === 0 ? 0 : "1.25rem 0 0", textAlign: "justify", hyphens: "auto", fontSize: "1.0625rem", lineHeight: 1.75, color: "#221f1b" }}
+                    >
+                      {p}
+                    </p>
+                  ))
                 ) : (
-                  <p style={{ color: "#9ca3af" }}>Your article text will appear here…</p>
+                  <p style={{ color: "#9ca3af", fontStyle: "italic", marginTop: "1.75rem" }}>Your article text will appear here…</p>
                 )}
               </div>
             </div>

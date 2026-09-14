@@ -71,6 +71,44 @@ async function uniqueSlug(
   }
 }
 
+// ── cover image upload to Supabase Storage (bucket: "covers") ────────────────
+async function uploadCover(
+  supabase: ReturnType<typeof getServiceClient>,
+  dataUrl: string,
+  keyBase: string
+): Promise<string> {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) throw new Error("Invalid image data.");
+  const contentType = match[1];
+  const ext = contentType
+    .split("/")[1]
+    .replace("jpeg", "jpg")
+    .replace("svg+xml", "svg");
+  const buffer = Buffer.from(match[2], "base64");
+  const path = `${keyBase}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("covers")
+    .upload(path, buffer, { contentType, upsert: true });
+  if (error) throw new Error(`Image upload failed: ${error.message}`);
+  return supabase.storage.from("covers").getPublicUrl(path).data.publicUrl;
+}
+
+// Resolve the cover value the client sent into a stored value.
+//   data:… URL → upload, return public URL
+//   http… URL  → existing image, keep unchanged
+//   "" or null → cleared (null)
+//   undefined  → not touched (returns undefined)
+async function resolveCover(
+  supabase: ReturnType<typeof getServiceClient>,
+  cover: string | null | undefined,
+  keyBase: string
+): Promise<string | null | undefined> {
+  if (cover === undefined) return undefined;
+  if (cover === null || cover === "") return null;
+  if (cover.startsWith("data:")) return uploadCover(supabase, cover, keyBase);
+  return cover;
+}
+
 // ── GET — used both for login check and to list all articles ─────────────────
 export async function GET(req: NextRequest) {
   const ip = clientIp(req);
@@ -112,6 +150,7 @@ export async function POST(req: NextRequest) {
     subheading?: string;
     content?: string;
     category?: string;
+    coverImage?: string | null;
     published?: boolean;
   };
 
@@ -127,6 +166,12 @@ export async function POST(req: NextRequest) {
         );
       }
       const slug = await uniqueSlug(supabase, slugify(heading));
+      let cover_image: string | null = null;
+      try {
+        cover_image = (await resolveCover(supabase, payload.coverImage, slug)) ?? null;
+      } catch (e) {
+        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+      }
       const { data, error } = await supabase
         .from("articles")
         .insert({
@@ -135,6 +180,7 @@ export async function POST(req: NextRequest) {
           subheading,
           content,
           category: (payload.category ?? "").trim() || null,
+          cover_image,
           published: payload.published ?? true,
         })
         .select()
@@ -155,15 +201,22 @@ export async function POST(req: NextRequest) {
         );
       }
       // Slug is left unchanged on edit so existing links keep working.
+      const updateFields: Record<string, unknown> = {
+        heading,
+        subheading: (payload.subheading ?? "").trim(),
+        content,
+        category: (payload.category ?? "").trim() || null,
+        published: payload.published ?? true,
+      };
+      try {
+        const resolved = await resolveCover(supabase, payload.coverImage, payload.id);
+        if (resolved !== undefined) updateFields.cover_image = resolved;
+      } catch (e) {
+        return NextResponse.json({ error: (e as Error).message }, { status: 500 });
+      }
       const { data, error } = await supabase
         .from("articles")
-        .update({
-          heading,
-          subheading: (payload.subheading ?? "").trim(),
-          content,
-          category: (payload.category ?? "").trim() || null,
-          published: payload.published ?? true,
-        })
+        .update(updateFields)
         .eq("id", payload.id)
         .select()
         .single();

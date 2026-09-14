@@ -14,7 +14,7 @@ type ArticleCard = {
 };
 
 const BASE_COLUMNS = "slug, heading, subheading, created_at";
-const RICH_COLUMNS = "slug, heading, subheading, created_at, category";
+const RICH_COLUMNS = "slug, heading, subheading, created_at, category, cover_image";
 
 async function getArticles(): Promise<ArticleCard[]> {
   if (!isSupabaseConfigured()) return [];
