@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Work from "@/components/Work";
 import Typewriter from "@/components/Typewriter";
-import TruckDrive from "@/components/TruckDrive";
 
 export default function Home() {
   const companies = [
@@ -40,13 +39,10 @@ export default function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden flex flex-col md:flex-row md:min-h-screen md:items-center px-6 md:px-16 lg:px-24 py-16 md:py-0 gap-8 md:gap-12">
-
-        {/* Truck driving across, behind the content */}
-        <TruckDrive typingMs={heroIntro.length * typeSpeed} />
+      <section className="overflow-hidden flex flex-col md:flex-row md:min-h-screen md:items-center px-6 md:px-16 lg:px-24 py-16 md:py-0 gap-8 md:gap-12">
 
         {/* Left — photo */}
-        <div className="relative z-10 flex justify-center md:justify-end md:w-[40%]">
+        <div className="flex justify-center md:justify-end md:w-[40%]">
           <div className="relative w-[260px] h-[340px] md:w-[360px] md:h-[460px] lg:w-[400px] lg:h-[500px]">
             <Image
               src="/me.png"
@@ -59,7 +55,7 @@ export default function Home() {
         </div>
 
         {/* Right — text */}
-        <div className="relative z-10 md:w-[60%] flex flex-col justify-center gap-5">
+        <div className="md:w-[60%] flex flex-col justify-center gap-5">
           <div className="flex flex-col gap-1">
             <p className="text-lg md:text-xl text-[#c2410c]">
               Founder &amp; Marketeer.

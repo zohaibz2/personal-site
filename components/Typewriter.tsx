@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 
 /**
- * Types out `text` one character at a time with a blinking cursor.
- * Renders as a <p> so it can drop in where a paragraph was.
- * The full text is rendered invisibly underneath to reserve the final
- * size, so content below never shifts while it types. The real text is
- * exposed to screen readers via aria-label.
+ * Types out `text` one character at a time. A small car rides at the tip of the
+ * text (in place of a cursor), so it looks like the car is towing the words into
+ * view — advancing and wrapping right along with the text. When typing finishes,
+ * the car drives off to the right and fades.
  */
 export default function Typewriter({
   text,
@@ -19,34 +18,68 @@ export default function Typewriter({
   speed?: number;
 }) {
   const [count, setCount] = useState(0);
+  const [driveOff, setDriveOff] = useState(false);
+  const [gone, setGone] = useState(false);
+  const done = count >= text.length;
 
+  // type
   useEffect(() => {
     if (count >= text.length) return;
     const id = setTimeout(() => setCount((c) => c + 1), speed);
     return () => clearTimeout(id);
   }, [count, text.length, speed]);
 
+  // small pause after the last character, then drive off
+  useEffect(() => {
+    if (!done) return;
+    const id = setTimeout(() => setDriveOff(true), 450);
+    return () => clearTimeout(id);
+  }, [done]);
+
+  // once it's off-screen, remove it so no trailing gap remains
+  useEffect(() => {
+    if (!driveOff) return;
+    const id = setTimeout(() => setGone(true), 1100);
+    return () => clearTimeout(id);
+  }, [driveOff]);
+
   return (
     <p className={`relative ${className}`} aria-label={text}>
-      {/* Reserves the final wrapped size so nothing below shifts. */}
+      {/* reserves the final wrapped size so nothing below shifts */}
       <span className="invisible" aria-hidden="true">
         {text}
       </span>
 
-      {/* Animated overlay */}
       <span className="absolute inset-0" aria-hidden="true">
         {text.slice(0, count)}
-        <span
-          className="ml-0.5 inline-block w-[2px] bg-[#c2410c]"
-          style={{
-            height: "1.1em",
-            verticalAlign: "-0.15em",
-            animation: "tw-blink 1s step-end infinite",
-          }}
-        />
+        {!gone && (
+          <span
+            className="ml-1 inline-block"
+            style={{
+              verticalAlign: "-0.4em",
+              transition:
+                "transform 1s cubic-bezier(.45,0,.7,.15), opacity 0.9s ease-in",
+              transform: driveOff ? "translateX(88vw)" : "translateX(0)",
+              opacity: driveOff ? 0 : 1,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/tundra.png"
+              alt=""
+              className="block h-[1.4em] w-auto max-w-none"
+              style={{ animation: "car-bob 0.5s ease-in-out infinite" }}
+            />
+          </span>
+        )}
       </span>
 
-      <style>{`@keyframes tw-blink{0%,49%{opacity:1}50%,100%{opacity:0}}`}</style>
+      <style>{`
+        @keyframes car-bob {
+          0%, 100% { transform: scaleX(-1) translateY(0); }
+          50%      { transform: scaleX(-1) translateY(-1px); }
+        }
+      `}</style>
     </p>
   );
 }
