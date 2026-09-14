@@ -134,6 +134,7 @@ export default function CatchGame() {
         remove.forEach((id) => objRef.current.delete(id));
         setList((l) => l.filter((x) => !remove.includes(x.id)));
       }
+      // blade trail
       trailRef.current = trailRef.current.filter((p) => now - p.t < 190);
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect && lineRef.current) {
@@ -242,10 +243,12 @@ export default function CatchGame() {
           </button>
         ))}
 
+        {/* blade trail */}
         <svg className="pointer-events-none absolute inset-0 h-full w-full">
           <polyline ref={lineRef} points="" fill="none" stroke="#c2410c" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
         </svg>
 
+        {/* pop bursts */}
         {pops.map((p) => (
           <span key={p.id} className="pointer-events-none absolute" style={{ left: p.x, top: p.y, transform: "translate(-50%,-50%)", fontSize: "2.6rem", animation: "cy-pop 0.45s ease-out forwards" }}>
             {p.e}
