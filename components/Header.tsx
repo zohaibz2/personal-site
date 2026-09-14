@@ -1,10 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import Image from "next/image";
 
 const navLinks = [
   { label: "Work", href: "/#work" },
   { label: "Articles", href: "/articles" },
   { label: "About", href: "/#about" },
+  { label: "Orbit", href: "/orbit" },
 ];
 
 const ACCENT = "#ea580c";
@@ -12,7 +13,7 @@ const ACCENT = "#ea580c";
 export default function Header() {
   return (
     <header
-      className="sticky top-0 z-50 site-header-bg px-6 pt-4"
+      className="sticky top-0 z-50 bg-[#f4f1ea] px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
       <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-[22px] border border-black/[0.06] bg-white px-4 py-4 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
