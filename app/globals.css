@@ -1,16 +1,16 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @theme inline {
   --font-serif: var(--font-eb-garamond);
 }
 
 body {
-  background: #f4f1ea;
+  background: var(--page-bg);
   color: #1a1a1a;
   font-family: var(--font-eb-garamond), Georgia, serif;
 }
 
-/* ─── Million Dollar Sprint ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Million Dollar Sprint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .sprint-section {
   margin: 0 auto;
@@ -515,7 +515,7 @@ body {
   margin-bottom: 2rem;
 }
 
-/* ─── Sprint Hero Image ─────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Sprint Hero Image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .sprint-hero {
   position: relative;
@@ -537,7 +537,7 @@ body {
   object-position: center 30%;
 }
 
-/* Text sits in the dark sky — top-left, no box, no background */
+/* Text sits in the dark sky â€” top-left, no box, no background */
 .sprint-hero-text {
   position: absolute;
   top: 0;
@@ -619,7 +619,7 @@ body {
 .sprint-timeline::-webkit-scrollbar-thumb:hover {
   background: rgba(26,26,26,0.25);
 }
-/* ─── Articles ──────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Articles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .article-body {
   font-size: 1.075rem;
@@ -652,4 +652,27 @@ body {
     columns: 2;
     column-gap: 2.75rem;
   }
+}
+
+/* ---- Page background -------------------------------------------------
+   White everywhere by default. The article page renders
+   <main class="article-page">, which flips the whole page to warm cream
+   Ã¢â‚¬â€ including the strip behind the sticky header, since the header
+   reads the same --page-bg variable.
+   -------------------------------------------------------------------- */
+:root {
+  --page-bg: #ffffff;
+}
+
+html:has(.article-page) {
+  --page-bg: #f4f1ea;
+}
+
+html,
+body {
+  background: var(--page-bg);
+}
+
+.site-header-bg {
+  background: var(--page-bg);
 }

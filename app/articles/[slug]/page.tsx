@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ArticleCover from "../ArticleCover";
@@ -37,9 +37,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: "Article — Zohaib Narejo" };
+  if (!article) return { title: "Article â€” Zohaib Narejo" };
   return {
-    title: `${article.heading} — Zohaib Narejo`,
+    title: `${article.heading} â€” Zohaib Narejo`,
     description: article.subheading ?? article.heading,
   };
 }
@@ -59,7 +59,7 @@ export default async function ArticlePage({
     .filter(Boolean);
 
   return (
-    <main className="min-h-screen bg-[#f4f1ea]">
+    <main className="article-page min-h-screen bg-[#f4f1ea]">
       <article className="mx-auto w-full max-w-[640px] px-6 py-14 md:py-20">
         {/* Back link */}
         <Link
