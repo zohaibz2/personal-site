@@ -3,9 +3,16 @@ import Work from "@/components/Work";
 import Typewriter from "@/components/Typewriter";
 
 export default function Home() {
-  const companies = [
+  const companies: {
+    name: string;
+    role: string;
+    since: string;
+    tagline: string;
+    url?: string;
+  }[] = [
     {
       name: "Narejo Farms",
+      url: "https://narejofarms.com",
       role: "Founder",
       since: "2020",
       tagline:
@@ -13,6 +20,7 @@ export default function Home() {
     },
     {
       name: "Venfound",
+      url: "https://venfound.com",
       role: "Co-founder",
       since: "2023",
       tagline: "From ideas to impact.",
@@ -118,23 +126,44 @@ export default function Home() {
         className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24"
         style={{ fontFamily: "system-ui, sans-serif" }}
       >
-        <h2 className="mb-12 md:mb-16 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">
+        <h2
+          className="mb-12 md:mb-16 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]"
+          style={{ fontFamily: "system-ui, sans-serif" }}
+        >
           Companies I&apos;ve built
         </h2>
         <div>
           {companies.map((c) => (
             <div
               key={c.name}
-              className="flex items-baseline justify-between gap-4 border-b border-[#1a1a1a]/10 py-7 md:py-8"
+              className="flex items-baseline justify-between gap-4 border-b border-[#1a1a1a]/10 py-6 md:py-7"
             >
-              <span className="text-lg md:text-xl text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-[6px]">
-                {c.name}
-              </span>
-              <div className="flex shrink-0 items-baseline gap-4 text-right">
-                <span className="text-base md:text-lg text-[#1a1a1a]/85">
+              {c.url ? (
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-lg font-normal text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-4 transition-colors hover:text-[#c2410c] hover:decoration-[#c2410c]/50"
+                  style={{ fontFamily: "system-ui, sans-serif" }}
+                >
+                  {c.name}
+                </a>
+              ) : (
+                <span
+                  className="text-lg font-normal text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-4"
+                  style={{ fontFamily: "system-ui, sans-serif" }}
+                >
+                  {c.name}
+                </span>
+              )}
+              <div
+                className="flex shrink-0 items-baseline gap-4 text-right"
+                style={{ fontFamily: "system-ui, sans-serif" }}
+              >
+                <span className="text-lg font-normal text-[#1a1a1a]/70">
                   {c.role}
                 </span>
-                <span className="text-base md:text-lg text-[#1a1a1a]/35">
+                <span className="text-lg font-normal text-[#1a1a1a]/40">
                   Since {c.since}
                 </span>
               </div>
