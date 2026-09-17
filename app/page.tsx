@@ -118,31 +118,26 @@ export default function Home() {
         className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24"
         style={{ fontFamily: "system-ui, sans-serif" }}
       >
-        <h2 className="mb-10 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">
+        <h2 className="mb-12 md:mb-16 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">
           Companies I&apos;ve built
         </h2>
-        <div className="flex flex-col">
-          {companies.map((c, i) => (
+        <div>
+          {companies.map((c) => (
             <div
               key={c.name}
-              className={`py-6 md:py-7 ${i > 0 ? "border-t border-[#1a1a1a]/[0.08]" : ""}`}
+              className="flex items-baseline justify-between gap-4 border-b border-[#1a1a1a]/10 py-7 md:py-8"
             >
-              <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-lg md:text-xl font-semibold tracking-tight text-[#1a1a1a]">
-                  {c.name}
-                </h3>
-                <div className="flex shrink-0 items-baseline gap-4 text-right">
-                  <span className="text-sm md:text-[15px] font-medium text-[#1a1a1a]/70">
-                    {c.role}
-                  </span>
-                  <span className="text-sm text-[#1a1a1a]/35">
-                    Since {c.since}
-                  </span>
-                </div>
+              <span className="text-lg md:text-xl text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-[6px]">
+                {c.name}
+              </span>
+              <div className="flex shrink-0 items-baseline gap-4 text-right">
+                <span className="text-base md:text-lg text-[#1a1a1a]/85">
+                  {c.role}
+                </span>
+                <span className="text-base md:text-lg text-[#1a1a1a]/35">
+                  Since {c.since}
+                </span>
               </div>
-              <p className="mt-2 max-w-xl text-sm md:text-[15px] leading-relaxed text-[#1a1a1a]/50">
-                {c.tagline}
-              </p>
             </div>
           ))}
         </div>
