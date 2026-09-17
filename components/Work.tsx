@@ -18,9 +18,11 @@ const projects: {
   description: string;
   category: Category;
   bg: string;
+  hidden?: boolean;
 }[] = [
   {
     href: "/work/getlivestock",
+    hidden: true,
     src: "/work/getlivestock/splash.png",
     alt: "Getlivestock",
     title: "Getlivestock",
@@ -31,6 +33,7 @@ const projects: {
   },
   {
     href: "/work/fittree",
+    hidden: true,
     src: "/work/fittree/splash.png",
     alt: "FitTree",
     title: "FitTree",
@@ -40,6 +43,7 @@ const projects: {
   },
   {
     href: "/work/venfound",
+    hidden: true,
     src: "/work/venfound/main-header-v2.png",
     alt: "Venfound",
     title: "Venfound",
@@ -84,7 +88,11 @@ type Filter = (typeof filters)[number];
 export default function Work() {
   const [active, setActive] = useState<Filter>("All");
 
-  const visible = projects.filter(
+  const shown = projects.filter((p) => !p.hidden);
+  const availableFilters = filters.filter(
+    (f) => f === "All" || shown.some((p) => p.category === f)
+  );
+  const visible = shown.filter(
     (p) => active === "All" || p.category === active
   );
 
@@ -97,7 +105,7 @@ export default function Work() {
       {/* Filter tabs */}
       <div className="flex justify-center mb-10">
         <div className="inline-flex items-center gap-1 rounded-full bg-[#f5f5f4] p-1">
-          {filters.map((f) => {
+          {availableFilters.map((f) => {
             const isActive = active === f;
             return (
               <button
