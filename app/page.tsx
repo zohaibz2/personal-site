@@ -3,40 +3,18 @@ import Work from "@/components/Work";
 import Typewriter from "@/components/Typewriter";
 
 export default function Home() {
-  const companies: {
-    name: string;
-    role: string;
-    since: string;
-    tagline: string;
-    url?: string;
-  }[] = [
+  const ventures = [
     {
       name: "Narejo Farms",
+      worth: "PKR 2 million",
       url: "https://narejofarms.com",
-      role: "Founder",
-      since: "2020",
-      tagline:
-        "I wasn't here for the quick buck. I was here to fix the supply chain.",
+      img: "/companies/narejo-farms.png",
     },
     {
       name: "Venfound",
+      worth: "PKR 10 million",
       url: "https://venfound.com",
-      role: "Co-founder",
-      since: "2023",
-      tagline: "From ideas to impact.",
-    },
-    {
-      name: "FitTree",
-      role: "Co-founder",
-      since: "2026",
-      tagline: "Train your clients with one simple link.",
-    },
-    {
-      name: "StaLab",
-      role: "Founder",
-      since: "2026",
-      tagline:
-        "The Pakistani startup ecosystem, and why it deserves better documentation than it gets.",
+      img: "/companies/venfound.png",
     },
   ];
 
@@ -127,48 +105,34 @@ export default function Home() {
         style={{ fontFamily: "system-ui, sans-serif" }}
       >
         <h2
-          className="mb-12 md:mb-16 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]"
+          className="mb-10 md:mb-14 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]"
           style={{ fontFamily: "system-ui, sans-serif" }}
         >
           Companies I&apos;ve built
         </h2>
-        <div>
-          {companies.map((c) => (
-            <div
-              key={c.name}
-              className="flex items-baseline justify-between gap-4 border-b border-[#1a1a1a]/10 py-6 md:py-7"
-            >
-              {c.url ? (
-                <a
-                  href={c.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-lg font-normal text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-4 transition-colors hover:text-[#c2410c] hover:decoration-[#c2410c]/50"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
-                >
-                  {c.name}
-                </a>
-              ) : (
-                <span
-                  className="text-lg font-normal text-[#1a1a1a] underline decoration-1 decoration-[#1a1a1a]/25 underline-offset-4"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
-                >
-                  {c.name}
-                </span>
-              )}
-              <div
-                className="flex shrink-0 items-baseline gap-4 text-right"
-                style={{ fontFamily: "system-ui, sans-serif" }}
+        <div className="rounded-3xl bg-[#f3f3f3] px-6 py-10 md:px-12 md:py-14">
+          <div className="mx-auto grid max-w-2xl grid-cols-1 gap-8 sm:grid-cols-2">
+            {ventures.map((v) => (
+              <a
+                key={v.name}
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-col items-center text-center"
               >
-                <span className="text-lg font-normal text-[#1a1a1a]/70">
-                  {c.role}
-                </span>
-                <span className="text-lg font-normal text-[#1a1a1a]/40">
-                  Since {c.since}
-                </span>
-              </div>
-            </div>
-          ))}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={v.img}
+                  alt={`${v.name} folder`}
+                  className="w-full max-w-[260px] transition-transform duration-300 group-hover:scale-[1.03]"
+                />
+                <h3 className="mt-1 text-lg font-medium text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
+                  {v.name}
+                </h3>
+                <p className="mt-0.5 text-sm text-[#1a1a1a]/45">{v.worth}</p>
+              </a>
+            ))}
+          </div>
         </div>
       </section>
 
