@@ -1,11 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const navLinks = [
+const navLinks: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Journey", href: "/#about" },
   { label: "Portfolio", href: "/#work" },
-  { label: "Built", href: "/#companies" },
-  { label: "Writing", href: "/articles" },
+  { label: "Ventures", href: "/#companies" },
+  { label: "Articles", href: "/articles" },
+  { label: "Resume", href: "/resume.pdf", newTab: true },
 ];
 
 const ACCENT = "#ea580c";
@@ -33,7 +34,7 @@ export default function Header() {
 
         {/* Center nav with twinkling star separators */}
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-5 md:flex">
-          {navLinks.map(({ label, href }, i) => (
+          {navLinks.map(({ label, href, newTab }, i) => (
             <div key={label} className="flex items-center gap-5">
               {i > 0 && (
                 <span
@@ -42,18 +43,28 @@ export default function Header() {
                   style={{
                     color: ACCENT,
                     animation: "hdr-twinkle 2.4s ease-in-out infinite",
-                    animationDelay: `${(i - 1) * 0.7}s`,
                   }}
                 >
                   &#10022;
                 </span>
               )}
-              <Link
-                href={href}
-                className="text-[15px] font-medium text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
-              >
-                {label}
-              </Link>
+              {newTab ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[15px] font-normal text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  href={href}
+                  className="text-[15px] font-normal text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
+                >
+                  {label}
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -62,7 +73,7 @@ export default function Header() {
         {/* Email */}
         <a
           href="mailto:narejozohaib33@gmail.com"
-          className="flex shrink-0 items-center gap-2 text-[15px] font-medium transition-opacity hover:opacity-80"
+          className="flex shrink-0 items-center gap-2 text-[15px] font-normal transition-opacity hover:opacity-80"
           style={{ color: ACCENT }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
