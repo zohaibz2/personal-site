@@ -2,10 +2,10 @@ import Link from "next/link";
 import Image from "next/image";
 
 const navLinks = [
-  { label: "Work", href: "/#work" },
-  { label: "Articles", href: "/articles" },
-  { label: "About", href: "/#about" },
-  { label: "Orbit", href: "/orbit" },
+  { label: "Journey", href: "/#about" },
+  { label: "Portfolio", href: "/#work" },
+  { label: "Built", href: "/#companies" },
+  { label: "Writing", href: "/articles" },
 ];
 
 const ACCENT = "#ea580c";
@@ -16,7 +16,7 @@ export default function Header() {
       className="sticky top-0 z-50 bg-[#f4f1ea] px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-[22px] border border-black/[0.06] bg-white px-4 py-4 shadow-[0_10px_34px_-16px_rgba(0,0,0,0.28)] md:px-6">
+      <nav className="relative mx-auto flex max-w-7xl items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-[#f4f1ea] px-4 py-4 shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-6">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
           <span className="relative block h-7 w-7">
@@ -31,16 +31,22 @@ export default function Header() {
           </span>
         </Link>
 
-        {/* Center nav with orange diamond separators */}
+        {/* Center nav with twinkling star separators */}
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-5 md:flex">
           {navLinks.map(({ label, href }, i) => (
             <div key={label} className="flex items-center gap-5">
               {i > 0 && (
                 <span
                   aria-hidden="true"
-                  className="h-1.5 w-1.5 rotate-45 rounded-[1px]"
-                  style={{ backgroundColor: ACCENT }}
-                />
+                  className="select-none text-[13px] leading-none"
+                  style={{
+                    color: ACCENT,
+                    animation: "hdr-twinkle 2.4s ease-in-out infinite",
+                    animationDelay: `${(i - 1) * 0.7}s`,
+                  }}
+                >
+                  &#10022;
+                </span>
               )}
               <Link
                 href={href}
@@ -51,6 +57,7 @@ export default function Header() {
             </div>
           ))}
         </div>
+        <style>{`@keyframes hdr-twinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.7)}}`}</style>
 
         {/* Email */}
         <a
