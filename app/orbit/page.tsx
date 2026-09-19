@@ -13,6 +13,12 @@ const tools = [
     href: "/orbit/catch",
     blurb: "Catch ten falling things and find out what kind of creature you are.",
   },
+  {
+    title: "Whisper Wall",
+    emoji: "💬",
+    href: "/whisper-wall.html",
+    blurb: "Leave an anonymous whisper. Read what strangers left behind.",
+  },
 ];
 
 export default function OrbitPage() {
