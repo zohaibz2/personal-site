@@ -16,7 +16,7 @@ export default function Header() {
       className="sticky top-0 z-50 bg-white px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-4 py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-6">
+      <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-[17.6px] py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-[26.4px]">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
