@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Companies I've Built — Minimal Tactile Showcase</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            paper: {
+              50: '#fafafa',
+              100: '#f4f4f5',
+              200: '#e4e4e7',
+              300: '#d4d4d8',
+              800: '#27272a',
+              900: '#18181b',
+            }
+          },
+          boxShadow: {
+            'card-clean': '0 1px 3px rgba(0,0,0,0.05), 0 20px 40px -15px rgba(0,0,0,0.07)',
+            'paper-folder': '0 8px 24px -6px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04)',
+            'paper-pocket': '0 -4px 12px -2px rgba(0, 0, 0, 0.04), 0 8px 18px -4px rgba(0, 0, 0, 0.08)',
+            'diecut': '0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08)',
+            'diecut-lift': '0 12px 20px -4px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #ffffff;
+      color: #0f172a;
+    }
+
+    /* 3D Perspective container */
+    .perspective-canvas {
+      perspective: 1200px;
+    }
+
+    /* Solid Matte Folder Styling - Zero Glass */
+    .solid-folder-back {
+      background-color: #ededf0;
+      border: 1.5px solid #dedee3;
+      border-radius: 20px;
+    }
+
+    .solid-folder-tab {
+      background-color: #ededf0;
+      border-top: 1.5px solid #dedee3;
+      border-left: 1.5px solid #dedee3;
+      border-right: 1.5px solid #dedee3;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+
+    .solid-folder-pocket {
+      background-color: #f7f7f9;
+      border: 1.5px solid #dedee3;
+      border-radius: 20px;
+      box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    }
+
+    /* Tactile Die-cut Vinyl Stickers */
+    .sticker-diecut {
+      user-select: none;
+      filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.22s ease;
+      cursor: pointer;
+    }
+    .sticker-diecut:hover {
+      transform: scale(1.16) translateY(-4px) rotate(-3deg);
+      filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.18));
+    }
+    .sticker-diecut:active {
+      transform: scale(0.95) translateY(0px) rotate(2deg);
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+    }
+
+    /* Photo Cards Fan-Out on Hover */
+    .folder-wrapper:hover .fan-left {
+      transform: translate(-38px, -52px) rotate(-13deg) scale(1.04);
+    }
+    .folder-wrapper:hover .fan-center {
+      transform: translate(0px, -70px) rotate(0deg) scale(1.08);
+      z-index: 18;
+    }
+    .folder-wrapper:hover .fan-right {
+      transform: translate(38px, -48px) rotate(13deg) scale(1.04);
+    }
+
+    /* Subtle fine-grid background for a clean technical sketchbook feel */
+    .clean-grid-pattern {
+      background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen font-sans selection:bg-neutral-900 selection:text-white relative antialiased flex flex-col">
+
+  <!-- Subtle tactile dot grid background -->
+  <div class="fixed inset-0 clean-grid-pattern pointer-events-none opacity-60 z-0"></div>
+
+  <header class="relative z-10 max-w-6xl w-full mx-auto px-6 pt-10 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 border-b border-neutral-100 pb-8">
+    <div>
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-mono font-semibold tracking-wide uppercase bg-neutral-100 text-neutral-700 border border-neutral-200/80 mb-3">
+        <span class="w-2 h-2 rounded-full bg-neutral-900"></span>
+        Portfolio & Equity Holdings
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-950 flex items-center gap-3">
+        Companies I've built
+        <span class="text-xs font-mono font-semibold px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-700 border border-neutral-200" id="totalCountBadge">
+          2 Ventures
+        </span>
+      </h1>
+      <p class="text-sm text-neutral-500 mt-1 max-w-lg leading-relaxed">
+        Curated ventures, operational assets, and tech products. Hover over any folder to inspect inside documents or click to open full metrics.
+      </p>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex items-center gap-3 self-stretch sm:self-auto justify-start sm:justify-end">
+      <!-- Sound FX Toggle -->
+      <button id="soundToggleBtn" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-white border border-neutral-200 hover:bg-neutral-50 text-neutral-800 shadow-sm transition-all">
+        <i data-lucide="volume-2" class="w-4 h-4 text-neutral-800" id="soundIcon"></i>
+        <span id="soundLabel">Audio On</span>
+      </button>
+
+      <!-- Add Venture Modal Trigger -->
+      <button id="openAddModalBtn" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-all">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span>Add Folder</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="relative z-10 max-w-6xl w-full mx-auto px-6 pt-6 pb-2">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-2xl bg-[#fafafa] border border-neutral-200/90 shadow-sm">
+      <div class="px-3 border-r border-neutral-200/70 last:border-none">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Total Portfolio Value</span>
+        <div class="text-lg font-bold text-neutral-900 mt-0.5" id="statCombinedVal">PKR 12M</div>
+      </div>
+      <div class="px-3 border-r border-neutral-200/70 last:border-none">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Aggregate Team</span>
+        <div class="text-lg font-bold text-neutral-900 mt-0.5">24+ Full-time</div>
+      </div>
+      <div class="px-3 border-r border-neutral-200/70 last:border-none">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Active Verticals</span>
+        <div class="text-lg font-bold text-neutral-900 mt-0.5">AgriTech & SaaS</div>
+      </div>
+      <div class="px-3">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-neutral-400">Avg ARR Growth</span>
+        <div class="text-lg font-bold text-emerald-700 mt-0.5">+182% YoY</div>
+      </div>
+    </div>
+  </section>
+
+  <main class="relative z-10 max-w-6xl w-full mx-auto px-6 py-8 flex-1">
+    
+    <!-- White Minimal Showcase Canvas -->
+    <div class="rounded-3xl bg-white border border-neutral-200 p-8 sm:p-14 shadow-card-clean relative">
+      
+      <!-- Folders Grid -->
+      <div id="foldersContainer" class="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16 items-center justify-items-center">
+        
+        <!-- ================= FOLDER 1: NAREJO FARMS ================= -->
+        <div class="folder-wrapper relative group w-full max-w-[340px] flex flex-col items-center cursor-pointer perspective-canvas" data-id="narejo">
+          
+          <!-- Tactile Tilt Container -->
+          <div class="folder-card-inner w-full relative h-[250px] flex items-center justify-center transition-transform duration-300 ease-out will-change-transform">
+            
+            <!-- Solid Back Cover of Folder -->
+            <div class="solid-folder-back absolute bottom-5 w-[275px] h-[190px]">
+              <!-- Folder Tab (top left) -->
+              <div class="solid-folder-tab absolute -top-4 left-6 w-24 h-5"></div>
+            </div>
+
+            <!-- Photos fan-out group -->
+            <div class="absolute bottom-11 w-[220px] h-[145px] pointer-events-none flex items-center justify-center">
+              
+              <!-- Left Photo Card -->
+              <div class="fan-left absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform -translate-x-5 -translate-y-2 -rotate-6">
+                <img src="https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=400&q=80" alt="Livestock Herd" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 inset-x-0 bg-neutral-900/80 text-[8px] text-white px-2 py-0.5 font-mono truncate">Livestock Herd</div>
+              </div>
+
+              <!-- Right Photo Card -->
+              <div class="fan-right absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform translate-x-5 -translate-y-1 rotate-6">
+                <img src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=400&q=80" alt="Fields" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 inset-x-0 bg-neutral-900/80 text-[8px] text-white px-2 py-0.5 font-mono truncate">120 Acres Crop</div>
+              </div>
+
+              <!-- Center Primary Photo Card -->
+              <div class="fan-center absolute w-[140px] h-[105px] rounded-xl overflow-hidden border-[3px] border-white shadow-lg bg-neutral-200 transition-all duration-400 ease-out transform -translate-y-4">
+                <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=500&q=80" alt="Sunset Farm" class="w-full h-full object-cover">
+                <div class="absolute top-1.5 right-1.5 px-2 py-0.5 bg-neutral-900 text-white rounded text-[8px] font-mono font-bold tracking-tight">FARM #01</div>
+              </div>
+
+            </div>
+
+            <!-- Solid Front Pocket (Completely opaque matte paper) -->
+            <div class="solid-folder-pocket absolute bottom-5 w-[280px] h-[145px] flex items-center justify-between p-5">
+              
+              <!-- Die-Cut Sticker 1: Livestock Stamp with thick diecut vinyl border -->
+              <div class="sticker-diecut bg-white px-3 py-2 rounded-xl border-2 border-neutral-900 shadow-diecut flex items-center gap-2 transform -rotate-6" title="Narejo Farms Brand">
+                <span class="text-2xl">🐂</span>
+                <div class="flex flex-col">
+                  <span class="text-[10px] font-extrabold uppercase tracking-tight text-neutral-900 leading-none">NAREJO</span>
+                  <span class="text-[8px] text-neutral-500 font-mono font-bold">FARMS</span>
+                </div>
+              </div>
+
+              <!-- Die-Cut Sticker 2: Wheat Crop Badge -->
+              <div class="sticker-diecut bg-white w-12 h-12 rounded-full border-2 border-neutral-900 shadow-diecut flex items-center justify-center transform rotate-12" title="Wheat Production">
+                <span class="text-2xl">🌾</span>
+              </div>
+
+              <!-- Quick peek prompt -->
+              <div class="absolute bottom-2.5 inset-x-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <span class="text-[10px] font-mono font-semibold tracking-wide text-neutral-500 bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                  Click to inspect →
+                </span>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Folder Label & Valuation -->
+          <div class="mt-4 text-center">
+            <h2 class="text-lg font-bold text-neutral-900 group-hover:text-neutral-700 transition-colors flex items-center justify-center gap-1.5">
+              Narejo Farms
+            </h2>
+            <div class="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-md bg-neutral-100 border border-neutral-200 text-xs font-mono font-medium text-neutral-600">
+              <span>PKR 2 million</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ================= FOLDER 2: VENFOUND ================= -->
+        <div class="folder-wrapper relative group w-full max-w-[340px] flex flex-col items-center cursor-pointer perspective-canvas" data-id="venfound">
+          
+          <!-- Tactile Tilt Container -->
+          <div class="folder-card-inner w-full relative h-[250px] flex items-center justify-center transition-transform duration-300 ease-out will-change-transform">
+            
+            <!-- Solid Back Cover of Folder -->
+            <div class="solid-folder-back absolute bottom-5 w-[275px] h-[190px]">
+              <!-- Folder Tab (top left) -->
+              <div class="solid-folder-tab absolute -top-4 left-6 w-24 h-5"></div>
+            </div>
+
+            <!-- Photos fan-out group -->
+            <div class="absolute bottom-11 w-[220px] h-[145px] pointer-events-none flex items-center justify-center">
+              
+              <!-- Left Photo Card -->
+              <div class="fan-left absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform -translate-x-5 -translate-y-2 -rotate-6">
+                <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=400&q=80" alt="Tech Metrics Dashboard" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 inset-x-0 bg-neutral-900/80 text-[8px] text-white px-2 py-0.5 font-mono truncate">Metrics Engine</div>
+              </div>
+
+              <!-- Right Photo Card -->
+              <div class="fan-right absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform translate-x-5 -translate-y-1 rotate-6">
+                <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=400&q=80" alt="Engineering Team" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 inset-x-0 bg-neutral-900/80 text-[8px] text-white px-2 py-0.5 font-mono truncate">Core Sprint Team</div>
+              </div>
+
+              <!-- Center Primary Photo Card -->
+              <div class="fan-center absolute w-[140px] h-[105px] rounded-xl overflow-hidden border-[3px] border-white shadow-lg bg-neutral-200 transition-all duration-400 ease-out transform -translate-y-4">
+                <img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=500&q=80" alt="Mobile App UI" class="w-full h-full object-cover">
+                <div class="absolute top-1.5 right-1.5 px-2 py-0.5 bg-neutral-900 text-white rounded text-[8px] font-mono font-bold tracking-tight">SaaS v2.4</div>
+              </div>
+
+            </div>
+
+            <!-- Solid Front Pocket (Completely opaque matte paper) -->
+            <div class="solid-folder-pocket absolute bottom-5 w-[280px] h-[145px] flex items-center justify-between p-5">
+              
+              <!-- Die-Cut Sticker 1: Venfound Monogram with thick white border -->
+              <div class="sticker-diecut bg-neutral-900 text-white w-12 h-12 rounded-2xl border-2 border-neutral-900 shadow-diecut flex items-center justify-center font-extrabold text-xl transform -rotate-12" title="Venfound Lab">
+                <span class="tracking-tighter">V</span>
+              </div>
+
+              <!-- Die-Cut Sticker 2: Launch Rocket -->
+              <div class="sticker-diecut bg-white w-12 h-12 rounded-full border-2 border-neutral-900 shadow-diecut flex items-center justify-center transform rotate-12" title="Fast Growth">
+                <span class="text-2xl">🚀</span>
+              </div>
+
+              <!-- Quick peek prompt -->
+              <div class="absolute bottom-2.5 inset-x-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <span class="text-[10px] font-mono font-semibold tracking-wide text-neutral-500 bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                  Click to inspect →
+                </span>
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- Folder Label & Valuation -->
+          <div class="mt-4 text-center">
+            <h2 class="text-lg font-bold text-neutral-900 group-hover:text-neutral-700 transition-colors flex items-center justify-center gap-1.5">
+              Venfound
+            </h2>
+            <div class="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-md bg-neutral-100 border border-neutral-200 text-xs font-mono font-medium text-neutral-600">
+              <span>PKR 10 million</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Tactile Legend -->
+      <div class="mt-14 pt-6 border-t border-neutral-100 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-400 font-mono">
+        <span class="flex items-center gap-1.5"><i data-lucide="hand" class="w-3.5 h-3.5 text-neutral-600"></i> Click any sticker to interact</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="folder-open" class="w-3.5 h-3.5 text-neutral-600"></i> Click folder to open archives</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5 text-neutral-600"></i> Hover to fan out documentation</span>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="companyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-250">
+    <div id="modalBackdrop" class="absolute inset-0 bg-neutral-950/40 transition-opacity"></div>
+
+    <div class="relative w-full max-w-2xl bg-white rounded-2xl border border-neutral-200 shadow-2xl overflow-hidden z-10 transform scale-95 transition-transform duration-250 flex flex-col max-h-[90vh]">
+      
+      <!-- Clean Solid Modal Header -->
+      <div class="p-6 border-b border-neutral-200 bg-neutral-50 flex items-start justify-between">
+        <div class="flex items-center gap-4">
+          <div id="modalLogoBadge" class="w-12 h-12 rounded-xl bg-white border-2 border-neutral-900 flex items-center justify-center text-2xl shadow-sm">
+            🌱
+          </div>
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h3 id="modalTitle" class="text-xl font-bold text-neutral-900">Narejo Farms</h3>
+              <span id="modalCategory" class="text-[11px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-neutral-200 text-neutral-700">AgriTech & Livestock</span>
+            </div>
+            <p id="modalValuation" class="text-xs font-mono font-semibold text-neutral-500 mt-1">Valuation: PKR 2,000,000</p>
+          </div>
+        </div>
+
+        <button id="closeModalBtn" class="p-2 rounded-lg text-neutral-400 hover:text-neutral-900 hover:bg-neutral-200 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Content Body -->
+      <div class="p-6 overflow-y-auto space-y-6 bg-white">
+        
+        <!-- Summary -->
+        <div>
+          <h4 class="text-xs font-mono uppercase tracking-wider text-neutral-400 font-bold mb-2">Executive Overview</h4>
+          <p id="modalDescription" class="text-sm text-neutral-700 leading-relaxed font-normal">
+            Operational dairy farm and agricultural facility leveraging modern irrigation, herd health tracking, and commercial distribution.
+          </p>
+        </div>
+
+        <!-- Metrics Grid -->
+        <div>
+          <h4 class="text-xs font-mono uppercase tracking-wider text-neutral-400 font-bold mb-2">Key Operational Metrics</h4>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+              <span class="text-[11px] font-mono text-neutral-400">Quarterly ARR</span>
+              <p id="modalMetric1" class="text-base font-bold text-neutral-900 mt-0.5">PKR 650K</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+              <span class="text-[11px] font-mono text-neutral-400">Full-time Team</span>
+              <p id="modalMetric2" class="text-base font-bold text-neutral-900 mt-0.5">14 People</p>
+            </div>
+            <div class="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+              <span class="text-[11px] font-mono text-neutral-400">YoY Expansion</span>
+              <p id="modalMetric3" class="text-base font-bold text-emerald-700 mt-0.5">+48% YoY</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gallery of verified photos -->
+        <div>
+          <h4 class="text-xs font-mono uppercase tracking-wider text-neutral-400 font-bold mb-2">Archived Visual Documentation</h4>
+          <div id="modalGallery" class="grid grid-cols-3 gap-3">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Milestones list -->
+        <div>
+          <h4 class="text-xs font-mono uppercase tracking-wider text-neutral-400 font-bold mb-2">Key Milestones & Achievements</h4>
+          <ul id="modalMilestones" class="space-y-2 text-sm text-neutral-700">
+            <!-- Injected dynamically -->
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Clean Modal Footer -->
+      <div class="p-4 border-t border-neutral-200 bg-neutral-50 flex items-center justify-between">
+        <span class="text-xs text-neutral-500 font-mono">Verified Portfolio Entry</span>
+        <button id="modalActionBtn" class="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-medium text-xs transition-colors flex items-center gap-1.5">
+          <span>Close Dossier</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div id="addModalBackdrop" class="absolute inset-0 bg-neutral-950/40"></div>
+    <div class="relative w-full max-w-md bg-white rounded-2xl border border-neutral-200 shadow-2xl p-6 z-10 space-y-4">
+      <div class="flex items-center justify-between border-b border-neutral-100 pb-3">
+        <h3 class="text-base font-bold text-neutral-900">Add Venture Folder</h3>
+        <button id="closeAddModalBtn" class="p-1 rounded text-neutral-400 hover:text-neutral-900"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      
+      <form id="addVentureForm" class="space-y-3 pt-1">
+        <div>
+          <label class="text-xs font-mono font-medium text-neutral-600">Company Name</label>
+          <input id="inputName" type="text" required placeholder="e.g. Atlas Logistics" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-mono font-medium text-neutral-600">Valuation</label>
+            <input id="inputValuation" type="text" required placeholder="e.g. PKR 5 million" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
+          </div>
+          <div>
+            <label class="text-xs font-mono font-medium text-neutral-600">Vertical</label>
+            <select id="inputTheme" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
+              <option value="fintech">Fintech</option>
+              <option value="saas">Enterprise SaaS</option>
+              <option value="ecom">E-Commerce</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-mono font-medium text-neutral-600">Tagline / Mission</label>
+          <input id="inputTagline" type="text" required placeholder="e.g. Supply chain dispatch infrastructure" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
+        </div>
+        <button type="submit" class="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-medium text-sm transition-colors shadow-sm mt-2">
+          Create Solid Folder
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================
+     * 1. Tactile Web Audio Synthesizer (Mechanical clicks & pops)
+     * ========================================================== */
+    class TactileSound {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // Paper shuffle / hover tap
+      playHover() {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.05);
+
+          gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.05);
+        } catch (e) {}
+      }
+
+      // Sticker Pop Sound
+      playStickerPop() {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(700, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.07);
+
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.07);
+        } catch (e) {}
+      }
+
+      // Clean Folder Opening Sound
+      playFolderOpen() {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const chord = [392, 523.25, 659.25]; // G4, C5, E5
+          chord.forEach((f, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.04);
+            gain.gain.setValueAtTime(0.08, this.ctx.currentTime + i * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.04 + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(this.ctx.currentTime + i * 0.04);
+            osc.stop(this.ctx.currentTime + i * 0.04 + 0.18);
+          });
+        } catch (e) {}
+      }
+    }
+
+    const sound = new TactileSound();
+
+    /* ==========================================================
+     * 2. Comprehensive Company Data Archive
+     * ========================================================== */
+    const companiesData = {
+      narejo: {
+        title: "Narejo Farms",
+        category: "AgriTech & Livestock",
+        valuation: "PKR 2,000,000",
+        icon: "🐂",
+        description: "Narejo Farms is a commercial sustainable dairy and crop cultivation venture based in Sindh, Pakistan. Utilizing digital cattle telemetry, organic feeds, and automated micro-irrigation systems.",
+        metrics: {
+          m1: "PKR 650K",
+          m2: "14 Staff",
+          m3: "+48% YoY"
+        },
+        milestones: [
+          "Cultivated 120+ acres of organic wheat and seasonal feed crop.",
+          "Implemented digital ear-tag monitoring for 65+ dairy buffaloes.",
+          "Transformed deep-well pump infrastructure to 100% solar arrays."
+        ],
+        gallery: [
+          "https://images.unsplash.com/photo-1546445317-29f4545e9d53?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=500&q=80"
+        ]
+      },
+      venfound: {
+        title: "Venfound",
+        category: "B2B SaaS & Tech Prototype Lab",
+        valuation: "PKR 10,000,000",
+        icon: "🚀",
+        description: "Venfound accelerates early-stage founders by developing high-speed enterprise software prototypes, custom AI integration workflows, and conversion-ready SaaS platforms.",
+        metrics: {
+          m1: "PKR 2.4M",
+          m2: "10 Engineers",
+          m3: "+210% YoY"
+        },
+        milestones: [
+          "Delivered 18 production client systems across international markets.",
+          "Reached PKR 10,000,000 valuation milestone within 18 months of launch.",
+          "Engineered an internal rapid component system for lightning deployment."
+        ],
+        gallery: [
+          "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=500&q=80"
+        ]
+      }
+    };
+
+    function attachTiltPhysics(folderWrapper) {
+      const cardInner = folderWrapper.querySelector('.folder-card-inner');
+      if (!cardInner) return;
+
+      folderWrapper.addEventListener('mousemove', (e) => {
+        const rect = folderWrapper.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        
+        // Balanced 3D tilt
+        const rotateX = ((y - centerY) / centerY) * -10;
+        const rotateY = ((x - centerX) / centerX) * 12;
+
+        cardInner.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+      });
+
+      folderWrapper.addEventListener('mouseenter', () => {
+        sound.playHover();
+      });
+
+      folderWrapper.addEventListener('mouseleave', () => {
+        cardInner.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+      });
+
+      // Folder Click open
+      folderWrapper.addEventListener('click', (e) => {
+        if (e.target.closest('.sticker-diecut')) return;
+        const id = folderWrapper.dataset.id;
+        if (id && companiesData[id]) {
+          sound.playFolderOpen();
+          openModal(companiesData[id]);
+        }
+      });
+    }
+
+    document.querySelectorAll('.folder-wrapper').forEach(attachTiltPhysics);
+
+    document.addEventListener('click', (e) => {
+      const sticker = e.target.closest('.sticker-diecut');
+      if (sticker) {
+        e.stopPropagation();
+        sound.playStickerPop();
+        
+        sticker.animate([
+          { transform: 'scale(1) rotate(0deg)' },
+          { transform: 'scale(1.25) rotate(-10deg)' },
+          { transform: 'scale(0.92) rotate(4deg)' },
+          { transform: 'scale(1) rotate(0deg)' }
+        ], {
+          duration: 300,
+          easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+        });
+      }
+    });
+
+    const modal = document.getElementById('companyModal');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalActionBtn = document.getElementById('modalActionBtn');
+
+    function openModal(data) {
+      document.getElementById('modalTitle').textContent = data.title;
+      document.getElementById('modalCategory').textContent = data.category;
+      document.getElementById('modalValuation').textContent = `Valuation: ${data.valuation}`;
+      document.getElementById('modalDescription').textContent = data.description;
+      document.getElementById('modalLogoBadge').textContent = data.icon;
+
+      document.getElementById('modalMetric1').textContent = data.metrics.m1;
+      document.getElementById('modalMetric2').textContent = data.metrics.m2;
+      document.getElementById('modalMetric3').textContent = data.metrics.m3;
+
+      // Gallery Images
+      const gallery = document.getElementById('modalGallery');
+      gallery.innerHTML = '';
+      data.gallery.forEach(url => {
+        const item = document.createElement('div');
+        item.className = 'h-24 rounded-xl overflow-hidden border border-neutral-200 shadow-sm bg-neutral-100 relative group/img';
+        item.innerHTML = `
+          <img src="${url}" class="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300">
+        `;
+        gallery.appendChild(item);
+      });
+
+      // Milestones
+      const milestonesList = document.getElementById('modalMilestones');
+      milestonesList.innerHTML = '';
+      data.milestones.forEach(text => {
+        const li = document.createElement('li');
+        li.className = 'flex items-start gap-2';
+        li.innerHTML = `
+          <div class="w-4 h-4 rounded-full bg-neutral-900 text-white flex items-center justify-center mt-0.5 shrink-0 text-[10px]">
+            ✓
+          </div>
+          <span>${text}</span>
+        `;
+        milestonesList.appendChild(li);
+      });
+
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      const dialog = modal.querySelector('div.relative');
+      dialog.classList.remove('scale-95');
+      dialog.classList.add('scale-100');
+    }
+
+    function closeModal() {
+      const dialog = modal.querySelector('div.relative');
+      dialog.classList.remove('scale-100');
+      dialog.classList.add('scale-95');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    modalActionBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', closeModal);
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundLabel = document.getElementById('soundLabel');
+
+    soundToggleBtn.addEventListener('click', () => {
+      sound.enabled = !sound.enabled;
+      if (sound.enabled) {
+        sound.init();
+        sound.playStickerPop();
+        soundIcon.setAttribute('data-lucide', 'volume-2');
+        soundLabel.textContent = "Audio On";
+      } else {
+        soundIcon.setAttribute('data-lucide', 'volume-x');
+        soundLabel.textContent = "Audio Off";
+      }
+      lucide.createIcons();
+    });
+
+    const openAddModalBtn = document.getElementById('openAddModalBtn');
+    const addModal = document.getElementById('addModal');
+    const addModalBackdrop = document.getElementById('addModalBackdrop');
+    const closeAddModalBtn = document.getElementById('closeAddModalBtn');
+    const addVentureForm = document.getElementById('addVentureForm');
+    const foldersContainer = document.getElementById('foldersContainer');
+    const totalCountBadge = document.getElementById('totalCountBadge');
+
+    openAddModalBtn.addEventListener('click', () => {
+      sound.playHover();
+      addModal.classList.remove('opacity-0', 'pointer-events-none');
+    });
+
+    function closeAddModal() {
+      addModal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    closeAddModalBtn.addEventListener('click', closeAddModal);
+    addModalBackdrop.addEventListener('click', closeAddModal);
+
+    addVentureForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('inputName').value.trim();
+      const valuation = document.getElementById('inputValuation').value.trim();
+      const vertical = document.getElementById('inputTheme').value;
+      const tagline = document.getElementById('inputTagline').value.trim();
+
+      const newId = 'custom_' + Date.now();
+      const stickerIcon = vertical === 'fintech' ? '💳' : (vertical === 'saas' ? '⚡' : '📦');
+
+      companiesData[newId] = {
+        title: name,
+        category: vertical.toUpperCase(),
+        valuation: valuation,
+        icon: stickerIcon,
+        description: `${name} is focused on ${tagline}. Built with strong unit economics, high reliability, and clear product-market alignment.`,
+        metrics: {
+          m1: "PKR 1.2M",
+          m2: "6 Specialists",
+          m3: "+90% YoY"
+        },
+        milestones: [
+          "Developed core operational framework.",
+          "Secured founding client contracts.",
+          "Expanded commercial customer base."
+        ],
+        gallery: [
+          "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=500&q=80",
+          "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=500&q=80"
+        ]
+      };
+
+      const folderEl = document.createElement('div');
+      folderEl.className = "folder-wrapper relative group w-full max-w-[340px] flex flex-col items-center cursor-pointer perspective-canvas";
+      folderEl.dataset.id = newId;
+      folderEl.innerHTML = `
+        <div class="folder-card-inner w-full relative h-[250px] flex items-center justify-center transition-transform duration-300 ease-out will-change-transform">
+          <div class="solid-folder-back absolute bottom-5 w-[275px] h-[190px]">
+            <div class="solid-folder-tab absolute -top-4 left-6 w-24 h-5"></div>
+          </div>
+          <div class="absolute bottom-11 w-[220px] h-[145px] pointer-events-none flex items-center justify-center">
+            <div class="fan-left absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform -translate-x-5 -translate-y-2 -rotate-6">
+              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover">
+            </div>
+            <div class="fan-right absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform translate-x-5 -translate-y-1 rotate-6">
+              <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover">
+            </div>
+            <div class="fan-center absolute w-[140px] h-[105px] rounded-xl overflow-hidden border-[3px] border-white shadow-lg bg-neutral-200 transition-all duration-400 ease-out transform -translate-y-4">
+              <img src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=500&q=80" class="w-full h-full object-cover">
+            </div>
+          </div>
+          <div class="solid-folder-pocket absolute bottom-5 w-[280px] h-[145px] flex items-center justify-between p-5">
+            <div class="sticker-diecut bg-white px-3 py-2 rounded-xl border-2 border-neutral-900 shadow-diecut flex items-center gap-2 transform -rotate-6">
+              <span class="text-2xl">${stickerIcon}</span>
+              <span class="text-[10px] font-extrabold uppercase tracking-tight text-neutral-900">${name.slice(0, 10)}</span>
+            </div>
+            <div class="sticker-diecut bg-white w-12 h-12 rounded-full border-2 border-neutral-900 shadow-diecut flex items-center justify-center transform rotate-12">
+              <span class="text-2xl">✨</span>
+            </div>
+            <div class="absolute bottom-2.5 inset-x-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <span class="text-[10px] font-mono font-semibold tracking-wide text-neutral-500 bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full shadow-sm">
+                Click to inspect →
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-4 text-center">
+          <h2 class="text-lg font-bold text-neutral-900 group-hover:text-neutral-700 transition-colors flex items-center justify-center gap-1.5">
+            ${name}
+          </h2>
+          <div class="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-md bg-neutral-100 border border-neutral-200 text-xs font-mono font-medium text-neutral-600">
+            <span>${valuation}</span>
+          </div>
+        </div>
+      `;
+
+      foldersContainer.appendChild(folderEl);
+      attachTiltPhysics(folderEl);
+
+      const count = Object.keys(companiesData).length;
+      totalCountBadge.textContent = `${count} Ventures`;
+
+      addVentureForm.reset();
+      closeAddModal();
+      sound.playFolderOpen();
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>
