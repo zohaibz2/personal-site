@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 
 const navLinks: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Journey", href: "/#about" },
@@ -20,16 +19,12 @@ export default function Header() {
       <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-4 py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-6">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
-          <span className="relative block h-7 w-7">
-            <Image
-              src="/z-logo.png"
-              alt="Zohaib Narejo"
-              fill
-              sizes="28px"
-              className="object-contain"
-              priority
-            />
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.svg"
+            alt="Zohaib Narejo"
+            className="h-6 md:h-7 w-auto"
+          />
         </Link>
 
         {/* Center nav with twinkling star separators */}
@@ -49,7 +44,7 @@ export default function Header() {
                 </span>
               )}
               {newTab ? (
-                <a
+                
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -71,7 +66,7 @@ export default function Header() {
         <style>{`@keyframes hdr-twinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.7)}}`}</style>
 
         {/* Email */}
-        <a
+        
           href="mailto:narejozohaib33@gmail.com"
           className="flex shrink-0 items-center gap-2 text-[15px] font-normal transition-opacity hover:opacity-80"
           style={{ color: ACCENT }}
