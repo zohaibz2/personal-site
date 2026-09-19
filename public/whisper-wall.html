@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WhisperWall • Anonymous Sticky Notes</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Handwritten aesthetic and clean UI fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Indie+Flower&family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&family=Patrick+Hand&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome for crisp iconography -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- html2canvas for flawless Instagram graphics generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* Wall Texture (Studio gallery wall look) */
+    .wall-surface {
+      background-color: #e5e3dc;
+      background-image: 
+        radial-gradient(#d4d0c5 0.75px, transparent 0.75px),
+        radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.45) 0%, rgba(0,0,0,0.06) 100%);
+      background-size: 24px 24px, 100% 100%;
+    }
+
+    /* Realistic Sticky Note styling with paper curl & subtle lighting */
+    .sticky-note {
+      position: absolute;
+      width: 210px;
+      min-height: 200px;
+      padding: 22px 18px 16px 18px;
+      border-radius: 2px 2px 14px 2px;
+      box-shadow: 
+        0 8px 18px -4px rgba(45, 30, 20, 0.22),
+        0 2px 6px -1px rgba(0, 0, 0, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.18s ease;
+      cursor: grab;
+      will-change: transform, left, top;
+    }
+
+    .sticky-note:active {
+      cursor: grabbing;
+    }
+
+    .sticky-note:hover {
+      box-shadow: 
+        0 18px 28px -6px rgba(45, 30, 20, 0.32),
+        0 6px 12px -2px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      z-index: 9999 !important;
+    }
+
+    /* Realistic 3D pushpin matching user image */
+    .pushpin {
+      position: absolute;
+      top: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ff8a8a 35%, #d62828 85%);
+      box-shadow: 
+        0 3px 6px rgba(0, 0, 0, 0.35),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .pushpin.pin-yellow { background: radial-gradient(circle at 35% 35%, #ffffff 0%, #facc15 35%, #ca8a04 85%); }
+    .pushpin.pin-blue   { background: radial-gradient(circle at 35% 35%, #ffffff 0%, #67e8f9 35%, #0284c7 85%); }
+    .pushpin.pin-white  { background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e2e8f0 45%, #64748b 90%); }
+    .pushpin.pin-green  { background: radial-gradient(circle at 35% 35%, #ffffff 0%, #86efac 35%, #16a34a 85%); }
+    .pushpin.pin-purple { background: radial-gradient(circle at 35% 35%, #ffffff 0%, #d8b4fe 35%, #9333ea 85%); }
+
+    /* Custom paper pastel palettes */
+    .note-color-yellow { background-color: #fff69b; color: #2c2500; }
+    .note-color-pink   { background-color: #ffd1dc; color: #38121d; }
+    .note-color-blue   { background-color: #bfe6ff; color: #082d42; }
+    .note-color-green  { background-color: #c9f2be; color: #16360c; }
+    .note-color-peach  { background-color: #fed7aa; color: #3c1e08; }
+    .note-color-lilac  { background-color: #e9d5ff; color: #2e1047; }
+
+    /* Handwritten font classes */
+    .font-caveat { font-family: 'Caveat', cursive; }
+    .font-kalam { font-family: 'Kalam', cursive; }
+    .font-patrick { font-family: 'Patrick Hand', cursive; }
+    .font-indie { font-family: 'Indie Flower', cursive; }
+
+    /* Smooth Glassmorphism Controls */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Subtle custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 9999px; }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden wall-surface text-slate-800 antialiased select-none">
+
+  <!-- Top Header Navigation & Controls -->
+  <header class="fixed top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-none">
+    <div class="pointer-events-auto glass-panel px-4 py-2.5 rounded-full flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-amber-400 flex items-center justify-center text-amber-900 shadow-inner font-bold text-sm">
+        <i class="fa-solid fa-note-sticky"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-sm tracking-tight text-slate-900 flex items-center gap-2">
+          WhisperWall
+          <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Public Board</span>
+        </h1>
+        <p class="text-[11px] text-slate-500 font-medium">Leave a thought • No names, just vibes</p>
+      </div>
+    </div>
+
+    <!-- Right Utility Buttons -->
+    <div class="pointer-events-auto flex items-center gap-2">
+      <!-- Admin Mode Toggle Trigger -->
+      <button id="adminBtn" class="glass-panel hover:bg-white text-slate-700 hover:text-slate-900 px-3.5 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition active:scale-95">
+        <i class="fa-solid fa-shield-halved text-slate-500" id="adminIcon"></i>
+        <span id="adminBtnText">Admin Access</span>
+      </button>
+
+      <!-- Center & Reset View -->
+      <button id="recenterBtn" title="Reset View" class="glass-panel hover:bg-white w-9 h-9 rounded-full flex items-center justify-center text-slate-700 active:scale-95 transition">
+        <i class="fa-solid fa-crosshairs text-xs"></i>
+      </button>
+
+      <!-- Help / Info Modal Trigger -->
+      <button id="helpBtn" title="About Wall" class="glass-panel hover:bg-white w-9 h-9 rounded-full flex items-center justify-center text-slate-700 active:scale-95 transition">
+        <i class="fa-solid fa-circle-question text-xs"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Infinite / Free-roam Canvas Container -->
+  <main id="boardViewport" class="absolute inset-0 cursor-grab active:cursor-grabbing overflow-hidden">
+    <div id="boardCanvas" class="absolute w-[4500px] h-[3500px] origin-top-left">
+      <!-- Sticky notes will be dynamically injected here -->
+    </div>
+  </main>
+
+  <!-- Navigation Compass & Zoom Widget -->
+  <div class="fixed bottom-6 left-6 z-40 glass-panel rounded-2xl p-1.5 flex flex-col gap-1 items-center shadow-lg">
+    <button id="zoomInBtn" class="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-600 transition text-sm">
+      <i class="fa-solid fa-plus"></i>
+    </button>
+    <div class="w-4 h-[1px] bg-slate-200"></div>
+    <span id="zoomLabel" class="text-[10px] font-bold text-slate-500 py-0.5">100%</span>
+    <div class="w-4 h-[1px] bg-slate-200"></div>
+    <button id="zoomOutBtn" class="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-600 transition text-sm">
+      <i class="fa-solid fa-minus"></i>
+    </button>
+  </div>
+
+  <!-- Bottom Floating Action CTA: "+ Stick a Note" -->
+  <div class="fixed bottom-6 right-6 z-40 flex items-center gap-3">
+    <div class="glass-panel px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 hidden sm:flex items-center gap-2 animate-bounce">
+      <i class="fa-solid fa-hand-pointer text-amber-500"></i> Click any note to read or share!
+    </div>
+    <button id="openNewNoteModal" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold px-5 py-3 rounded-full shadow-xl flex items-center gap-2.5 transition transform hover:scale-105 active:scale-95">
+      <i class="fa-solid fa-pen-nib text-base"></i>
+      <span>Stick a Note</span>
+    </button>
+  </div>
+
+  <!-- Active Admin Banner Overlay (Hidden by default) -->
+  <div id="adminBanner" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-rose-600 text-white text-xs font-semibold px-4 py-1.5 rounded-full shadow-lg items-center gap-3 hidden">
+    <span class="flex items-center gap-1.5"><i class="fa-solid fa-lock-open text-xs"></i> Admin Mode Enabled (Tap 🗑 to erase)</span>
+    <button id="exitAdminBtn" class="bg-rose-800 hover:bg-rose-900 text-white px-2 py-0.5 rounded text-[11px] font-bold transition">Exit</button>
+  </div>
+
+  <!-- Create Sticky Note Modal -->
+  <div id="newNoteModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="glass-panel bg-white/95 rounded-3xl w-full max-w-lg p-6 shadow-2xl transform scale-95 transition-transform duration-200 relative" id="modalCard">
+      <!-- Close Button -->
+      <button id="closeNoteModal" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-feather-pointed"></i>
+        </div>
+        <div>
+          <h2 class="font-bold text-lg text-slate-900">Stick Your Secret Thought</h2>
+          <p class="text-xs text-slate-500">100% Anonymous. No email or name required.</p>
+        </div>
+      </div>
+
+      <!-- Live Note Preview Box -->
+      <div class="relative w-full rounded-2xl p-5 mb-5 shadow-inner transition-colors duration-200" id="previewNoteSurface">
+        <div class="flex items-center justify-between text-xs opacity-60 mb-2">
+          <span id="previewDate">Just now</span>
+          <span id="previewMoodEmoji">✨</span>
+        </div>
+        <textarea id="noteInput" rows="4" maxlength="260" placeholder="Write whatever is on your mind... confessions, late night thoughts, gratitude, or a joke..." class="w-full bg-transparent resize-none border-none outline-none text-xl placeholder:text-slate-400 font-caveat leading-relaxed"></textarea>
+        <div class="text-right text-[11px] opacity-70 font-sans mt-2">
+          <span id="charCount">0</span>/260
+        </div>
+      </div>
+
+      <!-- Customization Controls: Color, Font, and Mood Sticker -->
+      <div class="space-y-4">
+        <!-- Paper Color Picker -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-2">Paper Color</label>
+          <div class="flex items-center gap-2.5" id="colorPickerContainer">
+            <button type="button" data-color="yellow" class="w-8 h-8 rounded-full bg-[#fff69b] border-2 border-amber-400 ring-2 ring-amber-400/40 shadow-sm transition transform hover:scale-110"></button>
+            <button type="button" data-color="pink" class="w-8 h-8 rounded-full bg-[#ffd1dc] border-2 border-transparent hover:border-pink-400 shadow-sm transition transform hover:scale-110"></button>
+            <button type="button" data-color="blue" class="w-8 h-8 rounded-full bg-[#bfe6ff] border-2 border-transparent hover:border-sky-400 shadow-sm transition transform hover:scale-110"></button>
+            <button type="button" data-color="green" class="w-8 h-8 rounded-full bg-[#c9f2be] border-2 border-transparent hover:border-emerald-400 shadow-sm transition transform hover:scale-110"></button>
+            <button type="button" data-color="peach" class="w-8 h-8 rounded-full bg-[#fed7aa] border-2 border-transparent hover:border-orange-400 shadow-sm transition transform hover:scale-110"></button>
+            <button type="button" data-color="lilac" class="w-8 h-8 rounded-full bg-[#e9d5ff] border-2 border-transparent hover:border-purple-400 shadow-sm transition transform hover:scale-110"></button>
+          </div>
+        </div>
+
+        <!-- Handwriting Font Style Picker -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-2">Handwriting Style</label>
+          <div class="grid grid-cols-4 gap-2" id="fontPickerContainer">
+            <button type="button" data-font="font-caveat" class="border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1.5 px-2 rounded-xl text-sm font-caveat font-bold text-slate-700 active-font border-amber-500 ring-1 ring-amber-500">Caveat</button>
+            <button type="button" data-font="font-kalam" class="border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1.5 px-2 rounded-xl text-sm font-kalam font-bold text-slate-700">Kalam</button>
+            <button type="button" data-font="font-patrick" class="border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1.5 px-2 rounded-xl text-sm font-patrick font-bold text-slate-700">Patrick</button>
+            <button type="button" data-font="font-indie" class="border border-slate-200 bg-slate-50 hover:bg-slate-100 py-1.5 px-2 rounded-xl text-sm font-indie font-bold text-slate-700">Indie</button>
+          </div>
+        </div>
+
+        <!-- Mood Sticker Selector -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-2">Stamp / Mood Sticker</label>
+          <div class="flex items-center gap-2 overflow-x-auto pb-1" id="stickerContainer">
+            <button type="button" data-sticker="✨" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base active-sticker ring-1 ring-amber-400">✨</button>
+            <button type="button" data-sticker="☕" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">☕</button>
+            <button type="button" data-sticker="💌" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">💌</button>
+            <button type="button" data-sticker="🌿" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">🌿</button>
+            <button type="button" data-sticker="🌙" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">🌙</button>
+            <button type="button" data-sticker="💭" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">💭</button>
+            <button type="button" data-sticker="🎈" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">🎈</button>
+            <button type="button" data-sticker="🎧" class="sticker-btn px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-amber-100 text-base">🎧</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="mt-6 flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+        <button id="cancelModalBtn" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 transition">Cancel</button>
+        <button id="submitNoteBtn" class="px-6 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg transition flex items-center gap-2">
+          <i class="fa-solid fa-thumbtack"></i> Pin to Wall
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Note Zoom / Details & Instagram Story Generator Modal -->
+  <div id="detailModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="glass-panel bg-white/95 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+      <button id="closeDetailModal" class="absolute top-5 right-5 text-slate-400 hover:text-slate-700 w-8 h-8 rounded-full flex items-center justify-center transition">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <div class="mb-4">
+        <span class="text-[10px] font-bold tracking-wider uppercase text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Anonymous Whisper</span>
+      </div>
+
+      <!-- The Printable Instagram Template Card (Rendered at High Quality) -->
+      <div id="instaStoryCard" class="relative rounded-2xl p-6 shadow-md border border-black/5 overflow-hidden transition-all">
+        <!-- 3D pushpin visual -->
+        <div class="w-4 h-4 rounded-full bg-rose-500 shadow-md mx-auto mb-3 border border-white/50"></div>
+        
+        <div class="flex items-center justify-between text-xs opacity-75 font-sans mb-3">
+          <span id="detailDate">Oct 24</span>
+          <span id="detailSticker" class="text-xl">✨</span>
+        </div>
+
+        <p id="detailContent" class="text-2xl leading-relaxed whitespace-pre-wrap font-caveat my-3 min-h-[90px]"></p>
+
+        <div class="flex items-center justify-between pt-4 mt-3 border-t border-black/10 text-xs font-sans opacity-70">
+          <span class="italic font-serif">@whisperwall</span>
+          <span>Anonymous note</span>
+        </div>
+      </div>
+
+      <!-- Detail Card Actions -->
+      <div class="mt-5 space-y-3">
+        <div class="flex items-center justify-between">
+          <button id="modalLikeBtn" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 transition active:scale-95">
+            <i class="fa-regular fa-heart text-sm" id="modalLikeHeart"></i>
+            <span id="modalLikeCount">0</span>
+          </button>
+
+          <span class="text-xs text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-shield-cat"></i> Anonymous
+          </span>
+        </div>
+
+        <!-- Instagram Share Action Button -->
+        <button id="downloadStoryBtn" class="w-full py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:from-purple-700 hover:via-pink-700 hover:to-amber-600 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center gap-2.5 transition active:scale-98">
+          <i class="fa-brands fa-instagram text-base"></i>
+          <span>Save as Instagram Story Card (PNG)</span>
+        </button>
+
+        <button id="copyNoteBtn" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition">
+          <i class="fa-regular fa-copy"></i>
+          <span>Copy Note Text</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Passcode Modal -->
+  <div id="adminModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="glass-panel bg-white/95 rounded-3xl w-full max-w-sm p-6 shadow-2xl relative text-center">
+      <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-3 text-lg">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 class="font-bold text-base text-slate-900 mb-1">Admin Passcode</h3>
+      <p class="text-xs text-slate-500 mb-4">Enter master key to enable note moderation. (Default demo pass is <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-rose-600">admin123</code>)</p>
+      
+      <input type="password" id="adminPasswordInput" placeholder="Enter password..." class="w-full px-4 py-2.5 text-center text-sm border border-slate-200 rounded-xl mb-3 focus:outline-none focus:border-rose-500">
+      
+      <div class="flex items-center gap-2">
+        <button id="cancelAdminBtn" class="w-1/2 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100">Cancel</button>
+        <button id="confirmAdminBtn" class="w-1/2 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification element -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <i class="fa-solid fa-circle-check text-emerald-400" id="toastIcon"></i>
+    <span id="toastMsg">Action complete</span>
+  </div>
+
+<script>
+  // Initial demo notes inspired by natural heartfelt, comedic, and poetic bulletin walls
+  const INITIAL_NOTES = [
+    {
+      id: 'note-1',
+      text: "I told my mom I was working late, but I actually sat in the car for 45 minutes listening to rain and eating fries in peaceful silence.",
+      color: 'yellow',
+      font: 'font-caveat',
+      sticker: '🍟',
+      x: 1850,
+      y: 1350,
+      rotation: -3,
+      pinColor: 'pin-yellow',
+      likes: 42,
+      date: 'Today'
+    },
+    {
+      id: 'note-2',
+      text: "To the barista who draws smiley faces on my matcha latte cups every Monday morning: you genuinely keep me going.",
+      color: 'pink',
+      font: 'font-kalam',
+      sticker: '💌',
+      x: 2110,
+      y: 1320,
+      rotation: 2.5,
+      pinColor: 'pin-white',
+      likes: 89,
+      date: 'Yesterday'
+    },
+    {
+      id: 'note-3',
+      text: "Friendly reminder: you don't have to figure out the next 10 years of your life right now. Just drink some water and take today one hour at a time.",
+      color: 'green',
+      font: 'font-patrick',
+      sticker: '🌿',
+      x: 1650,
+      y: 1540,
+      rotation: -1.5,
+      pinColor: 'pin-green',
+      likes: 124,
+      date: '2d ago'
+    },
+    {
+      id: 'note-4',
+      text: "I finally quit the job that made me cry in the restroom every Wednesday. Scared of my savings, but my soul breathes again.",
+      color: 'blue',
+      font: 'font-indie',
+      sticker: '✨',
+      x: 2360,
+      y: 1470,
+      rotation: 3,
+      pinColor: 'pin-blue',
+      likes: 67,
+      date: '3d ago'
+    },
+    {
+      id: 'note-5',
+      text: "Whoever invented 8:30 AM departmental Zoom meetings could have definitely summarized it all in a 2-sentence bullet email.",
+      color: 'peach',
+      font: 'font-caveat',
+      sticker: '☕',
+      x: 1940,
+      y: 1620,
+      rotation: -2,
+      pinColor: 'pin-yellow',
+      likes: 153,
+      date: '4d ago'
+    },
+    {
+      id: 'note-6',
+      text: "I still save voicemails from 2019 just to hear her laugh when the world feels too loud.",
+      color: 'lilac',
+      font: 'font-kalam',
+      sticker: '🌙',
+      x: 2160,
+      y: 1660,
+      rotation: 1.8,
+      pinColor: 'pin-purple',
+      likes: 210,
+      date: '5d ago'
+    },
+    {
+      id: 'note-7',
+      text: "If you're reading this, this is your sign to buy the flowers for your own desk. You deserve soft things.",
+      color: 'pink',
+      font: 'font-patrick',
+      sticker: '🎈',
+      x: 1800,
+      y: 1880,
+      rotation: -3.5,
+      pinColor: 'pin-white',
+      likes: 95,
+      date: '6d ago'
+    },
+    {
+      id: 'note-8',
+      text: "I secretly put sticky notes with cheesy compliments inside library books before returning them. Hope it finds you well!",
+      color: 'yellow',
+      font: 'font-indie',
+      sticker: '💭',
+      x: 2420,
+      y: 1720,
+      rotation: 2.2,
+      pinColor: 'pin-yellow',
+      likes: 180,
+      date: '1w ago'
+    }
+  ];
+
+  // Application State
+  const AppState = {
+    notes: [],
+    isAdmin: false,
+    likedNoteIds: new Set(),
+    activeDetailNote: null,
+    // Pan & Zoom state
+    panX: 0,
+    panY: 0,
+    scale: 1,
+    isPanning: false,
+    startX: 0,
+    startY: 0,
+    // Draft Note settings
+    selectedColor: 'yellow',
+    selectedFont: 'font-caveat',
+    selectedSticker: '✨'
+  };
+
+  // Color mapping utilities
+  const COLOR_CLASSES = {
+    yellow: 'note-color-yellow',
+    pink: 'note-color-pink',
+    blue: 'note-color-blue',
+    green: 'note-color-green',
+    peach: 'note-color-peach',
+    lilac: 'note-color-lilac'
+  };
+
+  const PIN_COLOR_MAP = {
+    yellow: 'pin-yellow',
+    pink: 'pin-white',
+    blue: 'pin-blue',
+    green: 'pin-green',
+    peach: 'pin-yellow',
+    lilac: 'pin-purple'
+  };
+
+  // DOM Elements
+  const boardViewport = document.getElementById('boardViewport');
+  const boardCanvas = document.getElementById('boardCanvas');
+  const zoomLabel = document.getElementById('zoomLabel');
+  const zoomInBtn = document.getElementById('zoomInBtn');
+  const zoomOutBtn = document.getElementById('zoomOutBtn');
+  const recenterBtn = document.getElementById('recenterBtn');
+  const helpBtn = document.getElementById('helpBtn');
+
+  // Modals & Panels
+  const newNoteModal = document.getElementById('newNoteModal');
+  const openNewNoteModal = document.getElementById('openNewNoteModal');
+  const closeNoteModal = document.getElementById('closeNoteModal');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const submitNoteBtn = document.getElementById('submitNoteBtn');
+  const noteInput = document.getElementById('noteInput');
+  const charCount = document.getElementById('charCount');
+  const previewNoteSurface = document.getElementById('previewNoteSurface');
+  const previewMoodEmoji = document.getElementById('previewMoodEmoji');
+
+  // Details Modal
+  const detailModal = document.getElementById('detailModal');
+  const closeDetailModal = document.getElementById('closeDetailModal');
+  const instaStoryCard = document.getElementById('instaStoryCard');
+  const detailContent = document.getElementById('detailContent');
+  const detailDate = document.getElementById('detailDate');
+  const detailSticker = document.getElementById('detailSticker');
+  const modalLikeBtn = document.getElementById('modalLikeBtn');
+  const modalLikeHeart = document.getElementById('modalLikeHeart');
+  const modalLikeCount = document.getElementById('modalLikeCount');
+  const downloadStoryBtn = document.getElementById('downloadStoryBtn');
+  const copyNoteBtn = document.getElementById('copyNoteBtn');
+
+  // Admin Elements
+  const adminBtn = document.getElementById('adminBtn');
+  const adminModal = document.getElementById('adminModal');
+  const cancelAdminBtn = document.getElementById('cancelAdminBtn');
+  const confirmAdminBtn = document.getElementById('confirmAdminBtn');
+  const adminPasswordInput = document.getElementById('adminPasswordInput');
+  const adminBanner = document.getElementById('adminBanner');
+  const exitAdminBtn = document.getElementById('exitAdminBtn');
+  const adminBtnText = document.getElementById('adminBtnText');
+
+  // Toast
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMsg');
+  const toastIcon = document.getElementById('toastIcon');
+
+  // Load from localStorage or defaults
+  async function loadPersistedData() {
+    try {
+      const liked = localStorage.getItem('whisperwall_likes_v1');
+      if (liked) AppState.likedNoteIds = new Set(JSON.parse(liked));
+    } catch (e) {}
+    try {
+      const res = await fetch('/api/whispers');
+      const data = await res.json();
+      AppState.notes = Array.isArray(data) ? data : [];
+    } catch (e) {
+      AppState.notes = [];
+    }
+    renderStickyNotes();
+  }
+
+  function persistData() {
+    try {
+      localStorage.setItem('whisperwall_likes_v1', JSON.stringify(Array.from(AppState.likedNoteIds)));
+    } catch (e) {}
+  }
+
+  // Apply Transform to Canvas
+  function updateCanvasTransform() {
+    boardCanvas.style.transform = `translate3d(${AppState.panX}px, ${AppState.panY}px, 0px) scale(${AppState.scale})`;
+    zoomLabel.textContent = `${Math.round(AppState.scale * 100)}%`;
+  }
+
+  // Recenter canvas to cluster of notes
+  function centerViewportOnNotes() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    // Target the center of primary initial notes cluster around ~2000, 1500
+    AppState.scale = 1;
+    AppState.panX = (width / 2) - 2050;
+    AppState.panY = (height / 2) - 1550;
+    updateCanvasTransform();
+  }
+
+  // Zoom logic
+  function setZoom(newScale, focalX = window.innerWidth / 2, focalY = window.innerHeight / 2) {
+    const clampedScale = Math.min(Math.max(0.45, newScale), 1.7);
+    const scaleFactor = clampedScale / AppState.scale;
+    
+    // Zoom around focal point
+    AppState.panX = focalX - (focalX - AppState.panX) * scaleFactor;
+    AppState.panY = focalY - (focalY - AppState.panY) * scaleFactor;
+    AppState.scale = clampedScale;
+    updateCanvasTransform();
+  }
+
+  // Canvas Panning and Drag Event Listeners
+  boardViewport.addEventListener('pointerdown', (e) => {
+    // Only pan if clicking blank canvas or not dragging a note
+    if (e.target.closest('.sticky-note') || e.target.closest('button')) return;
+    
+    AppState.isPanning = true;
+    AppState.startX = e.clientX - AppState.panX;
+    AppState.startY = e.clientY - AppState.panY;
+    boardViewport.style.cursor = 'grabbing';
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!AppState.isPanning) return;
+    AppState.panX = e.clientX - AppState.startX;
+    AppState.panY = e.clientY - AppState.startY;
+    updateCanvasTransform();
+  });
+
+  window.addEventListener('pointerup', () => {
+    AppState.isPanning = false;
+    boardViewport.style.cursor = 'grab';
+  });
+
+  // Wheel Zoom & Wheel Pan support
+  boardViewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      // Pinch-to-zoom trackpad gesture
+      const zoomDelta = -e.deltaY * 0.005;
+      setZoom(AppState.scale + zoomDelta, e.clientX, e.clientY);
+    } else {
+      // Normal 2D scrolling / pan
+      AppState.panX -= e.deltaX * 0.9;
+      AppState.panY -= e.deltaY * 0.9;
+      updateCanvasTransform();
+    }
+  }, { passive: false });
+
+  // Render sticky notes onto canvas
+  function renderStickyNotes() {
+    boardCanvas.innerHTML = '';
+
+    AppState.notes.forEach((note) => {
+      const noteEl = document.createElement('article');
+      noteEl.className = `sticky-note ${COLOR_CLASSES[note.color] || 'note-color-yellow'} group`;
+      noteEl.id = note.id;
+      noteEl.style.left = `${note.x}px`;
+      noteEl.style.top = `${note.y}px`;
+      noteEl.style.transform = `rotate(${note.rotation}deg)`;
+      noteEl.setAttribute('role', 'button');
+      noteEl.setAttribute('tabindex', '0');
+
+      const isLiked = AppState.likedNoteIds.has(note.id);
+
+      noteEl.innerHTML = `
+        <div class="pushpin ${note.pinColor || 'pin-yellow'}"></div>
+        
+        <!-- Note Header: Date & Mood -->
+        <div class="flex items-center justify-between text-[11px] opacity-65 mb-1.5 pointer-events-none">
+          <span class="font-sans font-medium tracking-tight">${escapeHTML(note.date || 'Recently')}</span>
+          <span class="text-sm">${note.sticker || '✨'}</span>
+        </div>
+
+        <!-- Note Text Body -->
+        <div class="note-text-body ${note.font || 'font-caveat'} text-lg leading-snug line-clamp-6 select-none break-words pointer-events-none">
+          ${escapeHTML(note.text)}
+        </div>
+
+        <!-- Note Footer: Likes & Admin Delete -->
+        <div class="mt-3 flex items-center justify-between pt-2 border-t border-black/5 text-xs">
+          <button type="button" class="like-btn flex items-center gap-1.5 px-2 py-0.5 rounded-full hover:bg-black/5 transition active:scale-95 ${isLiked ? 'text-rose-600 font-bold' : 'opacity-70'}">
+            <i class="${isLiked ? 'fa-solid' : 'fa-regular'} fa-heart text-xs"></i>
+            <span class="like-count font-sans text-[11px]">${note.likes || 0}</span>
+          </button>
+
+          <!-- Admin Delete Button -->
+          ${AppState.isAdmin ? `
+            <button type="button" class="delete-btn text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 w-6 h-6 rounded-full flex items-center justify-center transition" title="Delete note as admin">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          ` : `
+            <span class="opacity-40 group-hover:opacity-100 transition text-[10px] uppercase tracking-wider font-semibold">
+              <i class="fa-solid fa-expand text-[10px]"></i> View
+            </span>
+          `}
+        </div>
+      `;
+
+      // Drag Note Mechanism (Users can organize / rearrange their board)
+      setupNoteDrag(noteEl, note);
+
+      // Note Click & Interaction Handlers
+      noteEl.addEventListener('click', (e) => {
+        // Prevent opening detail modal if dragged significantly
+        if (noteEl.dataset.dragged === 'true') {
+          noteEl.dataset.dragged = 'false';
+          return;
+        }
+
+        // Like button click
+        const likeBtn = e.target.closest('.like-btn');
+        if (likeBtn) {
+          e.stopPropagation();
+          toggleLikeNote(note.id);
+          return;
+        }
+
+        // Admin delete button click
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) {
+          e.stopPropagation();
+          deleteNote(note.id);
+          return;
+        }
+
+        // Normal card click -> Open Focus Detail & Share Modal
+        openDetailModalFor(note);
+      });
+
+      boardCanvas.appendChild(noteEl);
+    });
+  }
+
+  // Setup Note Dragging & Smooth Movement
+  function setupNoteDrag(element, noteData) {
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialX = noteData.x;
+    let initialY = noteData.y;
+    let movedDistance = 0;
+
+    element.addEventListener('pointerdown', (e) => {
+      // Don't drag if clicking buttons
+      if (e.target.closest('button')) return;
+
+      isDragging = true;
+      element.dataset.dragged = 'false';
+      movedDistance = 0;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      initialX = noteData.x;
+      initialY = noteData.y;
+
+      element.style.zIndex = '999';
+      element.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+    });
+
+    element.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+
+      const deltaX = (e.clientX - dragStartX) / AppState.scale;
+      const deltaY = (e.clientY - dragStartY) / AppState.scale;
+      
+      movedDistance += Math.hypot(deltaX, deltaY);
+      if (movedDistance > 6) {
+        element.dataset.dragged = 'true';
+      }
+
+      noteData.x = initialX + deltaX;
+      noteData.y = initialY + deltaY;
+
+      element.style.left = `${noteData.x}px`;
+      element.style.top = `${noteData.y}px`;
+    });
+
+    element.addEventListener('pointerup', (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      element.style.zIndex = '';
+      try { element.releasePointerCapture(e.pointerId); } catch(_) {}
+      persistData();
+    });
+  }
+
+  // Toggle Likes
+  function toggleLikeNote(noteId) {
+    const target = AppState.notes.find(n => n.id === noteId);
+    if (!target) return;
+
+    let delta;
+    if (AppState.likedNoteIds.has(noteId)) {
+      AppState.likedNoteIds.delete(noteId);
+      target.likes = Math.max(0, (target.likes || 1) - 1);
+      delta = -1;
+    } else {
+      AppState.likedNoteIds.add(noteId);
+      target.likes = (target.likes || 0) + 1;
+      delta = 1;
+      playSoftPopSound();
+      showToast('Loved this whisper!', 'fa-heart text-rose-500');
+    }
+
+    persistData();
+    renderStickyNotes();
+    fetch('/api/whispers', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: noteId, delta }) }).catch(() => {});
+
+    // Update active modal if open
+    if (AppState.activeDetailNote && AppState.activeDetailNote.id === noteId) {
+      updateModalLikeUI(AppState.activeDetailNote);
+    }
+  }
+
+  // Delete note (Admin functionality)
+  function deleteNote(noteId) {
+    if (!AppState.isAdmin) return;
+    
+    fetch('/api/whispers', { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'x-admin-password': AppState.adminPass || '' }, body: JSON.stringify({ id: noteId }) })
+      .then(r => {
+        if (!r.ok) { showToast('Delete failed — admin only', 'fa-lock text-rose-500'); return; }
+        AppState.notes = AppState.notes.filter(n => n.id !== noteId);
+        renderStickyNotes();
+        showToast('Sticky note removed', 'fa-trash-can text-rose-500');
+        if (AppState.activeDetailNote && AppState.activeDetailNote.id === noteId) {
+          closeDetailView();
+        }
+      }).catch(() => {});
+  }
+
+  // Subtle web audio synthetic pop for physical feeling
+  function playSoftPopSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.08);
+
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (_) {}
+  }
+
+  // Open Focus Detail Modal & Prepare Instagram Preview
+  function openDetailModalFor(note) {
+    AppState.activeDetailNote = note;
+
+    detailContent.textContent = note.text;
+    detailContent.className = `${note.font || 'font-caveat'} text-2xl leading-relaxed whitespace-pre-wrap my-3 min-h-[90px]`;
+    detailDate.textContent = note.date || 'Recently on WhisperWall';
+    detailSticker.textContent = note.sticker || '✨';
+
+    // Apply color theme to Instagram card container
+    instaStoryCard.className = `relative rounded-2xl p-6 shadow-md border border-black/5 overflow-hidden transition-all ${COLOR_CLASSES[note.color] || 'note-color-yellow'}`;
+
+    updateModalLikeUI(note);
+
+    detailModal.classList.remove('opacity-0', 'pointer-events-none');
+  }
+
+  function updateModalLikeUI(note) {
+    const isLiked = AppState.likedNoteIds.has(note.id);
+    modalLikeCount.textContent = note.likes || 0;
+    if (isLiked) {
+      modalLikeHeart.className = 'fa-solid fa-heart text-rose-600 text-sm';
+      modalLikeBtn.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold text-white bg-rose-600 shadow-sm transition active:scale-95';
+    } else {
+      modalLikeHeart.className = 'fa-regular fa-heart text-slate-600 text-sm';
+      modalLikeBtn.className = 'flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-95';
+    }
+  }
+
+  function closeDetailView() {
+    detailModal.classList.add('opacity-0', 'pointer-events-none');
+    AppState.activeDetailNote = null;
+  }
+
+  closeDetailModal.addEventListener('click', closeDetailView);
+  detailModal.addEventListener('click', (e) => {
+    if (e.target === detailModal) closeDetailView();
+  });
+
+  modalLikeBtn.addEventListener('click', () => {
+    if (AppState.activeDetailNote) {
+      toggleLikeNote(AppState.activeDetailNote.id);
+    }
+  });
+
+  // Copy Note Text to Clipboard
+  copyNoteBtn.addEventListener('click', () => {
+    if (!AppState.activeDetailNote) return;
+    const textToCopy = `"${AppState.activeDetailNote.text}" — via WhisperWall`;
+    
+    // Clipboard helper with standard fallback
+    const textarea = document.createElement('textarea');
+    textarea.value = textToCopy;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      showToast('Copied note to clipboard!', 'fa-copy text-amber-500');
+    } catch (err) {
+      showToast('Could not copy text', 'fa-triangle-exclamation text-rose-500');
+    }
+    document.body.removeChild(textarea);
+  });
+
+  // Export to Instagram Story (Generates a gorgeous 9:16 high-res graphic)
+  downloadStoryBtn.addEventListener('click', async () => {
+    if (!AppState.activeDetailNote) return;
+    
+    downloadStoryBtn.disabled = true;
+    downloadStoryBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Rendering IG Story...`;
+
+    try {
+      const note = AppState.activeDetailNote;
+
+      // Create an offscreen aesthetic canvas matching 1080x1920 (Instagram 9:16 Story ratio)
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = 1080;
+      exportCanvas.height = 1920;
+      const ctx = exportCanvas.getContext('2d');
+
+      // 1. Story Background: aesthetic soft ambient gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1920);
+      bgGrad.addColorStop(0, '#f1ede4');
+      bgGrad.addColorStop(0.5, '#e4dfd3');
+      bgGrad.addColorStop(1, '#d8d1c2');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // Subtle noise / vignette
+      const vignette = ctx.createRadialGradient(540, 960, 200, 540, 960, 900);
+      vignette.addColorStop(0, 'rgba(255,255,255,0.4)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.12)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, 1080, 1920);
+
+      // 2. Story Header (Branding)
+      ctx.fillStyle = 'rgba(71, 85, 105, 0.9)';
+      ctx.font = '600 36px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('• WHISPER WALL •', 540, 360);
+
+      ctx.font = '400 28px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.8)';
+      ctx.fillText('anonymous confessions & sticky notes', 540, 415);
+
+      // 3. Render Sticky Note Paper Card in Center
+      const noteW = 860;
+      const noteH = 820;
+      const noteX = (1080 - noteW) / 2;
+      const noteY = 560;
+
+      // Realistic Drop Shadow
+      ctx.save();
+      ctx.shadowColor = 'rgba(25, 20, 15, 0.28)';
+      ctx.shadowBlur = 60;
+      ctx.shadowOffsetY = 30;
+
+      // Note background color
+      const colorMap = {
+        yellow: '#fff69b',
+        pink: '#ffd1dc',
+        blue: '#bfe6ff',
+        green: '#c9f2be',
+        peach: '#fed7aa',
+        lilac: '#e9d5ff'
+      };
+      ctx.fillStyle = colorMap[note.color] || '#fff69b';
+      
+      // Slight rotation for natural realism
+      ctx.translate(540, noteY + noteH / 2);
+      ctx.rotate((-2 * Math.PI) / 180);
+      ctx.translate(-540, -(noteY + noteH / 2));
+
+      // Draw rounded sticky note rectangle
+      roundRect(ctx, noteX, noteY, noteW, noteH, 18);
+      ctx.fill();
+      ctx.restore();
+
+      // 4. Draw 3D Pushpin on top of note
+      ctx.save();
+      ctx.translate(540, noteY + noteH / 2);
+      ctx.rotate((-2 * Math.PI) / 180);
+      ctx.translate(-540, -(noteY + noteH / 2));
+
+      const pinY = noteY + 36;
+      ctx.beginPath();
+      ctx.arc(540, pinY, 24, 0, Math.PI * 2);
+      const pinGrad = ctx.createRadialGradient(534, pinY - 6, 2, 540, pinY, 24);
+      pinGrad.addColorStop(0, '#ffffff');
+      pinGrad.addColorStop(0.3, '#f87171');
+      pinGrad.addColorStop(1, '#b91c1c');
+      ctx.fillStyle = pinGrad;
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = 12;
+      ctx.shadowOffsetY = 8;
+      ctx.fill();
+      ctx.restore();
+
+      // 5. Note Header: date & mood sticker
+      ctx.save();
+      ctx.translate(540, noteY + noteH / 2);
+      ctx.rotate((-2 * Math.PI) / 180);
+      ctx.translate(-540, -(noteY + noteH / 2));
+
+      ctx.font = '500 32px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.6)';
+      ctx.textAlign = 'left';
+      ctx.fillText(note.date || 'Today', noteX + 70, noteY + 110);
+
+      ctx.font = '48px serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(note.sticker || '✨', noteX + noteW - 70, noteY + 115);
+
+      // 6. Draw Wrapped Note Text
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '600 52px Caveat, Kalam, cursive';
+      ctx.textAlign = 'left';
+      wrapCanvasText(ctx, note.text, noteX + 70, noteY + 220, noteW - 140, 72);
+
+      // Card footer inside note
+      ctx.font = 'italic 28px "Playfair Display", serif';
+      ctx.fillStyle = 'rgba(30, 41, 59, 0.5)';
+      ctx.fillText('whisperwall.app', noteX + 70, noteY + noteH - 60);
+
+      ctx.font = '600 28px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`♥ ${note.likes || 0} loves`, noteX + noteW - 70, noteY + noteH - 60);
+      ctx.restore();
+
+      // 7. Instagram Call to Action at Bottom
+      ctx.font = '500 32px Inter, sans-serif';
+      ctx.fillStyle = 'rgba(71, 85, 105, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.fillText('Tap to leave your anonymous note 💭', 540, 1680);
+
+      // Convert canvas to image and trigger download/sharing
+      const dataUrl = exportCanvas.toDataURL('image/png');
+      const filename = `whisper-note-${Date.now()}.png`;
+
+      // If user is on mobile browser that supports navigator.share with files
+      let sharedNatively = false;
+      if (navigator.canShare && navigator.share) {
+        try {
+          const blob = await (await fetch(dataUrl)).blob();
+          const file = new File([blob], filename, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Anonymous Note • WhisperWall',
+              text: 'Found on WhisperWall'
+            });
+            sharedNatively = true;
+          }
+        } catch (_) {}
+      }
+
+      if (!sharedNatively) {
+        const downloadLink = document.createElement('a');
+        downloadLink.download = filename;
+        downloadLink.href = dataUrl;
+        downloadLink.click();
+        showToast('Story PNG downloaded! Ready for Instagram', 'fa-brands fa-instagram text-pink-500');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Could not export graphic', 'fa-triangle-exclamation text-rose-500');
+    } finally {
+      downloadStoryBtn.disabled = false;
+      downloadStoryBtn.innerHTML = `<i class="fa-brands fa-instagram text-base"></i><span>Save as Instagram Story Card (PNG)</span>`;
+    }
+  });
+
+  // Canvas helper for text wrapping
+  function wrapCanvasText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+  }
+
+  // Rounded rectangle helper for 2D Canvas context
+  function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+
+  // Open Create Modal
+  openNewNoteModal.addEventListener('click', () => {
+    noteInput.value = '';
+    charCount.textContent = '0';
+    updatePreviewSurface();
+    newNoteModal.classList.remove('opacity-0', 'pointer-events-none');
+    document.getElementById('modalCard').classList.remove('scale-95');
+    setTimeout(() => noteInput.focus(), 150);
+  });
+
+  function closeCreateModal() {
+    newNoteModal.classList.add('opacity-0', 'pointer-events-none');
+    document.getElementById('modalCard').classList.add('scale-95');
+  }
+
+  closeNoteModal.addEventListener('click', closeCreateModal);
+  cancelModalBtn.addEventListener('click', closeCreateModal);
+  newNoteModal.addEventListener('click', (e) => {
+    if (e.target === newNoteModal) closeCreateModal();
+  });
+
+  // Character counter and input updates
+  noteInput.addEventListener('input', () => {
+    charCount.textContent = noteInput.value.length;
+  });
+
+  // Color selection
+  document.getElementById('colorPickerContainer').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-color]');
+    if (!btn) return;
+    
+    document.querySelectorAll('#colorPickerContainer button').forEach(b => {
+      b.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/40');
+      b.classList.add('border-transparent');
+    });
+
+    btn.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/40');
+    btn.classList.remove('border-transparent');
+
+    AppState.selectedColor = btn.dataset.color;
+    updatePreviewSurface();
+  });
+
+  // Font selection
+  document.getElementById('fontPickerContainer').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-font]');
+    if (!btn) return;
+
+    document.querySelectorAll('#fontPickerContainer button').forEach(b => {
+      b.classList.remove('border-amber-500', 'ring-1', 'ring-amber-500');
+    });
+
+    btn.classList.add('border-amber-500', 'ring-1', 'ring-amber-500');
+    AppState.selectedFont = btn.dataset.font;
+    updatePreviewSurface();
+  });
+
+  // Sticker selection
+  document.getElementById('stickerContainer').addEventListener('click', (e) => {
+    const btn = e.target.closest('.sticker-btn');
+    if (!btn) return;
+
+    document.querySelectorAll('.sticker-btn').forEach(b => {
+      b.classList.remove('ring-1', 'ring-amber-400', 'bg-amber-100');
+    });
+
+    btn.classList.add('ring-1', 'ring-amber-400', 'bg-amber-100');
+    AppState.selectedSticker = btn.dataset.sticker;
+    previewMoodEmoji.textContent = AppState.selectedSticker;
+  });
+
+  function updatePreviewSurface() {
+    previewNoteSurface.className = `relative w-full rounded-2xl p-5 mb-5 shadow-inner transition-colors duration-200 ${COLOR_CLASSES[AppState.selectedColor] || 'note-color-yellow'}`;
+    noteInput.className = `w-full bg-transparent resize-none border-none outline-none text-xl placeholder:text-slate-400 leading-relaxed ${AppState.selectedFont}`;
+  }
+
+  // Submit Note: Post to Board
+  submitNoteBtn.addEventListener('click', () => {
+    const text = noteInput.value.trim();
+    if (!text) {
+      showToast('Please type a few words for your note!', 'fa-circle-exclamation text-amber-500');
+      noteInput.focus();
+      return;
+    }
+
+    // Place new note in current center of viewer with gentle random jitter
+    const viewCenterX = (-AppState.panX + (window.innerWidth / 2)) / AppState.scale - 100;
+    const viewCenterY = (-AppState.panY + (window.innerHeight / 2)) / AppState.scale - 100;
+    
+    const jitterX = (Math.random() - 0.5) * 160;
+    const jitterY = (Math.random() - 0.5) * 140;
+    const randomRotation = (Math.random() * 8) - 4; // Between -4 and +4 deg
+
+    const newNote = {
+      id: 'note-' + Date.now(),
+      text: text,
+      color: AppState.selectedColor,
+      font: AppState.selectedFont,
+      sticker: AppState.selectedSticker,
+      x: Math.round(viewCenterX + jitterX),
+      y: Math.round(viewCenterY + jitterY),
+      rotation: Math.round(randomRotation * 10) / 10,
+      pinColor: PIN_COLOR_MAP[AppState.selectedColor] || 'pin-yellow',
+      likes: 0,
+      date: 'Just now'
+    };
+
+    playSoftPopSound();
+    fetch('/api/whispers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newNote)
+    }).then(r => r.json()).then(saved => {
+      AppState.notes.unshift(saved && saved.id ? saved : newNote);
+      renderStickyNotes();
+    }).catch(() => {
+      AppState.notes.unshift(newNote);
+      renderStickyNotes();
+    });
+
+    closeCreateModal();
+    showToast('Your note has been pinned!', 'fa-thumbtack text-amber-500');
+  });
+
+  // Admin Mode Controls
+  adminBtn.addEventListener('click', () => {
+    if (AppState.isAdmin) {
+      disableAdminMode();
+    } else {
+      adminPasswordInput.value = '';
+      adminModal.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => adminPasswordInput.focus(), 150);
+    }
+  });
+
+  cancelAdminBtn.addEventListener('click', () => {
+    adminModal.classList.add('opacity-0', 'pointer-events-none');
+  });
+
+  confirmAdminBtn.addEventListener('click', checkAdminPassword);
+  adminPasswordInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') checkAdminPassword();
+  });
+
+  function checkAdminPassword() {
+    const val = adminPasswordInput.value.trim();
+    if (!val) {
+      showToast('Enter the admin passcode', 'fa-lock text-rose-500');
+      adminPasswordInput.select();
+      return;
+    }
+    AppState.adminPass = val;
+    enableAdminMode();
+    adminModal.classList.add('opacity-0', 'pointer-events-none');
+    showToast('Admin mode on', 'fa-shield-halved text-emerald-400');
+  }
+
+  function enableAdminMode() {
+    AppState.isAdmin = true;
+    adminBanner.classList.remove('hidden');
+    adminBanner.classList.add('flex');
+    adminBtn.classList.add('bg-rose-50', 'text-rose-700', 'border-rose-200');
+    adminBtnText.textContent = 'Admin Active';
+    renderStickyNotes();
+  }
+
+  function disableAdminMode() {
+    AppState.isAdmin = false;
+    adminBanner.classList.add('hidden');
+    adminBanner.classList.remove('flex');
+    adminBtn.classList.remove('bg-rose-50', 'text-rose-700', 'border-rose-200');
+    adminBtnText.textContent = 'Admin Access';
+    renderStickyNotes();
+    showToast('Admin Mode exited', 'fa-lock text-slate-400');
+  }
+
+  exitAdminBtn.addEventListener('click', disableAdminMode);
+
+  // Zoom Button Handlers
+  zoomInBtn.addEventListener('click', () => setZoom(AppState.scale + 0.18));
+  zoomOutBtn.addEventListener('click', () => setZoom(AppState.scale - 0.18));
+  recenterBtn.addEventListener('click', () => {
+    centerViewportOnNotes();
+    showToast('Reset view to notes cluster', 'fa-compass text-amber-500');
+  });
+
+  // Help Modal Trigger
+  helpBtn.addEventListener('click', () => {
+    showToast('Drag notes or the wall freely. Click any note to read & export!', 'fa-circle-info text-sky-400');
+  });
+
+  // Toast Notification helper
+  let toastTimer = null;
+  function showToast(message, iconClass = 'fa-circle-check text-emerald-400') {
+    clearTimeout(toastTimer);
+    toastMsg.textContent = message;
+    toastIcon.className = `fa-solid ${iconClass}`;
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    toast.classList.add('translate-y-0', 'opacity-100');
+
+    toastTimer = setTimeout(() => {
+      toast.classList.add('translate-y-20', 'opacity-0');
+      toast.classList.remove('translate-y-0', 'opacity-100');
+    }, 3200);
+  }
+
+  // Safe HTML Escaping
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Keyboard accessibility shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeDetailView();
+      closeCreateModal();
+      adminModal.classList.add('opacity-0', 'pointer-events-none');
+    }
+  });
+
+  // Window Resize
+  window.addEventListener('resize', () => {
+    // Keep transforms bounded
+    updateCanvasTransform();
+  });
+
+  // Startup lifecycle
+  window.addEventListener('DOMContentLoaded', () => {
+    centerViewportOnNotes();
+    loadPersistedData();
+  });
+</script>
+</body>
+</html>

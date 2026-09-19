@@ -1,0 +1,126 @@
+import { NextResponse } from "next/server";
+import { getServiceClient, isSupabaseConfigured } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
+
+type Row = {
+  id: string;
+  text: string;
+  color: string | null;
+  font: string | null;
+  sticker: string | null;
+  x: number | null;
+  y: number | null;
+  rotation: number | null;
+  pin_color: string | null;
+  likes: number | null;
+  created_at: string;
+};
+
+function relTime(iso: string): string {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "Just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + "m ago";
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + "h ago";
+  const d = Math.floor(h / 24);
+  if (d < 7) return d + "d ago";
+  return new Date(iso).toLocaleDateString();
+}
+
+function toClient(r: Row) {
+  return {
+    id: r.id,
+    text: r.text,
+    color: r.color,
+    font: r.font,
+    sticker: r.sticker,
+    x: r.x,
+    y: r.y,
+    rotation: r.rotation,
+    pinColor: r.pin_color,
+    likes: r.likes ?? 0,
+    date: relTime(r.created_at),
+  };
+}
+
+export async function GET() {
+  if (!isSupabaseConfigured()) return NextResponse.json([]);
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("whispers")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) return NextResponse.json([]);
+  return NextResponse.json((data as Row[]).map(toClient));
+}
+
+export async function POST(req: Request) {
+  if (!isSupabaseConfigured())
+    return NextResponse.json({ error: "not configured" }, { status: 500 });
+  const body = await req.json().catch(() => ({}));
+  const text = (body.text ?? "").toString().trim();
+  if (!text) return NextResponse.json({ error: "empty" }, { status: 400 });
+  if (text.length > 500)
+    return NextResponse.json({ error: "too long" }, { status: 400 });
+
+  const supabase = getServiceClient();
+  const { data, error } = await supabase
+    .from("whispers")
+    .insert({
+      text,
+      color: body.color ?? "yellow",
+      font: body.font ?? null,
+      sticker: body.sticker ?? null,
+      x: Math.round(Number(body.x) || 2000),
+      y: Math.round(Number(body.y) || 1500),
+      rotation: Number(body.rotation) || 0,
+      pin_color: body.pinColor ?? null,
+      likes: 0,
+    })
+    .select()
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(toClient(data as Row));
+}
+
+export async function PATCH(req: Request) {
+  if (!isSupabaseConfigured())
+    return NextResponse.json({ error: "not configured" }, { status: 500 });
+  const body = await req.json().catch(() => ({}));
+  const id = body.id;
+  const delta = Number(body.delta) || 0;
+  if (!id || !delta)
+    return NextResponse.json({ error: "bad request" }, { status: 400 });
+
+  const supabase = getServiceClient();
+  const { data: cur } = await supabase
+    .from("whispers")
+    .select("likes")
+    .eq("id", id)
+    .maybeSingle();
+  const next = Math.max(0, ((cur?.likes as number) ?? 0) + delta);
+  const { error } = await supabase
+    .from("whispers")
+    .update({ likes: next })
+    .eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ likes: next });
+}
+
+export async function DELETE(req: Request) {
+  if (!isSupabaseConfigured())
+    return NextResponse.json({ error: "not configured" }, { status: 500 });
+  const pw = req.headers.get("x-admin-password") ?? "";
+  if (!process.env.SPRINT_ADMIN_PASSWORD || pw !== process.env.SPRINT_ADMIN_PASSWORD) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const body = await req.json().catch(() => ({}));
+  const id = body.id;
+  if (!id) return NextResponse.json({ error: "bad request" }, { status: 400 });
+  const supabase = getServiceClient();
+  const { error } = await supabase.from("whispers").delete().eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
