@@ -44,7 +44,7 @@ export default function Header() {
                 </span>
               )}
               {newTab ? (
-                <a
+                
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -66,7 +66,7 @@ export default function Header() {
         <style>{`@keyframes hdr-twinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.7)}}`}</style>
 
         {/* Email */}
-        <a
+        
           href="mailto:narejozohaib33@gmail.com"
           className="flex shrink-0 items-center gap-2 text-[15px] font-normal transition-opacity hover:opacity-80"
           style={{ color: ACCENT }}
