@@ -43,30 +43,20 @@ export default function Header() {
                   &#10022;
                 </span>
               )}
-              {newTab ? (
-                
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[15px] font-normal text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
-                >
-                  {label}
-                </a>
-              ) : (
-                <Link
-                  href={href}
-                  className="text-[15px] font-normal text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
-                >
-                  {label}
-                </Link>
-              )}
+              <Link
+                href={href}
+                {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                className="text-[15px] font-normal text-[#1a1a1a] transition-colors hover:text-[#ea580c]"
+              >
+                {label}
+              </Link>
             </div>
           ))}
         </div>
         <style>{`@keyframes hdr-twinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.7)}}`}</style>
 
         {/* Email */}
-        
+        <Link
           href="mailto:narejozohaib33@gmail.com"
           className="flex shrink-0 items-center gap-2 text-[15px] font-normal transition-opacity hover:opacity-80"
           style={{ color: ACCENT }}
@@ -76,7 +66,7 @@ export default function Header() {
             <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span className="hidden lg:inline">narejozohaib33@gmail.com</span>
-        </a>
+        </Link>
       </nav>
     </header>
   );
