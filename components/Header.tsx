@@ -16,14 +16,14 @@ export default function Header() {
       className="sticky top-0 z-50 bg-white px-6 pt-4"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-[17.6px] py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-[26.4px]">
+      <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-[19.36px] py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-[29.04px]">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center" aria-label="Home">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.svg"
             alt="Zohaib Narejo"
-            className="h-6 md:h-7 w-auto"
+            className="h-[26.4px] md:h-[30.8px] w-auto"
           />
         </Link>
 
