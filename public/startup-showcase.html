@@ -140,12 +140,6 @@
         <i data-lucide="volume-2" class="w-4 h-4 text-neutral-800" id="soundIcon"></i>
         <span id="soundLabel">Audio On</span>
       </button>
-
-      <!-- Add Venture Modal Trigger -->
-      <button id="openAddModalBtn" class="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white shadow-sm transition-all">
-        <i data-lucide="plus" class="w-4 h-4"></i>
-        <span>Add Folder</span>
-      </button>
     </div>
   </header>
 
@@ -420,43 +414,6 @@
     </div>
   </div>
 
-  <div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-200">
-    <div id="addModalBackdrop" class="absolute inset-0 bg-neutral-950/40"></div>
-    <div class="relative w-full max-w-md bg-white rounded-2xl border border-neutral-200 shadow-2xl p-6 z-10 space-y-4">
-      <div class="flex items-center justify-between border-b border-neutral-100 pb-3">
-        <h3 class="text-base font-bold text-neutral-900">Add Venture Folder</h3>
-        <button id="closeAddModalBtn" class="p-1 rounded text-neutral-400 hover:text-neutral-900"><i data-lucide="x" class="w-5 h-5"></i></button>
-      </div>
-      
-      <form id="addVentureForm" class="space-y-3 pt-1">
-        <div>
-          <label class="text-xs font-mono font-medium text-neutral-600">Company Name</label>
-          <input id="inputName" type="text" required placeholder="e.g. Atlas Logistics" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-mono font-medium text-neutral-600">Valuation</label>
-            <input id="inputValuation" type="text" required placeholder="e.g. PKR 5 million" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
-          </div>
-          <div>
-            <label class="text-xs font-mono font-medium text-neutral-600">Vertical</label>
-            <select id="inputTheme" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
-              <option value="fintech">Fintech</option>
-              <option value="saas">Enterprise SaaS</option>
-              <option value="ecom">E-Commerce</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="text-xs font-mono font-medium text-neutral-600">Tagline / Mission</label>
-          <input id="inputTagline" type="text" required placeholder="e.g. Supply chain dispatch infrastructure" class="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-neutral-300 bg-neutral-50 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900">
-        </div>
-        <button type="submit" class="w-full py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-medium text-sm transition-colors shadow-sm mt-2">
-          Create Solid Folder
-        </button>
-      </form>
-    </div>
-  </div>
 
   <script>
     /* ==========================================================
@@ -739,113 +696,6 @@
       lucide.createIcons();
     });
 
-    const openAddModalBtn = document.getElementById('openAddModalBtn');
-    const addModal = document.getElementById('addModal');
-    const addModalBackdrop = document.getElementById('addModalBackdrop');
-    const closeAddModalBtn = document.getElementById('closeAddModalBtn');
-    const addVentureForm = document.getElementById('addVentureForm');
-    const foldersContainer = document.getElementById('foldersContainer');
-    const totalCountBadge = document.getElementById('totalCountBadge');
-
-    openAddModalBtn.addEventListener('click', () => {
-      sound.playHover();
-      addModal.classList.remove('opacity-0', 'pointer-events-none');
-    });
-
-    function closeAddModal() {
-      addModal.classList.add('opacity-0', 'pointer-events-none');
-    }
-
-    closeAddModalBtn.addEventListener('click', closeAddModal);
-    addModalBackdrop.addEventListener('click', closeAddModal);
-
-    addVentureForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const name = document.getElementById('inputName').value.trim();
-      const valuation = document.getElementById('inputValuation').value.trim();
-      const vertical = document.getElementById('inputTheme').value;
-      const tagline = document.getElementById('inputTagline').value.trim();
-
-      const newId = 'custom_' + Date.now();
-      const stickerIcon = vertical === 'fintech' ? '💳' : (vertical === 'saas' ? '⚡' : '📦');
-
-      companiesData[newId] = {
-        title: name,
-        category: vertical.toUpperCase(),
-        valuation: valuation,
-        icon: stickerIcon,
-        description: `${name} is focused on ${tagline}. Built with strong unit economics, high reliability, and clear product-market alignment.`,
-        metrics: {
-          m1: "PKR 1.2M",
-          m2: "6 Specialists",
-          m3: "+90% YoY"
-        },
-        milestones: [
-          "Developed core operational framework.",
-          "Secured founding client contracts.",
-          "Expanded commercial customer base."
-        ],
-        gallery: [
-          "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=500&q=80",
-          "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=500&q=80",
-          "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=500&q=80"
-        ]
-      };
-
-      const folderEl = document.createElement('div');
-      folderEl.className = "folder-wrapper relative group w-full max-w-[340px] flex flex-col items-center cursor-pointer perspective-canvas";
-      folderEl.dataset.id = newId;
-      folderEl.innerHTML = `
-        <div class="folder-card-inner w-full relative h-[250px] flex items-center justify-center transition-transform duration-300 ease-out will-change-transform">
-          <div class="solid-folder-back absolute bottom-5 w-[275px] h-[190px]">
-            <div class="solid-folder-tab absolute -top-4 left-6 w-24 h-5"></div>
-          </div>
-          <div class="absolute bottom-11 w-[220px] h-[145px] pointer-events-none flex items-center justify-center">
-            <div class="fan-left absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform -translate-x-5 -translate-y-2 -rotate-6">
-              <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover">
-            </div>
-            <div class="fan-right absolute w-[130px] h-[95px] rounded-xl overflow-hidden border-[3px] border-white shadow-md bg-neutral-200 transition-all duration-400 ease-out transform translate-x-5 -translate-y-1 rotate-6">
-              <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=400&q=80" class="w-full h-full object-cover">
-            </div>
-            <div class="fan-center absolute w-[140px] h-[105px] rounded-xl overflow-hidden border-[3px] border-white shadow-lg bg-neutral-200 transition-all duration-400 ease-out transform -translate-y-4">
-              <img src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=500&q=80" class="w-full h-full object-cover">
-            </div>
-          </div>
-          <div class="solid-folder-pocket absolute bottom-5 w-[280px] h-[145px] flex items-center justify-between p-5">
-            <div class="sticker-diecut bg-white px-3 py-2 rounded-xl border-2 border-neutral-900 shadow-diecut flex items-center gap-2 transform -rotate-6">
-              <span class="text-2xl">${stickerIcon}</span>
-              <span class="text-[10px] font-extrabold uppercase tracking-tight text-neutral-900">${name.slice(0, 10)}</span>
-            </div>
-            <div class="sticker-diecut bg-white w-12 h-12 rounded-full border-2 border-neutral-900 shadow-diecut flex items-center justify-center transform rotate-12">
-              <span class="text-2xl">✨</span>
-            </div>
-            <div class="absolute bottom-2.5 inset-x-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <span class="text-[10px] font-mono font-semibold tracking-wide text-neutral-500 bg-white border border-neutral-200 px-2.5 py-0.5 rounded-full shadow-sm">
-                Click to inspect →
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="mt-4 text-center">
-          <h2 class="text-lg font-bold text-neutral-900 group-hover:text-neutral-700 transition-colors flex items-center justify-center gap-1.5">
-            ${name}
-          </h2>
-          <div class="inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-md bg-neutral-100 border border-neutral-200 text-xs font-mono font-medium text-neutral-600">
-            <span>${valuation}</span>
-          </div>
-        </div>
-      `;
-
-      foldersContainer.appendChild(folderEl);
-      attachTiltPhysics(folderEl);
-
-      const count = Object.keys(companiesData).length;
-      totalCountBadge.textContent = `${count} Ventures`;
-
-      addVentureForm.reset();
-      closeAddModal();
-      sound.playFolderOpen();
-    });
 
     window.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
