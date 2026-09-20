@@ -6,7 +6,6 @@ const navLinks: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Ventures", href: "/#companies" },
   { label: "Articles", href: "/articles" },
   { label: "Orbit", href: "/orbit" },
-  { label: "Resume", href: "/resume.pdf", newTab: true },
 ];
 
 const ACCENT = "#ea580c";
