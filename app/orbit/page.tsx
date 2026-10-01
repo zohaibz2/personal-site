@@ -2,22 +2,28 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Orbit — Zohaib Narejo",
+  title: "Orbit \u2014 Zohaib Narejo",
   description: "A little universe of experiments, tools, and toys.",
 };
 
 const tools = [
   {
     title: "Catch Yourself",
-    emoji: "🪄",
+    emoji: "\u{1FA84}",
     href: "/orbit/catch",
     blurb: "Catch ten falling things and find out what kind of creature you are.",
   },
   {
     title: "Whisper Wall",
-    emoji: "💬",
+    emoji: "\u{1F4AC}",
     href: "/whisper-wall.html",
     blurb: "Leave an anonymous whisper. Read what strangers left behind.",
+  },
+  {
+    title: "The Food Lab",
+    emoji: "\u{1F36A}",
+    href: "/food-lab.html",
+    blurb: "Squish raw dough, bake it, and poke at the physics. A playful 3D material study.",
   },
 ];
 
@@ -29,7 +35,7 @@ export default function OrbitPage() {
           Orbit
         </h1>
         <p className="text-lg text-[#1a1a1a]/70 max-w-xl">
-          A little universe of experiments, tools, and toys I&apos;m building —
+          A little universe of experiments, tools, and toys I&apos;m building &mdash;
           orbiting the main thing. Poke around.
         </p>
       </header>
