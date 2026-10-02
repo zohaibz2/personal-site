@@ -38,7 +38,7 @@ export default function FoodLab() {
   }, []);
 
   return (
-    <main ref={rootRef} className="food-lab">
+    <main ref={rootRef} className="food-lab" data-theme="light">
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link rel="stylesheet" href={FONTS_URL} />
       <div className="app">

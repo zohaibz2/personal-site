@@ -1,5 +1,5 @@
 /* The Food Lab: original styles scoped to .food-lab so they can't touch the rest of the site. */
-.food-lab{--paper:#f5f4ef; --panel:#fbfaf6; --ink:#111111; --graphite:#777777; --soft:#4a4743;
+.food-lab{--paper:#ffffff; --panel:#fbfaf6; --ink:#111111; --graphite:#777777; --soft:#4a4743;
   --line:#e0ddd3; --line-strong:#cdc8bb;
   --dough:#e8c898; --choc:#3b2317; --toast:#a85c24;
   --shadow:0 1px 0 rgba(17,17,17,.03), 0 24px 48px -32px rgba(59,35,23,.35);
