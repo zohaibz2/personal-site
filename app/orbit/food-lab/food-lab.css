@@ -1,0 +1,180 @@
+/* The Food Lab: original styles scoped to .food-lab so they can't touch the rest of the site. */
+.food-lab{--paper:#f5f4ef; --panel:#fbfaf6; --ink:#111111; --graphite:#777777; --soft:#4a4743;
+  --line:#e0ddd3; --line-strong:#cdc8bb;
+  --dough:#e8c898; --choc:#3b2317; --toast:#a85c24;
+  --shadow:0 1px 0 rgba(17,17,17,.03), 0 24px 48px -32px rgba(59,35,23,.35);
+  --serif:"Newsreader","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --sat:0px; --sab:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+  color-scheme:light;}
+@media (prefers-color-scheme:dark){
+  .food-lab:not([data-theme="light"]){--paper:#181713; --panel:#201e1a; --ink:#ede9df; --graphite:#9a958a; --soft:#c4bfb3;
+    --line:#2f2c26; --line-strong:#3e3a33; --shadow:0 24px 48px -30px rgba(0,0,0,.7); color-scheme:dark;}
+}
+.food-lab[data-theme="dark"]{--paper:#181713; --panel:#201e1a; --ink:#ede9df; --graphite:#9a958a; --soft:#c4bfb3;
+  --line:#2f2c26; --line-strong:#3e3a33; --shadow:0 24px 48px -30px rgba(0,0,0,.7); color-scheme:dark;}
+.food-lab *, .food-lab *::before, .food-lab *::after{box-sizing:border-box;margin:0;padding:0}
+.food-lab{position:relative;isolation:isolate;height:calc(100vh - var(--fl-top,84px));height:calc(100dvh - var(--fl-top,84px));min-height:520px;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow:hidden}
+.food-lab button, .food-lab input{font:inherit;color:inherit}
+.food-lab :focus-visible{outline:2px solid var(--toast);outline-offset:2px}
+.food-lab .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* ---------- stage ---------- */
+.food-lab .stage{position:absolute;inset:0;z-index:0}
+.food-lab .stage canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
+.food-lab .stage.custom-cursor canvas{cursor:none}
+.food-lab .fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
+  font-style:italic;font-size:18px;color:var(--soft)}
+.food-lab .fallback.show{display:flex}
+/* ---------- left rail ---------- */
+.food-lab .rail-left{position:absolute;left:40px;top:calc(34px + var(--sat));bottom:calc(128px + var(--sab));width:300px;
+  display:flex;flex-direction:column;gap:30px;z-index:2;pointer-events:none;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:none}
+.food-lab .rail-left > *{pointer-events:auto}
+.food-lab .masthead{pointer-events:none}
+.food-lab .kicker{font:500 10px/1.5 var(--mono);letter-spacing:.06em;color:var(--graphite)}
+.food-lab h1{font-family:var(--serif);font-style:italic;font-weight:340;font-variation-settings:"opsz" 72;
+  font-size:clamp(56px,5.6vw,92px);line-height:.88;letter-spacing:-.03em;margin:18px 0 18px -3px}
+.food-lab .dek{font-size:15.5px;line-height:1.5;color:var(--soft);font-variation-settings:"opsz" 12}
+.food-lab .section-label{font:500 10.5px/1 var(--mono);letter-spacing:.06em;color:var(--graphite);margin-bottom:10px;display:flex;justify-content:space-between}
+.food-lab .phases ol{list-style:none;border-top:1px solid var(--line)}
+.food-lab .phases li{display:grid;grid-template-columns:32px 1fr auto;align-items:baseline;padding:8px 0 7px;border-bottom:1px solid var(--line);
+  font:400 11.5px/1.3 var(--mono);letter-spacing:.05em;color:var(--graphite);transition:color .3s}
+.food-lab .phases li .mark{width:6px;height:6px;border-radius:50%;border:1px solid currentColor;align-self:center}
+.food-lab .phases li.done .mark{background:currentColor}
+.food-lab .phases li[aria-current="step"]{color:var(--ink)}
+.food-lab .phases li[aria-current="step"] .mark{background:var(--toast);border-color:var(--toast)}
+.food-lab .hint{font-size:15px;line-height:1.5;font-style:italic;margin-top:12px;max-width:34ch;color:var(--ink);min-height:4.5em;font-variation-settings:"opsz" 14}
+.food-lab .pantry-list{display:grid;gap:6px}
+.food-lab .pantry-item{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;width:100%;padding:8px 12px 8px 8px;
+  border:1px solid var(--line);background:var(--panel);border-radius:6px;text-align:left;cursor:grab;touch-action:none;
+  transition:border-color .2s, box-shadow .2s, transform .2s}
+.food-lab .pantry-item:hover{border-color:var(--line-strong)}
+.food-lab .pantry-item:active{cursor:grabbing}
+.food-lab .pantry-item[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.food-lab .pantry-item svg{width:40px;height:40px;display:block}
+.food-lab .pantry-item .name{display:block;font-size:16px;line-height:1.2}
+.food-lab .pantry-item .sub{display:block;font:400 10.5px/1.5 var(--mono);color:var(--graphite);letter-spacing:.02em}
+.food-lab .pantry-item .count{font:400 11px var(--mono);color:var(--graphite);font-variant-numeric:tabular-nums}
+.food-lab .fine{font-size:13px;font-style:italic;color:var(--graphite);margin-top:8px}
+/* ---------- inspector ---------- */
+.food-lab .inspector{position:absolute;right:32px;top:calc(32px + var(--sat));width:284px;max-height:calc(100% - 64px);overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px 18px;z-index:3;box-shadow:var(--shadow);
+  scrollbar-width:thin}
+.food-lab .insp-head{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:12px}
+.food-lab .insp-head h2{font:italic 400 21px/1 var(--serif);letter-spacing:-.01em}
+.food-lab .insp-head .fig{font:400 10.5px var(--mono);color:var(--graphite)}
+.food-lab .group{padding:13px 0 14px;border-top:1px solid var(--line)}
+.food-lab .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.food-lab .seg button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 4px 8px;border:1px solid var(--line);
+  border-radius:5px;background:transparent;cursor:pointer;font-size:13px;line-height:1.1;transition:background .2s,color .2s,border-color .2s}
+.food-lab .seg button svg{width:20px;height:20px}
+.food-lab .seg button:hover{border-color:var(--line-strong)}
+.food-lab .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.food-lab .field{margin-bottom:12px}
+.food-lab .field:last-child{margin-bottom:0}
+.food-lab .field-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.food-lab .field-row label{font-size:14px}
+.food-lab .field-row output{font:400 11.5px var(--mono);font-variant-numeric:tabular-nums}
+.food-lab .ends{display:flex;justify-content:space-between;font:400 10px var(--mono);color:var(--graphite);margin-top:2px}
+.food-lab input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer}
+.food-lab input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--line-strong)}
+.food-lab input[type=range]::-moz-range-track{height:1px;background:var(--line-strong)}
+.food-lab input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--panel);border:1.5px solid var(--ink);margin-top:-6px}
+.food-lab input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--panel);border:1.5px solid var(--ink)}
+.food-lab input[type=range]:disabled{opacity:.4;cursor:not-allowed}
+.food-lab .timer{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+.food-lab .timer span{font-size:14px}
+.food-lab .timer strong{font:400 26px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.food-lab .actions{display:grid;gap:6px}
+.food-lab .btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;border:1px solid var(--ink);border-radius:5px;
+  background:transparent;cursor:pointer;font:500 11px/1 var(--mono);letter-spacing:.08em;transition:background .2s,color .2s,opacity .2s}
+.food-lab .btn:hover:not(:disabled){background:color-mix(in srgb, var(--ink) 7%, transparent)}
+.food-lab .btn.primary{background:var(--ink);color:var(--paper)}
+.food-lab .btn.primary:hover:not(:disabled){background:var(--choc);border-color:var(--choc);color:#f5f4ef}
+.food-lab .btn.quiet{border-color:var(--line-strong);color:var(--soft)}
+.food-lab .btn:disabled{opacity:.32;cursor:not-allowed}
+.food-lab .btn kbd{font:inherit;opacity:.55;letter-spacing:0}
+.food-lab .toggles{display:flex;gap:16px;flex-wrap:wrap}
+.food-lab .toggles label{display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer}
+.food-lab .toggles input{accent-color:var(--ink);width:13px;height:13px}
+/* ---------- telemetry ---------- */
+.food-lab .telemetry{position:absolute;left:40px;right:348px;bottom:calc(24px + var(--sab));display:flex;gap:clamp(18px,2.6vw,44px);
+  border-top:1px solid var(--line);padding-top:11px;z-index:2;pointer-events:none;flex-wrap:wrap}
+.food-lab .metric dt{font:500 10px/1 var(--mono);letter-spacing:.08em;color:var(--graphite)}
+.food-lab .metric dd{font:400 21px/1.15 var(--mono);margin-top:7px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
+.food-lab .metric .unit{font-size:11px;color:var(--graphite);margin-left:3px;letter-spacing:0}
+.food-lab .metric.hot dd{color:var(--toast)}
+/* ---------- cursor, toast, ghost ---------- */
+.food-lab .cursor{position:fixed;left:0;top:0;z-index:40;pointer-events:none;opacity:0;transition:opacity .15s}
+.food-lab .cursor.show{opacity:1}
+.food-lab .cursor .ring{position:absolute;left:0;top:0;width:34px;height:34px;transform:translate(-50%,-50%);border:1px solid var(--ink);border-radius:50%;
+  transition:width .18s ease,height .18s ease,border-color .18s}
+.food-lab .cursor.over .ring{width:24px;height:24px;border-color:var(--toast)}
+.food-lab .cursor.pressing .ring{width:18px;height:18px}
+.food-lab .cursor .dot{position:absolute;left:0;top:0;width:var(--d,3px);height:var(--d,3px);transform:translate(-50%,-50%);border-radius:50%;background:var(--ink);transition:width .08s,height .08s}
+.food-lab .cursor.over .dot{background:var(--toast)}
+.food-lab .cursor .label{position:absolute;left:20px;top:12px;font:400 10.5px/1 var(--mono);white-space:nowrap;padding:4px 6px;background:var(--panel);
+  border:1px solid var(--line);border-radius:3px;color:var(--ink);font-variant-numeric:tabular-nums}
+.food-lab .toast{position:fixed;left:50%;bottom:calc(112px + var(--sab));transform:translate(-50%,8px);z-index:30;max-width:min(440px,80vw);
+  padding:9px 14px;border-radius:6px;background:var(--ink);color:var(--paper);font-size:14.5px;font-style:italic;line-height:1.35;text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+.food-lab .toast.show{opacity:1;transform:translate(-50%,0)}
+.food-lab .ghost{position:fixed;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:45;pointer-events:none;display:none;filter:drop-shadow(0 6px 8px rgba(59,35,23,.25))}
+.food-lab .ghost.show{display:block}
+/* ---------- mid widths ---------- */
+@media (max-width:1240px){
+  .food-lab .rail-left{width:250px;left:28px}
+  .food-lab h1{font-size:clamp(50px,5vw,70px)}
+  .food-lab .inspector{right:22px;width:262px}
+  .food-lab .telemetry{left:28px;right:300px}
+  .food-lab .metric dd{font-size:18px}
+}
+/* ---------- small screens: stacked lab notebook ---------- */
+@media (max-width:860px){
+  .food-lab{overflow:auto;height:auto}
+  .food-lab .app{display:flex;flex-direction:column;padding-bottom:28px}
+  .food-lab .rail-left{display:contents}
+  .food-lab .masthead{order:1;padding:20px 18px 6px}
+  .food-lab h1{font-size:54px;margin:10px 0 10px}
+  .food-lab .stage{order:2;position:relative;inset:auto;height:62vh;min-height:360px}
+  .food-lab .telemetry{order:3;position:static;margin:0 18px;padding-top:12px;gap:14px 24px}
+  .food-lab .phases{order:4;margin:22px 18px 0}
+  .food-lab .pantry{order:5;margin:20px 18px 0}
+  .food-lab .inspector{order:6;position:static;width:auto;max-height:none;margin:20px 18px 0;overflow:visible}
+  .food-lab .hint{min-height:0}
+  .food-lab .toast{bottom:calc(24px + var(--sab));position:fixed}
+}
+@container fl (max-height:960px){
+  .food-lab .rail-left{gap:20px}
+  .food-lab h1{font-size:clamp(46px,4.4vw,68px);margin:12px 0 12px -2px}
+  .food-lab .dek{font-size:14.5px}
+  .food-lab .hint{min-height:0;font-size:14px;margin-top:10px}
+  .food-lab .phases li{padding:6px 0 5px}
+  .food-lab .pantry-item{padding:5px 10px 5px 6px}
+  .food-lab .pantry-item svg{width:32px;height:32px}
+  .food-lab .pantry-item .sub{display:none}
+  .food-lab .fine{display:none}
+}
+@container fl (max-height:760px){
+  .food-lab .dek{display:none}
+  .food-lab .inspector .ends{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .food-lab *{transition-duration:.01ms !important}
+}
+
+/* ---------- additions for running inside the site ---------- */
+.food-lab .app{position:absolute;inset:0;container:fl / size}
+.food-lab .rail-left::-webkit-scrollbar{display:none}
+@container fl (max-height:680px){
+  .food-lab .rail-left{gap:14px}
+  .food-lab h1{font-size:clamp(38px,3.4vw,50px);margin:8px 0 8px -2px}
+  .food-lab .phases li{padding:4px 0 3px}
+  .food-lab .pantry-item svg{width:26px;height:26px}
+}
+@media (max-width:860px){
+  .food-lab{height:auto;min-height:0;overflow:visible}
+  .food-lab .app{position:static;container-type:normal}
+  .food-lab .rail-left{overflow:visible}
+}

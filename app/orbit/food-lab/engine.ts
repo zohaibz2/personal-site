@@ -1,320 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Material Studies / No. 14: The Cookie Lab</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap" rel="stylesheet">
-<style>
-:root{
-  --paper:#f5f4ef; --panel:#fbfaf6; --ink:#111111; --graphite:#777777; --soft:#4a4743;
-  --line:#e0ddd3; --line-strong:#cdc8bb;
-  --dough:#e8c898; --choc:#3b2317; --toast:#a85c24;
-  --shadow:0 1px 0 rgba(17,17,17,.03), 0 24px 48px -32px rgba(59,35,23,.35);
-  --serif:"Newsreader","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
-  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
-  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
-  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-  color-scheme:light;
-}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --paper:#181713; --panel:#201e1a; --ink:#ede9df; --graphite:#9a958a; --soft:#c4bfb3;
-    --line:#2f2c26; --line-strong:#3e3a33; --shadow:0 24px 48px -30px rgba(0,0,0,.7); color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --paper:#181713; --panel:#201e1a; --ink:#ede9df; --graphite:#9a958a; --soft:#c4bfb3;
-  --line:#2f2c26; --line-strong:#3e3a33; --shadow:0 24px 48px -30px rgba(0,0,0,.7); color-scheme:dark;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{height:100%;background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:16px;line-height:1.5;
-  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow:hidden}
-button,input{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--toast);outline-offset:2px}
-.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+// @ts-nocheck
+/* eslint-disable */
+// The Food Lab (Material Studies / No. 14: The Cookie Lab), ported to a
+// React-mounted module. The physics core runs at module scope; everything
+// that touches the page lives in initFoodLab(), which returns a dispose
+// function that stops the loop, removes listeners and frees WebGL/audio.
+import * as THREE_NS from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { gsap } from "gsap";
+import confetti from "canvas-confetti";
 
-/* ---------- stage ---------- */
-.stage{position:fixed;inset:0;z-index:0}
-.stage canvas{display:block;width:100%;height:100%;touch-action:none;outline:none}
-.stage.custom-cursor canvas{cursor:none}
-.fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
-  font-style:italic;font-size:18px;color:var(--soft)}
-.fallback.show{display:flex}
+const THREE = Object.assign({}, THREE_NS, { OrbitControls });
 
-/* ---------- left rail ---------- */
-.rail-left{position:fixed;left:40px;top:calc(34px + var(--sat));bottom:calc(128px + var(--sab));width:300px;
-  display:flex;flex-direction:column;gap:30px;z-index:2;pointer-events:none}
-.rail-left > *{pointer-events:auto}
-.masthead{pointer-events:none}
-.kicker{font:500 10px/1.5 var(--mono);letter-spacing:.06em;color:var(--graphite)}
-h1{font-family:var(--serif);font-style:italic;font-weight:340;font-variation-settings:"opsz" 72;
-  font-size:clamp(56px,5.6vw,92px);line-height:.88;letter-spacing:-.03em;margin:18px 0 18px -3px}
-.dek{font-size:15.5px;line-height:1.5;color:var(--soft);font-variation-settings:"opsz" 12}
-.section-label{font:500 10.5px/1 var(--mono);letter-spacing:.06em;color:var(--graphite);margin-bottom:10px;display:flex;justify-content:space-between}
-
-.phases ol{list-style:none;border-top:1px solid var(--line)}
-.phases li{display:grid;grid-template-columns:32px 1fr auto;align-items:baseline;padding:8px 0 7px;border-bottom:1px solid var(--line);
-  font:400 11.5px/1.3 var(--mono);letter-spacing:.05em;color:var(--graphite);transition:color .3s}
-.phases li .mark{width:6px;height:6px;border-radius:50%;border:1px solid currentColor;align-self:center}
-.phases li.done .mark{background:currentColor}
-.phases li[aria-current="step"]{color:var(--ink)}
-.phases li[aria-current="step"] .mark{background:var(--toast);border-color:var(--toast)}
-.hint{font-size:15px;line-height:1.5;font-style:italic;margin-top:12px;max-width:34ch;color:var(--ink);min-height:4.5em;font-variation-settings:"opsz" 14}
-
-.pantry-list{display:grid;gap:6px}
-.pantry-item{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;width:100%;padding:8px 12px 8px 8px;
-  border:1px solid var(--line);background:var(--panel);border-radius:6px;text-align:left;cursor:grab;touch-action:none;
-  transition:border-color .2s, box-shadow .2s, transform .2s}
-.pantry-item:hover{border-color:var(--line-strong)}
-.pantry-item:active{cursor:grabbing}
-.pantry-item[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
-.pantry-item svg{width:40px;height:40px;display:block}
-.pantry-item .name{display:block;font-size:16px;line-height:1.2}
-.pantry-item .sub{display:block;font:400 10.5px/1.5 var(--mono);color:var(--graphite);letter-spacing:.02em}
-.pantry-item .count{font:400 11px var(--mono);color:var(--graphite);font-variant-numeric:tabular-nums}
-.fine{font-size:13px;font-style:italic;color:var(--graphite);margin-top:8px}
-
-/* ---------- inspector ---------- */
-.inspector{position:fixed;right:32px;top:calc(32px + var(--sat));width:284px;max-height:calc(100% - 64px);overflow:auto;
-  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px 18px;z-index:3;box-shadow:var(--shadow);
-  scrollbar-width:thin}
-.insp-head{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:12px}
-.insp-head h2{font:italic 400 21px/1 var(--serif);letter-spacing:-.01em}
-.insp-head .fig{font:400 10.5px var(--mono);color:var(--graphite)}
-.group{padding:13px 0 14px;border-top:1px solid var(--line)}
-.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.seg button{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 4px 8px;border:1px solid var(--line);
-  border-radius:5px;background:transparent;cursor:pointer;font-size:13px;line-height:1.1;transition:background .2s,color .2s,border-color .2s}
-.seg button svg{width:20px;height:20px}
-.seg button:hover{border-color:var(--line-strong)}
-.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.field{margin-bottom:12px}
-.field:last-child{margin-bottom:0}
-.field-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
-.field-row label{font-size:14px}
-.field-row output{font:400 11.5px var(--mono);font-variant-numeric:tabular-nums}
-.ends{display:flex;justify-content:space-between;font:400 10px var(--mono);color:var(--graphite);margin-top:2px}
-input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer}
-input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--line-strong)}
-input[type=range]::-moz-range-track{height:1px;background:var(--line-strong)}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--panel);border:1.5px solid var(--ink);margin-top:-6px}
-input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--panel);border:1.5px solid var(--ink)}
-input[type=range]:disabled{opacity:.4;cursor:not-allowed}
-.timer{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.timer span{font-size:14px}
-.timer strong{font:400 26px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.actions{display:grid;gap:6px}
-.btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 12px;border:1px solid var(--ink);border-radius:5px;
-  background:transparent;cursor:pointer;font:500 11px/1 var(--mono);letter-spacing:.08em;transition:background .2s,color .2s,opacity .2s}
-.btn:hover:not(:disabled){background:color-mix(in srgb, var(--ink) 7%, transparent)}
-.btn.primary{background:var(--ink);color:var(--paper)}
-.btn.primary:hover:not(:disabled){background:var(--choc);border-color:var(--choc);color:#f5f4ef}
-.btn.quiet{border-color:var(--line-strong);color:var(--soft)}
-.btn:disabled{opacity:.32;cursor:not-allowed}
-.btn kbd{font:inherit;opacity:.55;letter-spacing:0}
-.toggles{display:flex;gap:16px;flex-wrap:wrap}
-.toggles label{display:flex;align-items:center;gap:7px;font-size:13.5px;cursor:pointer}
-.toggles input{accent-color:var(--ink);width:13px;height:13px}
-
-/* ---------- telemetry ---------- */
-.telemetry{position:fixed;left:40px;right:348px;bottom:calc(24px + var(--sab));display:flex;gap:clamp(18px,2.6vw,44px);
-  border-top:1px solid var(--line);padding-top:11px;z-index:2;pointer-events:none;flex-wrap:wrap}
-.metric dt{font:500 10px/1 var(--mono);letter-spacing:.08em;color:var(--graphite)}
-.metric dd{font:400 21px/1.15 var(--mono);margin-top:7px;font-variant-numeric:tabular-nums;letter-spacing:-.02em;white-space:nowrap}
-.metric .unit{font-size:11px;color:var(--graphite);margin-left:3px;letter-spacing:0}
-.metric.hot dd{color:var(--toast)}
-
-/* ---------- cursor, toast, ghost ---------- */
-.cursor{position:fixed;left:0;top:0;z-index:40;pointer-events:none;opacity:0;transition:opacity .15s}
-.cursor.show{opacity:1}
-.cursor .ring{position:absolute;left:0;top:0;width:34px;height:34px;transform:translate(-50%,-50%);border:1px solid var(--ink);border-radius:50%;
-  transition:width .18s ease,height .18s ease,border-color .18s}
-.cursor.over .ring{width:24px;height:24px;border-color:var(--toast)}
-.cursor.pressing .ring{width:18px;height:18px}
-.cursor .dot{position:absolute;left:0;top:0;width:var(--d,3px);height:var(--d,3px);transform:translate(-50%,-50%);border-radius:50%;background:var(--ink);transition:width .08s,height .08s}
-.cursor.over .dot{background:var(--toast)}
-.cursor .label{position:absolute;left:20px;top:12px;font:400 10.5px/1 var(--mono);white-space:nowrap;padding:4px 6px;background:var(--panel);
-  border:1px solid var(--line);border-radius:3px;color:var(--ink);font-variant-numeric:tabular-nums}
-.toast{position:fixed;left:50%;bottom:calc(112px + var(--sab));transform:translate(-50%,8px);z-index:30;max-width:min(440px,80vw);
-  padding:9px 14px;border-radius:6px;background:var(--ink);color:var(--paper);font-size:14.5px;font-style:italic;line-height:1.35;text-align:center;
-  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-.ghost{position:fixed;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;z-index:45;pointer-events:none;display:none;filter:drop-shadow(0 6px 8px rgba(59,35,23,.25))}
-.ghost.show{display:block}
-
-/* ---------- mid widths ---------- */
-@media (max-width:1240px){
-  .rail-left{width:250px;left:28px}
-  h1{font-size:clamp(50px,5vw,70px)}
-  .inspector{right:22px;width:262px}
-  .telemetry{left:28px;right:300px}
-  .metric dd{font-size:18px}
-}
-/* ---------- small screens: stacked lab notebook ---------- */
-@media (max-width:860px){
-  body{overflow:auto;height:auto}
-  .app{display:flex;flex-direction:column;padding-bottom:28px}
-  .rail-left{display:contents}
-  .masthead{order:1;padding:20px 18px 6px}
-  h1{font-size:54px;margin:10px 0 10px}
-  .stage{order:2;position:relative;inset:auto;height:62vh;min-height:360px}
-  .telemetry{order:3;position:static;margin:0 18px;padding-top:12px;gap:14px 24px}
-  .phases{order:4;margin:22px 18px 0}
-  .pantry{order:5;margin:20px 18px 0}
-  .inspector{order:6;position:static;width:auto;max-height:none;margin:20px 18px 0;overflow:visible}
-  .hint{min-height:0}
-  .toast{bottom:calc(24px + var(--sab));position:fixed}
-}
-@media (min-width:861px) and (max-height:960px){
-  .rail-left{gap:20px}
-  h1{font-size:clamp(46px,4.4vw,68px);margin:12px 0 12px -2px}
-  .dek{font-size:14.5px}
-  .hint{min-height:0;font-size:14px;margin-top:10px}
-  .phases li{padding:6px 0 5px}
-  .pantry-item{padding:5px 10px 5px 6px}
-  .pantry-item svg{width:32px;height:32px}
-  .pantry-item .sub{display:none}
-  .fine{display:none}
-}
-@media (min-width:861px) and (max-height:760px){
-  .dek{display:none}
-  .inspector .ends{display:none}
-}
-@media (prefers-reduced-motion:reduce){
-  *{transition-duration:.01ms !important}
-}
-</style>
-</head>
-<body>
-<div class="app">
-  <div class="stage" id="stage">
-    <div class="fallback" id="fallback">The 3D view needs WebGL and the Three.js library. Reload the page, or try a current desktop browser.</div>
-  </div>
-
-  <aside class="rail-left" aria-label="Recipe and pantry">
-    <header class="masthead">
-      <p class="kicker">MATERIAL STUDIES / NO. 14 — CHOCOLATE CHIP</p>
-      <h1>Cookie<br>Lab.</h1>
-      <p class="dek">Butter, sugar and heat.<br>Squish it raw.<br>Poke it warm.</p>
-    </header>
-
-    <section class="phases" aria-labelledby="phase-label">
-      <h2 class="section-label" id="phase-label"><span>Recipe</span><span id="phase-count">01 / 04</span></h2>
-      <ol>
-        <li data-phase="1"><span>01</span><span>PORTION</span><span class="mark" aria-hidden="true"></span></li>
-        <li data-phase="2"><span>02</span><span>EMBED</span><span class="mark" aria-hidden="true"></span></li>
-        <li data-phase="3"><span>03</span><span>BAKE &amp; EXPAND</span><span class="mark" aria-hidden="true"></span></li>
-        <li data-phase="4"><span>04</span><span>INSPECT</span><span class="mark" aria-hidden="true"></span></li>
-      </ol>
-      <p class="hint" id="hint" aria-live="polite"></p>
-    </section>
-
-    <section class="pantry" aria-labelledby="pantry-label">
-      <h2 class="section-label" id="pantry-label"><span>Pantry</span></h2>
-      <div class="pantry-list">
-        <button class="pantry-item" data-item="scoop" aria-pressed="false" title="Butter dough (D)">
-          <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="13" ry="3" fill="#3b2317" opacity=".12"/><path d="M8 27c-1-9 4-17 12-17s13 7 12 16c-.2 2-2 3-4 3H12c-2 0-3.8-.6-4-2z" fill="#e8c898"/><path d="M13 16c2-2.6 5-3.8 8-3.6" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="16" cy="22" r="1" fill="#c9a06a"/><circle cx="24" cy="19" r=".8" fill="#c9a06a"/><circle cx="26" cy="25" r="1" fill="#c9a06a"/></svg>
-          <span><span class="name">Butter dough</span><span class="sub">40 mm scoop</span></span>
-          <span class="count" id="count-dough">0 / 6</span>
-        </button>
-        <button class="pantry-item" data-item="chip" aria-pressed="false" title="Chocolate chunks (C)">
-          <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="11" ry="2.5" fill="#3b2317" opacity=".12"/><path d="M10 26l3-11 9-4 8 6 1 9-9 4z" fill="#3b2317"/><path d="M13 15l9-4 8 6-9 3z" fill="#5a3826"/><path d="M14 16.5l7-3" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" stroke-linecap="round"/></svg>
-          <span><span class="name">Chocolate chunks</span><span class="sub">70% semi-sweet</span></span>
-          <span class="count" id="count-chip">0</span>
-        </button>
-        <button class="pantry-item" data-item="salt" aria-pressed="false" title="Flaky sea salt (F)">
-          <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 22l7-6 9 1 5 5-8 4z" fill="#fff" stroke="#bdb6a8" stroke-width=".9"/><path d="M20 30l4-5 6 1 2 3-6 2z" fill="#fff" stroke="#bdb6a8" stroke-width=".9"/><path d="M11 13l4-3 5 1 1 3-6 1z" fill="#fff" stroke="#bdb6a8" stroke-width=".9"/></svg>
-          <span><span class="name">Flaky sea salt</span><span class="sub">Coarse pyramids</span></span>
-          <span class="count" id="count-salt">0</span>
-        </button>
-      </div>
-      <p class="fine">Click an ingredient to use it, or drag it onto the sheet.</p>
-    </section>
-  </aside>
-
-  <aside class="inspector" aria-label="The inspector">
-    <div class="insp-head"><h2>The inspector</h2><span class="fig">fig. 14</span></div>
-
-    <div class="group">
-      <h3 class="section-label">Tool</h3>
-      <div class="seg" role="group" aria-label="Tool">
-        <button data-tool="hand" aria-pressed="true" title="Hand / squish (H)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 12V5.5a1.5 1.5 0 013 0V11"/><path d="M11 10.5V4.5a1.5 1.5 0 013 0V11"/><path d="M14 10.5V6a1.5 1.5 0 013 0v7"/><path d="M8 11.5l-1.6-1.7a1.6 1.6 0 00-2.3 2.2L8 17c1.3 1.6 3 3 5.4 3H14a5 5 0 005-5V13"/><path d="M17 9.5a1.5 1.5 0 013 0V14"/></svg>
-          Hand
-        </button>
-        <button data-tool="scoop" aria-pressed="false" title="Scooper / drop (S)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13a6 6 0 0012 0z"/><path d="M15.5 12.5L21 4"/><path d="M7 16.5c1 .8 2.2 1.2 3 1.2"/></svg>
-          Scooper
-        </button>
-        <button data-tool="tongs" aria-pressed="false" title="Tongs / move (T)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l6 11v7"/><path d="M19 3l-6 11v7"/><path d="M8.5 9.5h7"/><path d="M9 20h6"/></svg>
-          Tongs
-        </button>
-      </div>
-    </div>
-
-    <div class="group">
-      <h3 class="section-label">Appliance</h3>
-      <div class="field">
-        <div class="field-row"><label for="watt">Microwave wattage</label><output id="watt-out" for="watt">900 W</output></div>
-        <input type="range" id="watt" min="600" max="1200" step="50" value="900">
-        <div class="ends"><span>600 W</span><span>1200 W</span></div>
-      </div>
-      <div class="field">
-        <div class="field-row"><label for="dur">Bake duration</label><output id="dur-out" for="dur">15 s</output></div>
-        <input type="range" id="dur" min="6" max="30" step="1" value="15">
-        <div class="ends"><span>gooey</span><span>crisp</span></div>
-      </div>
-      <div class="field">
-        <div class="field-row"><label for="moist">Internal moisture</label><output id="moist-out" for="moist">78 %</output></div>
-        <input type="range" id="moist" min="45" max="92" step="1" value="78">
-        <div class="ends"><span>dry, cracks more</span><span>wet, spreads more</span></div>
-      </div>
-      <div class="field">
-        <div class="field-row"><label for="mrate">Maillard reaction rate</label><output id="mrate-out" for="mrate">1.00×</output></div>
-        <input type="range" id="mrate" min="0.4" max="2.2" step="0.05" value="1">
-        <div class="ends"><span>pale</span><span>deep</span></div>
-      </div>
-    </div>
-
-    <div class="group">
-      <div class="timer"><span>Bake timer</span><strong id="timer">0:15</strong></div>
-      <div class="actions">
-        <button class="btn" id="btn-transfer">TRANSFER TO OVEN</button>
-        <button class="btn primary" id="btn-bake">START BAKE <kbd>B</kbd></button>
-        <button class="btn" id="btn-door">OPEN DOOR</button>
-        <button class="btn quiet" id="btn-reset">RESET SPECIMEN</button>
-      </div>
-    </div>
-
-    <div class="group toggles">
-      <label><input type="checkbox" id="opt-sound" checked> Sound</label>
-      <label><input type="checkbox" id="opt-lattice"> Show lattice</label>
-    </div>
-  </aside>
-
-  <dl class="telemetry" aria-label="Telemetry">
-    <div class="metric" id="m-temp"><dt>TEMPERATURE</dt><dd><span id="t-temp">24.2</span><span class="unit">°C</span></dd></div>
-    <div class="metric"><dt>CORE MOISTURE</dt><dd><span id="t-moist">78.4</span><span class="unit">%</span></dd></div>
-    <div class="metric"><dt>MAILLARD INDEX</dt><dd><span id="t-maillard">0.00</span></dd></div>
-    <div class="metric"><dt>CRACK COUNT</dt><dd><span id="t-crack">0</span></dd></div>
-    <div class="metric"><dt>DOUGH VISCOSITY</dt><dd><span id="t-visc">1.42</span><span class="unit">Pa·s</span></dd></div>
-  </dl>
-</div>
-
-<div class="cursor" id="cursor" aria-hidden="true"><div class="ring"></div><div class="dot"></div><div class="label" id="cursor-label">Contact 0.0 mm</div></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-<div class="ghost" id="ghost" aria-hidden="true"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.6.0/confetti.browser.min.js"></script>
-<script>
 // ============================================================
 // CORE — soft-body lattice, dough mechanics, thermal model.
 // Pure JavaScript (no Three.js), so it can be reasoned about
@@ -675,13 +371,27 @@ class SoftBody {
   get crackCount() { return Math.round(this.crack * (6 + 12 * this.s)); }
 }
 // ===== CORE END =====
+
 // ============================================================
 // RENDERER, SCENE, INTERACTION
 // ============================================================
-(function () {
+export function initFoodLab(root) {
+  const __ac = new AbortController();
+  const __sig = __ac.signal;
+  const __timers = new Set();
+  let __dead = false, __raf = 0, __extra = null;
+
+  function __body() {
 'use strict';
-const $ = (s, r = document) => r.querySelector(s);
-const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+// timers that die with the component
+const setTimeout = (fn, ms) => {
+  const id = window.setTimeout(() => { __timers.delete(id); if (!__dead) fn(); }, ms);
+  __timers.add(id);
+  return id;
+};
+const clearTimeout = (id) => { __timers.delete(id); window.clearTimeout(id); };
+const $ = (s, r = root) => r.querySelector(s);
+const $$ = (s, r = root) => Array.from(r.querySelectorAll(s));
 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 if (typeof THREE === 'undefined' || typeof gsap === 'undefined') {
@@ -788,12 +498,12 @@ const shadowFloorMat = new THREE.ShadowMaterial({ opacity: 0.14 });
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), shadowFloorMat);
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 function applyScheme() {
-  const t = document.documentElement.getAttribute('data-theme');
+  const t = root.getAttribute('data-theme');
   const dark = t ? t === 'dark' : darkScheme.matches;
   shadowFloorMat.opacity = dark ? 0.42 : 0.14;
 }
 applyScheme();
-if (darkScheme.addEventListener) darkScheme.addEventListener('change', applyScheme);
+if (darkScheme.addEventListener) darkScheme.addEventListener('change', applyScheme, { signal: __sig });
 
 // soft contact blobs (ambient occlusion stand-in)
 function blobTexture(alpha) {
@@ -1535,7 +1245,7 @@ function drawIdleLCD() { mw.drawLCD(fmtTime(params.dur), `${params.watt}W`, fals
 function bindRange(id, key, fmt, after) {
   const el = $('#' + id), out = $('#' + id + '-out');
   const sync = () => { params[key] = +el.value; out.textContent = fmt(params[key]); if (after) after(); };
-  el.addEventListener('input', sync); sync();
+  el.addEventListener('input', sync, { signal: __sig }); sync();
 }
 bindRange('watt', 'watt', v => `${v} W`, () => { if (state !== 'baking') drawIdleLCD(); });
 bindRange('dur', 'dur', v => `${v} s`, () => { if (state !== 'baking') { timer = params.dur; $('#timer').textContent = fmtTime(timer); drawIdleLCD(); } });
@@ -1547,13 +1257,13 @@ bindRange('moist', 'moist', v => `${v} %`, () => {
 });
 bindRange('mrate', 'mrate', v => `${v.toFixed(2)}×`);
 
-$$('.seg button').forEach(b => b.addEventListener('click', () => { Sound.init(); Sound.click(0.7); setTool(b.dataset.tool); }));
-$('#opt-sound').addEventListener('change', e => { Sound.init(); Sound.setOn(e.target.checked); });
-$('#opt-lattice').addEventListener('change', e => { ui.lattice = e.target.checked; doughs.forEach(d => { d.mat.wireframe = ui.lattice; }); });
-$('#btn-transfer').addEventListener('click', () => { Sound.init(); transferToOven(false); });
-$('#btn-bake').addEventListener('click', () => { Sound.init(); startBake(); });
-$('#btn-door').addEventListener('click', () => { Sound.init(); unload(false); });
-$('#btn-reset').addEventListener('click', () => { Sound.init(); resetSpecimen(); });
+$$('.seg button').forEach(b => b.addEventListener('click', () => { Sound.init(); Sound.click(0.7); setTool(b.dataset.tool); }, { signal: __sig }));
+$('#opt-sound').addEventListener('change', e => { Sound.init(); Sound.setOn(e.target.checked); }, { signal: __sig });
+$('#opt-lattice').addEventListener('change', e => { ui.lattice = e.target.checked; doughs.forEach(d => { d.mat.wireframe = ui.lattice; }); }, { signal: __sig });
+$('#btn-transfer').addEventListener('click', () => { Sound.init(); transferToOven(false); }, { signal: __sig });
+$('#btn-bake').addEventListener('click', () => { Sound.init(); startBake(); }, { signal: __sig });
+$('#btn-door').addEventListener('click', () => { Sound.init(); unload(false); }, { signal: __sig });
+$('#btn-reset').addEventListener('click', () => { Sound.init(); resetSpecimen(); }, { signal: __sig });
 
 // ---------------- camera views ----------------
 const views = {
@@ -1697,7 +1407,7 @@ stageEl.addEventListener('pointerdown', (e) => {
     const hs = hd || pickSheet();
     if (hs) { dropAtWorld(hs.point); claim(e); }
   }
-}, true);
+}, { capture: true, signal: __sig });
 
 window.addEventListener('pointermove', (e) => {
   pointer.x = e.clientX; pointer.y = e.clientY; pointer.mouse = e.pointerType === 'mouse';
@@ -1730,7 +1440,7 @@ window.addEventListener('pointermove', (e) => {
     const [x, z] = clampToSheet(l.x - drag.ox, l.z - drag.oz, d.body.footR);
     d.group.position.x = x; d.group.position.z = z;
   }
-});
+}, { signal: __sig });
 function endDrag() {
   if (!drag) return;
   if (drag.type === 'press') {
@@ -1744,10 +1454,10 @@ function endDrag() {
   drag = null;
   controls.enabled = !busy();
 }
-window.addEventListener('pointerup', endDrag);
-window.addEventListener('pointercancel', endDrag);
-canvas.addEventListener('pointerenter', (e) => { pointer.inside = true; if (e.pointerType === 'mouse') stageEl.classList.add('custom-cursor'); });
-canvas.addEventListener('pointerleave', () => { pointer.inside = false; stageEl.classList.remove('custom-cursor'); });
+window.addEventListener('pointerup', endDrag, { signal: __sig });
+window.addEventListener('pointercancel', endDrag, { signal: __sig });
+canvas.addEventListener('pointerenter', (e) => { pointer.inside = true; if (e.pointerType === 'mouse') stageEl.classList.add('custom-cursor'); }, { signal: __sig });
+canvas.addEventListener('pointerleave', () => { pointer.inside = false; stageEl.classList.remove('custom-cursor'); }, { signal: __sig });
 
 function updateCursor() {
   const show = pointer.inside && pointer.mouse;
@@ -1809,11 +1519,11 @@ $$('.pantry-item').forEach(btn => {
       if (item === 'scoop') { const h = pickDough() || pickSheet(); if (h) dropAtWorld(h.point); }
       else { const h = pickDough(); if (h) embedAt(h, item); else toast('Drop it onto a dough portion.'); }
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-  });
-  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pantryClick(btn.dataset.item); } });
+    window.addEventListener('pointermove', move, { signal: __sig });
+    window.addEventListener('pointerup', up, { signal: __sig });
+    window.addEventListener('pointercancel', up, { signal: __sig });
+  }, { signal: __sig });
+  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pantryClick(btn.dataset.item); } }, { signal: __sig });
 });
 function pantryClick(item) {
   Sound.click(0.6);
@@ -1832,7 +1542,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'f') setTool('salt');
   else if (k === 'd') { Sound.init(); setTool('scoop'); autoDrop(); }
   else if (k === 'b') { Sound.init(); if (!$('#btn-bake').disabled) startBake(); }
-});
+}, { signal: __sig });
 
 // ---------------- sequences ----------------
 let seq = null;
@@ -1970,14 +1680,16 @@ function resize() {
   camera.fov = camera.aspect < 1.25 ? Math.min(52, 30 * Math.pow(1.25 / camera.aspect, 0.85)) : 30;
   camera.updateProjectionMatrix();
 }
-if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
-window.addEventListener('resize', resize);
+const __ro = window.ResizeObserver ? new ResizeObserver(resize) : null;
+if (__ro) __ro.observe(stageEl);
+window.addEventListener('resize', resize, { signal: __sig });
 resize();
 
 // ---------------- loop ----------------
 const clock = new THREE.Clock();
 let teleT = 0, lcdT = 0;
 function frame() {
+  if (__dead) return;
   const dt = Math.min(clock.getDelta(), 1 / 30);
   if (state === 'baking') {
     timer -= dt;
@@ -2004,18 +1716,38 @@ function frame() {
   teleT -= dt;
   if (teleT <= 0) { teleT = 0.1; updateTelemetry(); }
   renderer.render(scene, camera);
-  requestAnimationFrame(frame);
+  __raf = requestAnimationFrame(frame);
 }
 
 // ---------------- boot ----------------
 drawIdleLCD();
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (state !== 'baking') drawIdleLCD(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (__dead) return; if (state !== 'baking') drawIdleLCD(); });
 setPhase(1); setTool('hand'); refreshButtons(); updateTelemetry();
-requestAnimationFrame(frame);
+__raf = requestAnimationFrame(frame);
 // open with one portion already on the sheet so the specimen is the first thing seen
 setTimeout(() => { if (!doughs.length) { const d = addDough(0, 0); if (d) d.gy = 0.55; } }, reduced ? 0 : 450);
-})();
 
-</script>
-</body>
-</html>
+// ---------------- teardown (React unmount) ----------------
+__extra = () => {
+  if (__ro) __ro.disconnect();
+  try { Sound.humStop(); } catch (e) {}
+  try { if (Sound.ctx && Sound.ctx.state !== 'closed') Sound.ctx.close(); } catch (e) {}
+  try { controls.dispose(); } catch (e) {}
+  try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) {}
+  if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+};
+  }
+
+  try { __body(); } catch (err) { console.error('[food-lab]', err); }
+
+  return function dispose() {
+    __dead = true;
+    __ac.abort();
+    cancelAnimationFrame(__raf);
+    __timers.forEach((id) => window.clearTimeout(id));
+    __timers.clear();
+    try { gsap.globalTimeline.clear(); } catch (e) {}
+    try { confetti.reset(); } catch (e) {}
+    if (__extra) { try { __extra(); } catch (e) {} }
+  };
+}

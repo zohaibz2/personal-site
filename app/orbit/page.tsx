@@ -22,7 +22,7 @@ const tools = [
   {
     title: "The Food Lab",
     emoji: "\u{1F36A}",
-    href: "/food-lab.html",
+    href: "/orbit/food-lab",
     blurb: "Squish raw dough, bake it, and poke at the physics. A playful 3D material study.",
   },
 ];
