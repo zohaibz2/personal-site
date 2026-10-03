@@ -49,7 +49,8 @@ export function buildFry(M) {
   const root = new THREE.Group();
 
   // ---- oil
-  const oilMat = new THREE.MeshPhysicalMaterial({ color: 0xd8961c, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.05, transparent: true, opacity: 0.8 });
+  const OIL_FRESH = new THREE.Color(0xc4841a), OIL_USED = new THREE.Color(0x8a4a0c);
+  const oilMat = new THREE.MeshPhysicalMaterial({ color: OIL_FRESH.clone(), roughness: 0.02, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.62, envMapIntensity: 1.4 });
   const oil = new THREE.Mesh(new THREE.CircleGeometry(1, 48), oilMat);
   oil.rotation.x = -Math.PI / 2;
   oil.visible = false;
@@ -137,6 +138,7 @@ export function buildFry(M) {
   function setBrown(p) {
     const c = brownAt(Math.max(0, Math.min(1, p)));
     ringMat.color.setRGB(c[0], c[1], c[2]);
+    oilMat.color.copy(OIL_FRESH).lerp(OIL_USED, 0.6 * Math.max(0, Math.min(1, p))); // the oil takes on colour too
     shrink = 1 - 0.28 * Math.max(0, Math.min(1, p));
   }
 

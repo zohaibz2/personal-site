@@ -4,7 +4,8 @@
 // a flickering light and the sparks from the lighter. Everything is unlit and
 // additive, so it reads as light rather than as geometry.
 //
-//   update(dt, time, flow, lit)  flow is 0..1 (how far the knob is open)
+//   update(dt, time, flow, lit, capped)  flow is 0..1 (how far the knob is
+//                                open); capped = a pot is sitting on the burner
 //   spark()                      one click of the lighter at the burner rim
 //   ignite(k)                    the flame catches; k = 0..1 is how much gas had built up
 import * as THREE from "three";
@@ -101,9 +102,12 @@ export function buildBurnerFlame(center) {
   const seeds = [];
   for (let i = 0; i < JETS; i++) seeds.push([Math.random() * 10, 0.7 + Math.random() * 0.6]);
   const dummy = new THREE.Object3D();
-  let size = 0, flare = 0, flash = 0, lift = 0, weak = 0;
+  let size = 0, flare = 0, flash = 0, lift = 0, weak = 0, cap = 0;
 
-  function update(dt, time, flow, lit) {
+  function update(dt, time, flow, lit, capped = false) {
+    // with a pot on the burner (its base is only ~5 mm above the ports) the
+    // flame spreads out flat underneath it instead of rising
+    cap += ((capped ? 1 : 0) - cap) * (1 - Math.exp(-dt * 5));
     const target = lit ? 0.45 + 0.75 * flow : 0;
     size += (target - size) * (1 - Math.exp(-dt * (lit ? 9 : 16)));
     if (!lit && size < 0.01) size = 0;
@@ -120,9 +124,10 @@ export function buildBurnerFlame(center) {
     const show = size > 0;
     outer.visible = inner.visible = tips.visible = show;
     if (show) {
-      const lean = 0.9 - 0.3 * lift;
+      const lean = (0.9 - 0.3 * lift) * (1 - cap) + 1.47 * cap;
       const sl = Math.sin(lean), cl = Math.cos(lean);
       const w = 0.85 + 0.35 * Math.min(1, size) + 0.25 * lift;
+      const wx = w * (1 - 0.8 * cap); // under a pot the jets are squashed flat too, not just leaned
       const amp = 0.05 + 0.3 * lift + 0.5 * weak;
       for (let i = 0; i < JETS; i++) {
         const ang = (i / JETS) * TAU;
@@ -132,20 +137,20 @@ export function buildBurnerFlame(center) {
         if (weak > 0.25 && Math.sin(time * 4.3 * sp + sd * 9) > 1 - weak * 0.8) h *= 0.15;
         h = Math.max(0.05, h);
         const r = RIM + 0.004 * lift;
-        const y = 0.0015 + lift * 0.006 * (0.5 + 0.5 * Math.sin(time * 23 + sd));
+        const y = (0.0015 + lift * 0.006 * (0.5 + 0.5 * Math.sin(time * 23 + sd))) * (1 - cap);
         const ca = Math.cos(ang), sa = Math.sin(ang);
         dummy.position.set(ca * r, y, -sa * r);
         dummy.rotation.set(0, ang, -lean);
-        dummy.scale.set(w, h, w);
+        dummy.scale.set(wx, h, w);
         dummy.updateMatrix();
         outer.setMatrixAt(i, dummy.matrix);
-        dummy.scale.set(w, h * 0.9, w);
+        dummy.scale.set(wx, h * 0.9, w);
         dummy.updateMatrix();
         inner.setMatrixAt(i, dummy.matrix);
         // orange tips sit at the end of each jet
         const reach = 0.024 * h * 0.82;
         dummy.position.set(ca * (r + sl * reach), y + cl * reach, -sa * (r + sl * reach));
-        dummy.scale.set(w, h * 0.8, w);
+        dummy.scale.set(wx, h * 0.8, w);
         dummy.updateMatrix();
         tips.setMatrixAt(i, dummy.matrix);
       }

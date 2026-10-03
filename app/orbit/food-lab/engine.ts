@@ -1605,7 +1605,8 @@ export function initFoodLab(root) {
   // it get hot, tip the onions in off the board, then stir them with the
   // kafgir until they're golden brown. Left unstirred, rings scorch and smoke.
   const FRY_S = 20;        // seconds of frying from raw to golden brown
-  const KAFGIR_YAW = -1.107, KAFGIR_U = [Math.cos(-1.107), -Math.sin(-1.107)]; // handle's horizontal direction (x, z)
+  // the handle points right and a little towards you, so you see the spoon side-on
+  const KAFGIR_YAW = -0.35, KAFGIR_U = [Math.cos(-0.35), -Math.sin(-0.35)]; // handle's horizontal direction (x, z)
   const POT_RIM_R = 0.158, POT_RIM_Y = 0.152; // the degchi's rim, in its own space
   const POUR_RATE = 0.008; // metres of oil per second at full pour
   const HEAT_S = 3;        // seconds for the oil to get hot
@@ -1632,7 +1633,8 @@ export function initFoodLab(root) {
 
   function openStove() {
     const P = S.potHome;
-    openView("stove", new THREE.Vector3(P.x + 0.06, P.y + 0.42, P.z + 0.34), new THREE.Vector3(P.x, P.y + 0.05, P.z));
+    // aimed a little above the oil so the kafgir's raised handle stays in view
+    openView("stove", new THREE.Vector3(P.x + 0.06, P.y + 0.42, P.z + 0.34), new THREE.Vector3(P.x, P.y + 0.085, P.z));
   }
 
   function exitStove() {
@@ -1660,6 +1662,7 @@ export function initFoodLab(root) {
       d.position.lerpVectors(p0, S.potHome, ease(k));
       d.position.y += Math.sin(Math.PI * k) * 0.05;
       shadowsDirty = true;
+      if (k > 0.8) S.potOnFlame = true; // the flame flattens out under it
     }, () => {
       Sound.place();
       // then the lid comes off onto the free burner
@@ -1801,6 +1804,7 @@ export function initFoodLab(root) {
       b.obj.updateMatrixWorld();
       f.setStream(b.obj.localToWorld(mouth.set(0, b.obj.userData.mouth || 0.26, 0)), P.y + f.surface);
     } else f.setStream(null);
+    if (b && b.obj.userData.pourNeck) b.obj.userData.pourNeck.visible = streaming;
     // the oil heats up
     if (fr.state === "heat") {
       fr.heat = Math.min(1, fr.heat + dt / HEAT_S);
@@ -1830,7 +1834,7 @@ export function initFoodLab(root) {
     const k = S.kafgir, ke = ease(fr.kBlend);
     if (ke > 0 || k.moved) {
       kP.set(P.x + fr.sx, P.y + f.surface + 0.012, P.z + fr.sz);
-      // head nearly flat in the oil, handle towards you and a little right
+      // head nearly flat in the oil, handle to the right and a little towards you
       // (horizontal direction U); the neck rises just steeply enough to clear
       // the rim from wherever the head is
       kQ.setFromEuler(kE.set(0, KAFGIR_YAW, 0.15, "YXZ"));
@@ -2076,7 +2080,7 @@ export function initFoodLab(root) {
     if (phase !== "gather") {
       updateStove(dt);
       updateGuide(time);
-      S.flame.update(dt, time, stove.flow, stove.lit);
+      S.flame.update(dt, time, stove.flow, stove.lit, S.potOnFlame);
     }
     syncDebug();
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }

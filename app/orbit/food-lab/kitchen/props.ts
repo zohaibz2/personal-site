@@ -504,8 +504,13 @@ export function buildOil(M) {
   const cap = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.022, 24), M.capRed, 0, h + 0.008, 0);
   g.add(cap);
   g.add(mesh(new THREE.CylinderGeometry(r * 1.012, r * 1.012, 0.09, 32, 1, true), M.labelOil, 0, 0.1, 0));
+  // oil running down the (clear) neck, shown while pouring
+  const pourNeck = mesh(new THREE.CylinderGeometry(0.0115, 0.03, 0.07, 16), M.liquidOil, 0, 0.225, 0);
+  pourNeck.visible = false;
+  g.add(pourNeck);
   // the frying step takes the cap off and lowers the oil inside
   g.userData.cap = cap;
+  g.userData.pourNeck = pourNeck;
   g.userData.liquid = g.children[0];
   g.userData.mouth = h;
   return shadowed(g);
