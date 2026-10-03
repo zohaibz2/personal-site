@@ -216,8 +216,12 @@ export function buildMarinade(M) {
     }
   }
 
+  // Tipped into the pot: hand over the chicken pieces, and leave the bowl empty.
+  function takePieces() { const out = pieces.map((p) => p.mesh); pieces.length = 0; return out; }
+  function empty() { setPool(0); for (const l of lumps) l.m.visible = false; }
+
   return {
-    root, planPiece, addPiece, addDahi, addChopped, addMound, sprinkle, stir, setMix, update,
+    root, planPiece, addPiece, addDahi, addChopped, addMound, sprinkle, stir, setMix, update, takePieces, empty,
     get bursts() { return bursts; },
     get pieces() { return pieces.length; },
     get lumps() { return lumps.length; },

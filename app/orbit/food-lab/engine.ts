@@ -10,16 +10,19 @@
 // rings. Then fry them: move the degchi onto the flame, hold to pour the
 // oil, tip the onions in off the board, and stir until golden brown. Last,
 // marinate the chicken: bring the bowl, add eight ingredients, and mix.
-// Stage 3 (cook) starts by lifting the birista out of the oil onto a plate.
+// Stage 3 (cook) starts by lifting the birista out of the oil onto a plate,
+// then the korma: whole spices, vegetables and the marinated chicken go into
+// the oil, and it's stirred until the masala darkens and the oil separates.
 // No text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
 // Testing shortcuts: /orbit/food-lab?stage=2 starts with everything already
 // unloaded on the prep table; ?step=slice also has the stove already lit;
 // ?step=fry also has the onions sliced on the board; ?step=marinate also has
-// the birista fried; ?step=lift starts Stage 3 with the chicken marinated.
+// the birista fried; ?step=lift starts Stage 3 with the chicken marinated;
+// ?step=korma also has the birista on its plate.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt, pot, mar, added, mix, sprinkles, lift) mirrors the game state
+// brown, burnt, pot, mar, added, mix, sprinkles, lift, korma, kadded, cook) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -30,6 +33,7 @@ import { buildOnionStation, CUT, TRIM_TIP, TRIM_ROOT, SLICE_T, radiusAt, zAt } f
 import { buildFry, OIL_TARGET, SPOON_R } from "./kitchen/fry";
 import { buildMarinade } from "./kitchen/marinade";
 import { buildBirista } from "./kitchen/birista";
+import { buildKorma } from "./kitchen/korma";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -651,6 +655,9 @@ export function initFoodLab(root) {
     S.birista = buildBirista(S.fry.ringMat);
     K.kafgir.add(S.birista.carry);
     K.plate.add(S.birista.pile);
+    // the korma, cooked in the same degchi
+    S.korma = buildKorma(M);
+    deg.add(S.korma.root);
     scene.add(S.fry.stream);
     S.kafgir = { obj: K.kafgir, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
     S.plate = K.plate;
@@ -977,6 +984,7 @@ export function initFoodLab(root) {
     if (it.type === "item" && phase === "slice") { if (it.id === "onions") bringOnion(); }
     else if (it.type === "item" && phase === "fry") { if (it.id === "oil") startPourView(); }
     else if (it.type === "item" && phase === "marinate") { if (MAR.includes(it.id)) addIngredient(it.id); }
+    else if (it.type === "item" && phase === "korma") addKorma(it.id);
     else if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
@@ -984,7 +992,7 @@ export function initFoodLab(root) {
     else if (it.type === "knife") { if (phase === "fry") startTip(); else enterBoard(); }
     else if (it.type === "pot") potClick();
     else if (it.type === "board") startTip();
-    else if (it.type === "bowl") { if (mr.state === "bowl") bringBowl(); else openBowl(); }
+    else if (it.type === "bowl") { if (phase === "korma") addKorma("chicken"); else if (mr.state === "bowl") bringBowl(); else openBowl(); }
     else if (it.type === "knob") knobClick();
     else if (it.type === "burner") clickLighter();
   }
@@ -1175,6 +1183,12 @@ export function initFoodLab(root) {
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
     if (phase === "lift") return lf.done || view.mode ? null : "potLit";
+    if (phase === "korma") {
+      if (km.done || view.mode || km.busy) return null;
+      if (km.state === "cook") return "potLit";
+      const n = kormaNext();
+      return n ? "k_" + n : null;
+    }
     if (phase === "marinate") {
       if (mr.done || view.mode || mr.busy) return null;
       if (mr.state === "bowl") return "bowlHome";
@@ -1208,6 +1222,12 @@ export function initFoodLab(root) {
     set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "lift") set(S.degchi.mats, hovered(S.degchi.obj) ? 0.22 + 0.14 * Math.sin(time * 6) : target === "potLit" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "korma") {
+      const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
+      set(S.degchi.mats, hovered(S.degchi.obj) ? hk : glow(target === "potLit"));
+      set(S.bowl.mats, hovered(S.bowl.obj) ? hk : glow(target === "k_chicken"));
+      for (const id of VEG.concat(["garam"])) if (!km.added.has(id)) set(S.items[id].mats, hovered(S.items[id].obj) ? hk : glow(target === "k_" + id));
+    }
     if (phase === "marinate") {
       const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
       set(S.bowl.mats, hovered(S.bowl.obj) ? hk : glow(target === "bowlHome" || target === "bowl"));
@@ -1420,7 +1440,7 @@ export function initFoodLab(root) {
   // In station space the knife's heel sits on the -x side (towards you on the
   // board) and the blade runs along +x across the onion.
   const KX = CUT.x - 0.085;
-  const seen = { cut: false, peel: false, pour: false, stir: false, mix: false, lift: false };
+  const seen = { cut: false, peel: false, pour: false, stir: false, mix: false, lift: false, korma: false };
   const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
   const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
   const maxTop = (a0, a1) => { let m = 0; for (let i = 0; i <= 6; i++) m = Math.max(m, topAt(a0 + ((a1 - a0) * i) / 6)); return m; };
@@ -1689,6 +1709,7 @@ export function initFoodLab(root) {
     else if (view.mode === "stove" && view.blend >= 1) g = fr.state === "pour" && !seen.pour ? "hold" : fr.state === "stir" && !seen.stir && fr.kBlend >= 1 ? "stir" : "";
     else if (view.mode === "bowl" && view.blend >= 1 && mr.sBlend >= 1 && !seen.mix && !mr.done) g = "stir";
     if (phase === "lift") g = view.mode === "stove" && view.blend >= 1 && lf.blend >= 1 && !lf.done && !seen.lift ? "cut" : "";
+    if (phase === "korma") g = view.mode === "stove" && view.blend >= 1 && km.blend >= 1 && !km.done && !seen.korma ? "stir" : "";
     if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
   }
 
@@ -1744,12 +1765,14 @@ export function initFoodLab(root) {
     if (fr.state === "pour") { fr.state = "oil"; addPick(S.items.oil.obj); }
     if (fr.state === "stir") addPick(S.degchi.obj); // come back to keep stirring
     if (phase === "lift" && !lf.done) { lf.auto = null; lf.state = "pot"; addPick(S.degchi.obj); }
+    if (phase === "korma" && km.state === "cook" && !km.done) { km.auto = null; addPick(S.degchi.obj); }
   }
 
   // Click the degchi: first it moves onto the flame, later it's how you come
   // back to stir.
   function potClick() {
     if (phase === "lift") { liftPotClick(); return; }
+    if (phase === "korma") { kormaPotClick(); return; }
     if (fr.state === "pot") moveDegchi();
     else if (fr.state === "stir" && !view.mode) { dropPick(S.degchi.obj); openStove(); }
   }
@@ -1846,13 +1869,15 @@ export function initFoodLab(root) {
   // ---- stove view input
   function stovePress(click) {
     if (phase === "lift") { liftPress(click); return; }
+    if (phase === "korma") { if (click) kormaAuto(); return; }
     if (fr.state === "pour") fr.pouring = true;
     else if (fr.state === "stir" && click) autoStir();
   }
   function stoveRelease() { fr.pouring = false; }
-  function stoveTap() { if (phase === "lift") autoScoop(); else if (fr.state === "stir") autoStir(); }
+  function stoveTap() { if (phase === "lift") autoScoop(); else if (phase === "korma") kormaAuto(); else if (fr.state === "stir") autoStir(); }
   function stoveMove(dx, dy, sens) {
     if (phase === "lift") { liftMove(dx, dy, sens); return; }
+    if (phase === "korma") { kormaMove(dx, dy, sens); return; }
     if (fr.state !== "stir" || fr.kBlend < 0.98 || fr.auto) return;
     // the camera faces the pot from the front, so screen right is +x and down is +z
     moveSpoon(dx * sens * 0.9, dy * sens * 0.9);
@@ -2306,6 +2331,7 @@ export function initFoodLab(root) {
     Sound.stepDone();
     setStep("lift", "got");
     later(exitStove, 1200);
+    later(enterKorma, 2000);
   }
 
   // every frame of this step: the kafgir's pose (dipping, or carrying a heap
@@ -2389,6 +2415,266 @@ export function initFoodLab(root) {
     enterStage3();
   }
 
+  // ================================================================ STAGE 3, STEP 2: THE KORMA
+  // In the oil the birista came out of: whole spices first (the garam masala
+  // jar is shaken over the pot and they crackle), then tomatoes, green
+  // chillies, potatoes and aloo bukhara (any order), then the bowl of
+  // marinated chicken is tipped in. Then bhuno: stir it in the stove view
+  // until the masala darkens and the oil separates at the edge.
+  const KORMA = ["garam", "tomatoes", "chillies", "potatoes", "alooBukhara", "chicken"];
+  const VEG = ["tomatoes", "chillies", "potatoes", "alooBukhara"];
+  const COOK_S = 18;       // seconds of steady stirring to cook it down
+  const km = { state: "none", added: new Set(), busy: false, cook: 0, stir: 1, sx: 0.02, sz: 0.02, blend: 0, auto: null, scorchT: 0, smoke: 0, done: false, scrapeAt: 0, seen: 0, levelT: 0 };
+  const kSlots = {};
+
+  function enterKorma() {
+    if (phase === "korma") return;
+    phase = "korma";
+    setStep("korma", "now");
+    km.state = "add";
+    for (const id of VEG.concat(["garam"])) {
+      const o = S.items[id].obj;
+      S.hintSpots["k_" + id] = [o.position.x, o.position.y + 0.002, o.position.z, 0.24];
+    }
+    S.hintSpots.k_chicken = S.hintSpots.bowl;
+    if (ui.mix) {
+      ui.mix.innerHTML = "";
+      for (const id of KORMA) {
+        const s = document.createElement("span");
+        s.className = "fl-slot";
+        const img = document.createElement("img");
+        img.alt = ""; img.draggable = false;
+        if (S.thumbs && S.thumbs[id]) img.src = S.thumbs[id];
+        s.appendChild(img);
+        ui.mix.appendChild(s);
+        kSlots[id] = s;
+      }
+      ui.mix.classList.add("show");
+    }
+    addPick(S.items.garam.obj); // whole spices go in first
+  }
+
+  // what may go in now: the whole spices first, the chicken last
+  const kormaAllowed = (id) => !km.added.has(id) && (id === "garam" ? true : !km.added.has("garam") ? false : id === "chicken" ? VEG.every((v) => km.added.has(v)) : true);
+  const kormaNext = () => KORMA.find((id) => kormaAllowed(id)) || null;
+
+  function addKorma(id) {
+    if (km.state !== "add" || km.busy || !kormaAllowed(id)) return;
+    km.busy = true;
+    const o = id === "chicken" ? S.bowl.obj : S.items[id].obj;
+    dropPick(o);
+    const mats = id === "chicken" ? S.bowl.mats : S.items[id].mats;
+    for (const m of mats) m.emissiveIntensity = 0;
+    const done = () => {
+      km.added.add(id);
+      km.busy = false;
+      if (kSlots[id]) kSlots[id].classList.add("got");
+      Sound.collect();
+      if (id === "garam") for (const v of VEG) addPick(S.items[v].obj);
+      if (VEG.every((v) => km.added.has(v)) && !km.added.has("chicken") && id !== "chicken") addPick(S.bowl.obj);
+      if (km.added.size === KORMA.length) { km.state = "cook"; addPick(S.degchi.obj); }
+    };
+    if (id === "garam") shakeSpices(o, done);
+    else if (id === "chicken") tipChicken(o, done);
+    else dropVeg(id, o, done);
+  }
+
+  // a point over the degchi, and the same point in the degchi's own space
+  const overPot = (x, y, z) => new THREE.Vector3(S.potHome.x + x, S.potHome.y + y, S.potHome.z + z);
+  const inPot = (w) => w.clone().sub(S.potHome); // the degchi isn't rotated
+
+  // The garam masala jar is held over the pot and shaken; the whole spices
+  // drop into the hot oil and crackle.
+  function shakeSpices(o, done) {
+    const home = o.position.clone(), homeQ = o.quaternion.clone();
+    const size = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+    const lid = o.children[2], tilt = 1.75, over = overPot(0.1, 0.3, 0);
+    const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, tilt)), upQ = new THREE.Quaternion();
+    const axis = new THREE.Vector3(-Math.sin(tilt), Math.cos(tilt), 0);
+    tween(0.7, (k) => {
+      o.position.lerpVectors(home, over, ease(k));
+      o.position.y += Math.sin(Math.PI * k) * 0.15;
+      o.quaternion.copy(homeQ).slerp(upQ, ease(k));
+      shadowsDirty = true;
+    }, () => {
+      if (lid) lid.visible = false;
+      tween(0.35, (k) => { o.quaternion.copy(upQ).slerp(tiltQ, ease(k)); }, () => {
+        let prev = 0, dropped = false;
+        tween(1.0, (k) => {
+          const s = Math.sin(k * Math.PI * 2 * 4);
+          o.position.copy(over).addScaledVector(axis, s * 0.014);
+          if (prev >= 0 && s < 0) {
+            Sound.shake();
+            if (!dropped) {
+              dropped = true;
+              o.updateMatrixWorld(true);
+              S.korma.addSpices(inPot(o.localToWorld(new THREE.Vector3(0, size.y, 0))));
+              for (let i = 0; i < 6; i++) later(() => Sound.pop(), 200 + i * 70 + Math.random() * 60); // they crackle in the oil
+            }
+          }
+          prev = s;
+          shadowsDirty = true;
+        }, () => {
+          tween(0.3, (k) => { o.quaternion.copy(tiltQ).slerp(upQ, ease(k)); }, () => {
+            if (lid) lid.visible = true;
+            tween(0.7, (k) => {
+              o.position.lerpVectors(over, home, ease(k));
+              o.position.y += Math.sin(Math.PI * k) * 0.15;
+              o.quaternion.copy(upQ).slerp(homeQ, ease(k));
+              shadowsDirty = true;
+            }, () => { Sound.place(); done(); });
+          });
+        });
+      });
+    });
+  }
+
+  // Tomatoes, chillies, potatoes and aloo bukhara: the whole thing comes over
+  // the pot and drops in as chopped pieces (or halves, or whole plums).
+  function dropVeg(id, o, done) {
+    const p0 = o.position.clone(), over = overPot(0, 0.24, 0);
+    const blob = o.userData.blob;
+    if (blob) blob.visible = false;
+    tween(0.7, (k) => {
+      o.position.lerpVectors(p0, over, ease(k));
+      o.position.y += Math.sin(Math.PI * k) * 0.15;
+      shadowsDirty = true;
+    }, () => {
+      o.visible = false;
+      S.korma.addVeg(id, inPot(over));
+      later(() => Sound.splash(), 250);
+      later(done, 500);
+    });
+  }
+
+  // The bowl of marinated chicken is tipped over the pot: the pieces and the
+  // masala slide in, and the bowl goes back to the table empty.
+  function tipChicken(b, done) {
+    const home = b.position.clone(), over = overPot(0.12, 0.36, 0); // its mouth over the middle of the pot (checked)
+    const blob = b.userData.blob;
+    if (blob) blob.visible = false;
+    S.spoon.obj.visible = false; // set aside while the bowl is tipped
+    tween(0.8, (k) => {
+      b.position.lerpVectors(home, over, ease(k));
+      b.position.y += Math.sin(Math.PI * k) * 0.12;
+      shadowsDirty = true;
+    }, () => {
+      tween(0.4, (k) => { b.rotation.set(0, 0, 1.9 * ease(k)); shadowsDirty = true; }, () => {
+        b.updateMatrixWorld(true);
+        for (const pc of S.marinade.takePieces()) {
+          const from = inPot(pc.getWorldPosition(new THREE.Vector3()));
+          S.korma.addChicken(pc, from);
+        }
+        S.marinade.empty();
+        km.levelT = 0.001; // the masala spreads over the bottom
+        S.fry.setOil(0);
+        later(() => Sound.splash(), 200);
+        later(() => {
+          tween(0.35, (k) => { b.rotation.set(0, 0, 1.9 * (1 - ease(k))); }, () => {
+            tween(0.8, (k) => {
+              b.position.lerpVectors(over, home, ease(k));
+              b.position.y += Math.sin(Math.PI * k) * 0.12;
+              shadowsDirty = true;
+            }, () => {
+              if (blob) blob.visible = true;
+              S.spoon.obj.visible = true;
+              Sound.place();
+              done();
+            });
+          });
+        }, 700);
+      });
+    });
+  }
+
+  // ---- bhuno: stirring in the stove view
+  function kormaPotClick() {
+    if (km.state !== "cook" || km.done || view.mode) return;
+    dropPick(S.degchi.obj);
+    openStove();
+  }
+  function kormaMove(dx, dy, sens) {
+    if (km.state !== "cook" || km.blend < 0.98 || km.auto || km.done) return;
+    kormaSpoon(dx * sens * 0.9, dy * sens * 0.9);
+  }
+  function kormaSpoon(mx, mz) {
+    let nx = km.sx + mx, nz = km.sz + mz;
+    const d = Math.hypot(nx, nz);
+    if (d > SPOON_R) { nx *= SPOON_R / d; nz *= SPOON_R / d; }
+    for (let i = 0; i < 3; i++) { const short = KAFGIR_MIN_REACH - toRim(nx, nz); if (short <= 0) break; nx -= KAFGIR_U[0] * short; nz -= KAFGIR_U[1] * short; }
+    const dx = nx - km.sx, dz = nz - km.sz, amt = Math.hypot(dx, dz);
+    S.korma.stir(km.sx, km.sz, dx, dz);
+    km.sx = nx; km.sz = nz;
+    km.stir = Math.min(1, km.stir + amt * 4);
+    km.seen += amt;
+    if (km.seen > 0.15) seen.korma = true;
+    if (amt > 0.003 && time > km.scrapeAt) { km.scrapeAt = time + 0.12; Sound.scrape(); }
+  }
+  function kormaAuto() {
+    if (km.state !== "cook" || km.blend < 0.98 || km.auto || km.done) return;
+    km.auto = { a: Math.atan2(km.sz, km.sx), t: 0 };
+  }
+  function kormaDone() {
+    km.done = true;
+    km.state = "done";
+    Sound.stepDone();
+    setStep("korma", "got");
+    if (ui.mix) ui.mix.classList.remove("show");
+    dropPick(S.degchi.obj);
+    later(exitStove, 1500);
+  }
+
+  const kmP = new THREE.Vector3(), kmQ = new THREE.Quaternion(), kmE = new THREE.Euler();
+  function updateKorma(dt) {
+    const P = S.potHome, K = S.korma;
+    // the masala spreads over the bottom once the chicken is in
+    if (km.levelT > 0 && km.levelT < 1) { km.levelT = Math.min(1, km.levelT + dt / 0.5); K.setLevel(0.032 * ease(km.levelT)); }
+    if (km.state === "cook" && !km.done) {
+      if (km.auto) {
+        km.auto.t += dt;
+        const a = km.auto.a + km.auto.t * Math.PI * 2;
+        kormaSpoon(Math.cos(a) * 0.07 - km.sx, Math.sin(a) * 0.07 - km.sz);
+        if (km.auto.t >= 1) km.auto = null;
+      }
+      km.stir = Math.max(0, km.stir - dt * 0.3);
+      // it cooks while it's on the flame; stirred, it cooks evenly and faster
+      km.cook = Math.min(1, km.cook + (dt / COOK_S) * (km.stir > 0.2 ? 1 : 0.35));
+      K.setCook(km.cook);
+      if (km.cook >= 1) kormaDone();
+    }
+    const smoky = km.state === "cook" && !km.done && km.stir < 0.2 && km.cook > 0.2 ? 1 : 0;
+    km.smoke += (smoky - km.smoke) * (1 - Math.exp(-dt * 2));
+    // the kafgir, stirring in the masala
+    km.blend = clamp(km.blend + ((km.state === "cook" && view.mode === "stove" ? 1 : -1) * dt) / 0.5, 0, 1);
+    const k = S.kafgir, e = ease(km.blend);
+    if (e > 0 || k.moved) {
+      const tilt = kafgirTilt(km.sx, km.sz);
+      kmQ.setFromEuler(kmE.set(0, KAFGIR_YAW, tilt, "YXZ"));
+      kmP.set(P.x + km.sx, P.y + Math.max(0.02, K.level) - 0.008 + 0.045 * Math.sin(tilt), P.z + km.sz);
+      k.obj.position.lerpVectors(k.home, kmP, e);
+      k.obj.position.y += Math.sin(Math.PI * e) * 0.1;
+      k.obj.quaternion.copy(k.homeQ).slerp(kmQ, e);
+      k.moved = e > 0;
+      shadowsDirty = true;
+    }
+    if (K.update(dt) > 0 || K.falling) shadowsDirty = true;
+    S.marinade.update(dt);
+    S.fry.update(dt, km.state === "cook" && !km.done ? 0.25 : 0.1, km.smoke);
+    const sizzle = km.done ? 0.012 : km.added.has("chicken") ? 0.03 : 0.012;
+    if (Math.abs(sizzle - fr.sizzle) > 0.002) { fr.sizzle = sizzle; Sound.sizzleSet(sizzle); }
+  }
+
+  // ?step=korma: the birista is already on its plate
+  function skipLift() {
+    const got = S.fry.takeNear(0, 0, 999);
+    S.birista.fillPlate(got.length);
+    lf.done = true;
+    lf.state = "done";
+    dropPick(S.degchi.obj);
+    setStep("lift", "got");
+    enterKorma();
+  }
+
   // ?step=slice: the stove is already burning steady
   function skipLight() {
     setKnob(KNOB_MAX * 0.62);
@@ -2467,6 +2753,10 @@ export function initFoodLab(root) {
     if (d.lift !== lft) d.lift = lft;
     if (d.potRings !== rem) d.potRings = rem;
     if (d.onPlate !== onPlate) d.onPlate = onPlate;
+    const kst = km.state, kad = String(km.added.size), kc = km.cook.toFixed(2);
+    if (d.korma !== kst) d.korma = kst;
+    if (d.kadded !== kad) d.kadded = kad;
+    if (d.cook !== kc) d.cook = kc;
   }
 
   // ---------------------------------------------------------------- input
@@ -2634,6 +2924,7 @@ export function initFoodLab(root) {
     if (phase === "fry") updateFry(dt);
     if (phase === "marinate") updateMarinate(dt);
     if (phase === "lift") updateLift(dt);
+    if (phase === "korma") updateKorma(dt);
     updateView(dt);
     syncView();
     settleAll();
@@ -2659,12 +2950,13 @@ export function initFoodLab(root) {
     try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
     let step = null;
     try { step = new URLSearchParams(window.location.search).get("step"); } catch (e) {}
-    const later2 = ["slice", "fry", "marinate", "lift"];
+    const later2 = ["slice", "fry", "marinate", "lift", "korma"];
     if (jump === "2" || later2.includes(step)) skipGather();
     if (later2.includes(step)) skipLight();
-    if (step === "fry" || step === "marinate" || step === "lift") skipSlice();
-    if (step === "marinate" || step === "lift") skipFry();
-    if (step === "lift") skipMarinate();
+    if (step === "fry" || step === "marinate" || step === "lift" || step === "korma") skipSlice();
+    if (step === "marinate" || step === "lift" || step === "korma") skipFry();
+    if (step === "lift" || step === "korma") skipMarinate();
+    if (step === "korma") skipLift();
     // Compile every material's shader now, while the loader is up, so nothing
     // stalls a frame the first time it appears mid-game.
     try { renderer.compile(S.scene, S.camera); renderer.compile(S.vm, S.camera); } catch (e) { console.error("[food-lab] warm-up", e); }
