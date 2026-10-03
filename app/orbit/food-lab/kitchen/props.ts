@@ -597,3 +597,26 @@ export function buildHandBasket(M) {
   g.add(handle);
   return g;
 }
+
+// Long kitchen gas lighter, standing on its flat underside. The handle sits
+// behind the origin and the thin steel nozzle points along +x.
+export function buildLighter(M) {
+  const g = new THREE.Group();
+  g.add(mesh(roundedBox(0.115, 0.026, 0.02, 0.008), M.lighterBody, -0.0575, 0.013, 0));
+  // dark rubber grip at the back, the trigger underneath at the front
+  g.add(mesh(roundedBox(0.058, 0.021, 0.0212, 0.006), M.lighterGrip, -0.078, 0.0135, 0));
+  const trigger = mesh(roundedBox(0.026, 0.011, 0.0214, 0.004), M.lighterGrip, -0.022, 0.0065, 0);
+  g.add(trigger);
+  // collar, nozzle and tip
+  const collar = mesh(new THREE.CylinderGeometry(0.0072, 0.0078, 0.012, 16), M.lighterGrip, 0.004, 0.017, 0);
+  collar.rotation.z = Math.PI / 2;
+  g.add(collar);
+  const nozzle = mesh(new THREE.CylinderGeometry(0.0042, 0.0042, 0.122, 12), M.knife, 0.071, 0.017, 0);
+  nozzle.rotation.z = Math.PI / 2;
+  g.add(nozzle);
+  const tip = mesh(new THREE.CylinderGeometry(0.005, 0.0056, 0.012, 12), M.knife, 0.134, 0.017, 0);
+  tip.rotation.z = Math.PI / 2;
+  g.add(tip);
+  g.userData.trigger = trigger;
+  return shadowed(g);
+}

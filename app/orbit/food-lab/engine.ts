@@ -1,12 +1,19 @@
 // @ts-nocheck
 /* eslint-disable */
-// The Biryani Kitchen, stage 1: walk a Karachi kitchen in first person and
-// gather every ingredient for a chicken biryani. No text anywhere: the HUD is
-// pictures of the ingredients, grouped by where they're found.
+// The Biryani Kitchen. Stage 1: walk a Karachi kitchen in first person and
+// gather every ingredient for a chicken biryani. Stage 2 (prep) starts by
+// lighting the stove: pick up the lighter, open the gas, click until it
+// catches, then turn the flame down until it burns steady. No text anywhere:
+// the HUD is pictures, and guidance is a soft glow on the next thing to use.
+//
+// Testing shortcut: /orbit/food-lab?stage=2 starts with everything already
+// unloaded on the prep table. root.dataset (phase, stove, gas, hold) mirrors
+// the game state for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
-import { buildKitchen, ITEMS, TABLE, ROOM } from "./kitchen/kitchen";
+import { buildKitchen, ITEMS, TABLE, ROOM, COUNTER_TOP } from "./kitchen/kitchen";
 import { buildHandBasket } from "./kitchen/props";
+import { buildBurnerFlame } from "./kitchen/flame";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -15,6 +22,26 @@ const LOC_ICONS = {
   sabzi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5h18l-2.2 8.2A2 2 0 0 1 16.9 20H7.1a2 2 0 0 1-1.9-1.3z"/><path d="M8 10.5l3.2-6M16 10.5l-3.2-6M7 14.5h10"/></svg>',
   pantry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3.5h7l-1.6 3.2c3.2 1.6 5.1 4.6 5.1 8.6 0 3.6-2.7 5.7-7 5.7s-7-2.1-7-5.7c0-4 1.9-7 5.1-8.6z"/><path d="M9.4 6.7h5.2"/></svg>',
 };
+
+// Stage 2 steps, shown as pictograms at the top once the ingredients are out.
+const STEPS = ["light", "slice", "fry", "marinate"];
+const STEP_ICONS = {
+  // a flame over a burner
+  light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c2.2 2.6 4 4.7 4 7.3a4 4 0 0 1-8 0c0-1.4.6-2.6 1.5-3.4.2 1.3.9 2.2 1.8 2.5-.4-2.3.1-4.5.7-6.4z"/><path d="M4.5 17.5h15M7 21h10"/></svg>',
+  // an onion and a knife
+  slice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="15" r="5.5"/><path d="M9 9.5c-1.7 1.5-2.4 3.3-2.4 5.5s.7 4 2.4 5.5M9 9.5c1.7 1.5 2.4 3.3 2.4 5.5s-.7 4-2.4 5.5M9 9.5V8"/><path d="M13.5 11.5L20.5 3.5c.8 2.9-.3 5.9-3.3 8.1l-1.4 1.1z"/></svg>',
+  // a degchi with heat rising
+  fry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h15v4a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M2.5 13h2M19.5 13h2"/><path d="M8.5 9c-.9-1-.9-2 0-3M12 9c-.9-1-.9-2 0-3s.9-2 0-3M15.5 9c-.9-1-.9-2 0-3"/></svg>',
+  // a mixing bowl and spoon
+  marinate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5h17a8.5 8 0 0 1-17 0z"/><path d="M14.5 12.5l5-9"/><path d="M8 16c1.2.7 2.5 1 4 1"/></svg>',
+};
+
+// Gas knob: rotation.y from 0 (off) to KNOB_MAX (full). The flame burns
+// steady when the gas sits inside BAND (as a 0..1 fraction of full).
+const KNOB_MAX = 1.75;
+const BAND = [0.42, 0.82];
+const STEADY_S = 1.5;
+const HAND = { x: 0.17, y: -0.2, z: -0.36 };
 
 const EYE = 1.62;
 const REACH = 2.3;
@@ -195,6 +222,8 @@ function makeMaterials(T) {
     pet: clear({ color: 0xfafcff, roughness: 0.05, opacity: 0.25 }),
     knife: std({ color: 0xe8eaec, metalness: 1, roughness: 0.18 }),
     knifeHandle: std({ color: 0x1a1512, roughness: 0.5 }),
+    lighterBody: std({ color: 0xc8361d, roughness: 0.42 }),
+    lighterGrip: std({ color: 0x262422, roughness: 0.6 }),
     wicker: std({ map: T.wicker, roughness: 0.85, side: THREE.DoubleSide, bumpMap: T.wicker, bumpScale: 0.002 }),
     wickerRim: std({ color: 0x9a6c39, roughness: 0.8 }),
     daalYellow: std({ color: 0xe8b934, roughness: 0.9, bumpMap: T.bumpFine, bumpScale: 0.0008 }),
@@ -233,6 +262,7 @@ export function initFoodLab(root) {
     stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"),
     start: $(".fl-start"), loading: $(".fl-loading"), done: $(".fl-done"),
     joy: $(".fl-joy"), joyKnob: $(".fl-joy i"), fallback: $(".fl-fallback"),
+    steps: $(".fl-steps"),
   };
 
   let renderer = null, canvas = null, envRT = null, ro = null;
@@ -310,6 +340,36 @@ export function initFoodLab(root) {
     place() { this.noise(0.06, 700, 1.5, 0.1); this.tone(240, 0.08, 0.05, "triangle"); },
     ready() { [660, 880, 1100].forEach((f, i) => this.tone(f, 0.55, 0.045, "sine", i * 0.09)); },
     done() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.95, 0.045, "sine", i * 0.12)); },
+    stepDone() { [784, 988, 1175].forEach((f, i) => this.tone(f, 0.6, 0.045, "sine", i * 0.1)); },
+    // stove
+    click() { this.noise(0.025, 3800, 1.2, 0.09, "highpass"); this.tone(2200, 0.03, 0.025, "square"); },
+    spark() { for (let i = 0; i < 3; i++) this.noise(0.018, 5200 + Math.random() * 1500, 2, 0.07, "bandpass", i * 0.022 + Math.random() * 0.01); },
+    whoomph(k) {
+      this.noise(0.55, 170, 0.7, 0.16 + 0.2 * k, "lowpass");
+      this.noise(0.25, 900, 0.6, 0.05 + 0.06 * k, "bandpass", 0.03);
+      this.tone(62, 0.45, 0.07 + 0.08 * k, "sine", 0, 30);
+    },
+    knobTick() { this.noise(0.015, 3200, 3, 0.05, "bandpass"); this.tone(1800, 0.02, 0.012, "triangle"); },
+    puff() { this.noise(0.14, 260, 0.8, 0.06, "lowpass"); },
+    // One looping noise source feeds two voices: the hiss of raw gas and the
+    // low roar of a burning flame. Levels are set with gasSet(hiss, roar).
+    gasSet(hiss, roar) {
+      if (!this.ctx) return;
+      const c = this.ctx, t = c.currentTime;
+      if (!this.gas) {
+        const s = c.createBufferSource(); s.buffer = this.buf; s.loop = true;
+        const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2600;
+        const hissG = c.createGain(); hissG.gain.value = 0;
+        const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 380; bp.Q.value = 0.6;
+        const roarG = c.createGain(); roarG.gain.value = 0;
+        s.connect(hp); hp.connect(hissG); hissG.connect(this.master);
+        s.connect(bp); bp.connect(roarG); roarG.connect(this.master);
+        s.start();
+        this.gas = { s, hissG, roarG };
+      }
+      this.gas.hissG.gain.setTargetAtTime(hiss, t, 0.08);
+      this.gas.roarG.gain.setTargetAtTime(roar, t, 0.12);
+    },
     ambience() {
       const c = this.ctx;
       const s = c.createBufferSource(); s.buffer = this.buf; s.loop = true;
@@ -327,6 +387,7 @@ export function initFoodLab(root) {
       try { this.humStop(); } catch (e) {}
       try { this.ctx.close(); } catch (e) {}
       this.ctx = null;
+      this.gas = null;
     },
   };
 
@@ -433,6 +494,54 @@ export function initFoodLab(root) {
       S.items[def.id] = { def, obj, mats, radius: Math.max(0.02, sph.radius), collected: false, flying: false };
     }
     S.pickables = [...K.blockers, ...K.doors.map((d) => d.pivot), ...ITEMS.map((d) => S.items[d.id].obj)];
+
+    // ---- stage 2: the stove. These only become interactive once prep starts.
+    const glowMats = (o) => {
+      const mats = [];
+      o.traverse((m) => {
+        if (!m.isMesh || !m.material || m.material.visible === false) return;
+        m.material = m.material.clone();
+        if (m.material.emissive) mats.push(m.material);
+        m.userData.cast = m.castShadow;
+      });
+      return mats;
+    };
+    // the left burner is the free one (the degchi sits on the right)
+    const knob = K.knobs[0];
+    knob.pivot.userData.interact = { type: "knob" };
+    S.knob = { pivot: knob.pivot, mats: glowMats(knob.pivot) };
+    const L = K.lighter;
+    L.userData.interact = { type: "lighter" };
+    S.lighter = { obj: L, mats: glowMats(L), home: L.position.clone(), homeRy: L.rotation.y, flying: false };
+    const bc = K.burners[0];
+    const burnerPick = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.09, 16), new THREE.MeshBasicMaterial({ visible: false }));
+    burnerPick.position.set(bc.x, bc.y + 0.03, bc.z);
+    burnerPick.userData.interact = { type: "burner" };
+    scene.add(burnerPick);
+    S.burnerPick = burnerPick;
+    S.flame = buildBurnerFlame(bc);
+    scene.add(S.flame.root);
+    // a soft warm pool of light under whatever should be used next
+    const hint = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+      map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    hint.rotation.x = -Math.PI / 2;
+    hint.renderOrder = 2;
+    hint.visible = false;
+    hint.userData.hint = true;
+    scene.add(hint);
+    S.hint = hint;
+    S.hintSpots = {
+      lighter: [L.position.x + 0.02, COUNTER_TOP + 0.002, L.position.z, 0.36],
+      knob: [knob.pivot.position.x, COUNTER_TOP + 0.0125, knob.pivot.position.z, 0.13],
+      burner: [bc.x, COUNTER_TOP + 0.0125, bc.z, 0.3],
+    };
+    // the right hand, for holding tools in the first-person pass
+    const hand = new THREE.Group();
+    hand.position.set(HAND.x, HAND.y, HAND.z);
+    hand.rotation.set(0, Math.PI / 2 + 0.3, -0.2, "YXZ");
+    vmRoot.add(hand);
+    S.hand = hand;
   }
 
   function setupEnvAndThumbs() {
@@ -609,6 +718,7 @@ export function initFoodLab(root) {
   let yaw = 0, pitch = -0.12, bobPhase = 0, stepDist = 0, bob = 0;
   let playing = false, touchMode = false, lockedOnce = false, dragLook = false;
   let shadowsDirty = true, lastYaw = 0, swayYaw = 0, swayPitch = 0, lastPitch = -0.12;
+  let phase = "gather", holding = null, basketDrop = 0, handJab = 0;
   const keys = new Set();
   const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
   const look = { id: null, lx: 0, ly: 0, sx: 0, sy: 0, t: 0, moved: false };
@@ -669,8 +779,14 @@ export function initFoodLab(root) {
     lastYaw = yaw; lastPitch = pitch;
     basket.position.set(
       0.27 + Math.sin(bobPhase * 0.5) * 0.006 + clamp(swayYaw, -0.05, 0.05) * 0.4,
-      -0.35 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3,
+      -0.35 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3 - basketDrop,
       -0.6
+    );
+    // a held tool sways the same way and jabs forward when used
+    S.hand.position.set(
+      HAND.x + Math.sin(bobPhase * 0.5) * 0.005 + clamp(swayYaw, -0.05, 0.05) * 0.35,
+      HAND.y + Math.abs(Math.cos(bobPhase * 0.5)) * 0.005 - clamp(swayPitch, -0.05, 0.05) * 0.3,
+      HAND.z - handJab * 0.035
     );
     S.vm.updateMatrixWorld();
   }
@@ -694,12 +810,13 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
+  const RETICLE = { item: "grab", lighter: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
     hover = o;
     const type = hover ? hover.userData.interact.type : null;
-    ui.reticle.className = "fl-reticle" + (type ? " on " + (type === "item" ? "grab" : type) : "");
+    ui.reticle.className = "fl-reticle" + (type ? " on " + (RETICLE[type] || type) : "");
   }
   function glowItem(o, k) {
     const st = S.items[o.userData.interact.id];
@@ -715,6 +832,9 @@ export function initFoodLab(root) {
     if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
+    else if (it.type === "lighter") takeLighter();
+    else if (it.type === "knob") knobClick();
+    else if (it.type === "burner") clickLighter();
   }
 
   function toggleDoor(d) {
@@ -830,13 +950,276 @@ export function initFoodLab(root) {
     tween(0.8, (k) => { S.glow.material.opacity = 0.55 * (1 - k); });
     tableReady = false;
     later(() => ui.done.classList.add("show"), 400);
+    later(beginPrep, 3200);
+  }
+
+  // ================================================================ STAGE 2: PREP
+  // Put the basket down, swap the ingredient strip for the step pictograms
+  // and start the first step: lighting the stove.
+  function beginPrep() {
+    ui.done.classList.remove("show");
+    ui.strip.classList.add("away");
+    tween(0.7, (k) => { basketDrop = ease(k) * 0.45; }, () => { S.basket.visible = false; });
+    enterLight();
+  }
+
+  // ?stage=2 jumps straight here, with everything already unloaded on the table.
+  function skipGather() {
+    for (const def of ITEMS) {
+      const st = S.items[def.id], o = st.obj;
+      const [x, y, z, ry] = TABLE[def.id];
+      o.position.set(x, y, z);
+      o.rotation.set(0, ry, 0);
+      if (o.userData.blob) { o.userData.blob.position.set(x, y + 0.0015, z); o.userData.blob.visible = true; }
+      st.collected = true;
+      const i = S.pickables.indexOf(o);
+      if (i >= 0) S.pickables.splice(i, 1);
+      if (slotEls[def.id]) slotEls[def.id].classList.add("got");
+    }
+    basketCount = placed = ITEMS.length;
+    basketDrop = 0.45;
+    S.basket.visible = false;
+    ui.strip.classList.add("away");
+    shadowsDirty = true;
+    drawCard();
+    enterLight();
+  }
+
+  const stepEls = {};
+  function buildSteps() {
+    if (!ui.steps) return;
+    ui.steps.innerHTML = "";
+    for (const s of STEPS) {
+      const el = document.createElement("span");
+      el.className = "fl-step";
+      el.innerHTML = STEP_ICONS[s];
+      ui.steps.appendChild(el);
+      stepEls[s] = el;
+    }
+    ui.steps.classList.add("show");
+  }
+  function setStep(s, state) {
+    const el = stepEls[s];
+    if (!el) return;
+    el.classList.toggle("now", state === "now");
+    el.classList.toggle("got", state === "got");
+  }
+
+  const stove = { angle: 0, flow: 0, lit: false, done: false, gasAccum: 0, gasTries: 0, steady: 0, tick: 0, tw: null, hiss: -1, roar: -1 };
+  const inBand = () => stove.flow >= BAND[0] && stove.flow <= BAND[1];
+  const addPick = (o) => { if (S.pickables.indexOf(o) < 0) S.pickables.push(o); };
+  const dropPick = (o) => { const i = S.pickables.indexOf(o); if (i >= 0) S.pickables.splice(i, 1); if (hover === o) setHover(null); };
+
+  function enterLight() {
+    phase = "light";
+    buildSteps();
+    setStep("light", "now");
+    addPick(S.lighter.obj);
+    addPick(S.knob.pivot);
+  }
+
+  // What should glow next: the lighter, then the knob, then the burner; once
+  // lit, the knob again until the flame is turned down to a steady burn.
+  function guideTarget() {
+    if (phase !== "light" || stove.done) return null;
+    if (stove.lit) return inBand() ? null : "knob";
+    if (holding !== "lighter") return S.lighter.flying ? null : "lighter";
+    return stove.flow < 0.3 ? "knob" : "burner";
+  }
+
+  function updateGuide(time) {
+    const target = guideTarget();
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3.2);
+    const hovered = (o) => hover === o;
+    const set = (mats, k) => { for (const m of mats) { m.emissive.setHex(0x8a5a1c); m.emissiveIntensity = k; } };
+    const hk = 0.22 + 0.14 * Math.sin(time * 6);
+    set(S.lighter.mats, holding ? 0 : hovered(S.lighter.obj) ? hk : target === "lighter" ? 0.08 + 0.14 * pulse : 0);
+    set(S.knob.mats, hovered(S.knob.pivot) ? hk + 0.2 : target === "knob" ? 0.15 + 0.35 * pulse : 0);
+    const spot = target && S.hintSpots[target];
+    S.hint.visible = !!spot;
+    if (spot) {
+      S.hint.position.set(spot[0], spot[1], spot[2]);
+      S.hint.scale.set(spot[3], spot[3], 1);
+      S.hint.material.opacity = 0.22 + 0.3 * pulse;
+    }
+  }
+
+  // ---- the lighter
+  function takeLighter() {
+    if (phase !== "light" || holding || S.lighter.flying) return;
+    const L = S.lighter.obj;
+    S.lighter.flying = true;
+    dropPick(L);
+    if (L.userData.blob) L.userData.blob.visible = false;
+    Sound.pick();
+    S.scene.attach(L);
+    const startP = L.position.clone(), startQ = L.quaternion.clone();
+    const tp = new THREE.Vector3(), tq = new THREE.Quaternion();
+    tween(0.55, (k) => {
+      const e = ease(k);
+      S.hand.getWorldPosition(tp);
+      S.hand.getWorldQuaternion(tq);
+      L.position.lerpVectors(startP, tp, e);
+      L.position.y += Math.sin(Math.PI * k) * 0.08;
+      L.quaternion.copy(startQ).slerp(tq, e);
+      shadowsDirty = true;
+    }, () => {
+      S.hand.attach(L);
+      L.position.set(0, 0, 0);
+      L.rotation.set(0, 0, 0);
+      L.traverse((m) => { if (m.isMesh) m.castShadow = false; });
+      S.lighter.flying = false;
+      holding = "lighter";
+      if (!stove.lit) addPick(S.burnerPick);
+      Sound.collect();
+    });
+  }
+
+  function returnLighter() {
+    if (holding !== "lighter") return;
+    const L = S.lighter.obj, home = S.lighter.home;
+    holding = null;
+    S.lighter.flying = true;
+    dropPick(S.burnerPick);
+    S.scene.attach(L);
+    const startP = L.position.clone(), startQ = L.quaternion.clone();
+    const endQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, S.lighter.homeRy, 0));
+    tween(0.65, (k) => {
+      const e = ease(k);
+      L.position.lerpVectors(startP, home, e);
+      L.position.y += Math.sin(Math.PI * k) * 0.1;
+      L.quaternion.copy(startQ).slerp(endQ, e);
+      shadowsDirty = true;
+    }, () => {
+      L.position.copy(home);
+      L.rotation.set(0, S.lighter.homeRy, 0);
+      L.traverse((m) => { if (m.isMesh) m.castShadow = !!m.userData.cast; });
+      if (L.userData.blob) L.userData.blob.visible = true;
+      S.lighter.flying = false;
+      Sound.place();
+    });
+  }
+
+  // One squeeze of the trigger: a jab, a click, sparks at the burner. With gas
+  // flowing it may catch; it always catches by the third try with gas.
+  let jabTw = null;
+  function clickLighter() {
+    if (holding !== "lighter" || stove.lit) return;
+    Sound.click();
+    if (jabTw) jabTw.dead = true;
+    const trig = S.lighter.obj.userData.trigger;
+    jabTw = tween(0.18, (k) => {
+      handJab = Math.sin(Math.PI * k);
+      if (trig) trig.position.y = 0.0065 + 0.004 * handJab;
+    });
+    later(() => {
+      if (stove.lit) return;
+      S.flame.spark();
+      Sound.spark();
+      if (stove.flow > 0.08) {
+        stove.gasTries++;
+        if (stove.gasTries >= 3 || Math.random() < clamp(0.3 + stove.flow * 0.45, 0, 0.85)) ignite();
+      }
+    }, 60);
+  }
+
+  function ignite() {
+    const k = clamp(stove.gasAccum / 2, 0, 1);
+    stove.lit = true;
+    stove.gasAccum = 0; stove.gasTries = 0; stove.steady = 0;
+    S.flame.ignite(k);
+    Sound.whoomph(k);
+    dropPick(S.burnerPick);
+  }
+
+  function extinguish() {
+    stove.lit = false;
+    stove.gasTries = 0; stove.steady = 0;
+    Sound.puff();
+    if (holding === "lighter") addPick(S.burnerPick);
+  }
+
+  // ---- the gas knob: drag to turn it, or click for a quick turn
+  function setKnob(a) {
+    stove.angle = clamp(a, 0, KNOB_MAX);
+    stove.flow = stove.angle / KNOB_MAX;
+    S.knob.pivot.rotation.y = stove.angle;
+    const tick = Math.floor(stove.angle / 0.22 + 0.001);
+    if (tick !== stove.tick) { stove.tick = tick; Sound.knobTick(); }
+  }
+
+  function knobClick() {
+    if (phase !== "light" || stove.done) return;
+    let to;
+    if (stove.angle < 0.05) to = KNOB_MAX;                    // off: open it right up
+    else if (stove.lit) to = inBand() ? 0 : KNOB_MAX * 0.62;  // lit: settle it to a steady flame
+    else to = 0;                                              // gas on, no flame: shut it
+    if (stove.tw) stove.tw.dead = true;
+    const from = stove.angle;
+    stove.tw = tween(0.45, (k) => setKnob(from + (to - from) * ease(k)), () => { stove.tw = null; });
+  }
+
+  const dial = { on: false, id: null, lock: false, lx: 0, moved: 0, t: 0 };
+  const isKnob = (o) => !!(o && o.userData.interact && o.userData.interact.type === "knob");
+  function startDial(id, lock, x) {
+    if (phase !== "light" || stove.done) return false;
+    if (stove.tw) { stove.tw.dead = true; stove.tw = null; }
+    Object.assign(dial, { on: true, id, lock, lx: x, moved: 0, t: performance.now() });
+    return true;
+  }
+  function dialMove(dx) {
+    dial.moved += Math.abs(dx);
+    setKnob(stove.angle - dx * (touchMode ? 0.011 : 0.0075)); // drag left to open
+  }
+  function endDial(cancel) {
+    const tapped = !cancel && dial.moved < 6 && performance.now() - dial.t < 400;
+    dial.on = false; dial.id = null;
+    if (tapped) knobClick();
+  }
+
+  function lightDone() {
+    stove.done = true;
+    Sound.stepDone();
+    setStep("light", "got");
+    dropPick(S.knob.pivot);
+    dropPick(S.burnerPick);
+    if (dial.on) endDial(true);
+    later(returnLighter, 700);
+  }
+
+  // Runs every frame during the stove step.
+  function updateStove(dt) {
+    const gasOn = stove.flow > 0.08;
+    if (!stove.lit) stove.gasAccum = gasOn ? Math.min(3, stove.gasAccum + stove.flow * dt) : Math.max(0, stove.gasAccum - dt);
+    if (stove.lit && stove.flow < 0.15) extinguish();
+    if (stove.lit && !stove.done) {
+      stove.steady = inBand() ? stove.steady + dt : 0;
+      if (stove.steady >= STEADY_S) lightDone();
+    }
+    const hiss = stove.lit ? 0.01 * stove.flow : gasOn ? 0.01 + 0.045 * stove.flow : 0;
+    const roar = stove.lit ? 0.025 + 0.05 * stove.flow + (stove.flow > BAND[1] ? 0.03 : 0) : 0;
+    if (Math.abs(hiss - stove.hiss) > 0.002 || Math.abs(roar - stove.roar) > 0.002) {
+      stove.hiss = hiss; stove.roar = roar;
+      Sound.gasSet(hiss, roar);
+    }
+  }
+
+  // Mirror state onto data-* attributes for the test kit (never displayed).
+  function syncDebug() {
+    const d = root.dataset;
+    const st = stove.done ? "steady" : stove.lit ? "lit" : stove.flow > 0.08 ? "gas" : "off";
+    const gas = stove.flow.toFixed(2), hold = holding || "";
+    if (d.phase !== phase) d.phase = phase;
+    if (d.stove !== st) d.stove = st;
+    if (d.gas !== gas) d.gas = gas;
+    if (d.hold !== hold) d.hold = hold;
   }
 
   // ---------------------------------------------------------------- input
   function setPlaying(v) {
     playing = v;
     ui.start.classList.toggle("hide", v);
-    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); }
+    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); if (dial.on) endDial(true); }
   }
   function lockFailed() { if (!lockedOnce) { dragLook = true; setPlaying(true); } }
   function begin() {
@@ -868,6 +1251,7 @@ export function initFoodLab(root) {
     on(document, "pointerlockerror", lockFailed);
     on(document, "mousemove", (e) => {
       if (document.pointerLockElement !== canvas) return;
+      if (dial.on && dial.lock) { dialMove(e.movementX || 0); return; }
       yaw -= e.movementX * 0.0022;
       pitch -= e.movementY * 0.0022;
       clampPitch();
@@ -877,9 +1261,17 @@ export function initFoodLab(root) {
     on(canvas, "pointerdown", (e) => {
       if (e.pointerType === "touch") markTouch();
       if (!playing) return;
-      if (document.pointerLockElement === canvas) { if (e.button === 0) interactAt(0, 0); return; }
+      if (document.pointerLockElement === canvas) {
+        if (e.button === 0) { if (!(isKnob(pickAt(0, 0)) && startDial(e.pointerId, true, 0))) interactAt(0, 0); }
+        return;
+      }
       const r = canvas.getBoundingClientRect();
       const lx = e.clientX - r.left, ly = e.clientY - r.top;
+      // pressing on the gas knob grabs it; dragging sideways turns it
+      if (phase === "light" && !dial.on && isKnob(pickAt((lx / r.width) * 2 - 1, -(ly / r.height) * 2 + 1)) && startDial(e.pointerId, false, e.clientX)) {
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        return;
+      }
       if (touchMode && lx < r.width * 0.42 && joy.id === null) {
         joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
         ui.joy.style.left = lx + "px"; ui.joy.style.top = ly + "px";
@@ -892,7 +1284,10 @@ export function initFoodLab(root) {
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     });
     on(canvas, "pointermove", (e) => {
-      if (e.pointerId === joy.id) {
+      if (dial.on && !dial.lock && e.pointerId === dial.id) {
+        dialMove(e.clientX - dial.lx);
+        dial.lx = e.clientX;
+      } else if (e.pointerId === joy.id) {
         const dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
         const m = Math.min(1, Math.hypot(dx, dy) / 55), a = Math.atan2(dy, dx);
         joy.x = Math.cos(a) * m; joy.y = -Math.sin(a) * m;
@@ -906,7 +1301,9 @@ export function initFoodLab(root) {
       }
     });
     const endPointer = (e) => {
-      if (e.pointerId === joy.id) {
+      if (dial.on && e.pointerId === dial.id) {
+        endDial(e.type === "pointercancel");
+      } else if (e.pointerId === joy.id) {
         joy.id = null; joy.x = joy.y = 0; ui.joy.classList.remove("on");
       } else if (e.pointerId === look.id) {
         look.id = null;
@@ -926,7 +1323,7 @@ export function initFoodLab(root) {
       if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); interactAt(0, 0); }
     });
     on(window, "keyup", (e) => keys.delete(e.code));
-    on(window, "blur", () => keys.clear());
+    on(window, "blur", () => { keys.clear(); if (dial.on) endDial(true); });
   }
 
   function resize() {
@@ -951,6 +1348,12 @@ export function initFoodLab(root) {
     if (playing && !touchMode) setHover(pickAt(0, 0));
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));
     if (tableReady && !unloading) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
+    if (phase !== "gather") {
+      updateStove(dt);
+      updateGuide(time);
+      S.flame.update(dt, time, stove.flow, stove.lit);
+    }
+    syncDebug();
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
     renderer.clear();
     renderer.render(S.scene, S.camera);
@@ -959,6 +1362,9 @@ export function initFoodLab(root) {
   }
 
   function ready() {
+    let jump = null;
+    try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
+    if (jump === "2") skipGather();
     ui.loading.classList.add("hide");
     ui.start.classList.remove("hide");
     last = performance.now();

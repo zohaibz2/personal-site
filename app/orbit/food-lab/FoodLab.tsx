@@ -49,6 +49,7 @@ export default function FoodLab() {
 
       <div className="fl-hud" aria-hidden="true">
         <div className="fl-strip" />
+        <div className="fl-steps" />
         <div className="fl-reticle">
           <svg className="i-grab" viewBox="0 0 24 24" {...icon}>
             <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12" />
@@ -62,6 +63,15 @@ export default function FoodLab() {
           <svg className="i-place" viewBox="0 0 24 24" {...icon}>
             <path d="M12 3v10M8 9.5l4 4 4-4" />
             <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+          </svg>
+          <svg className="i-turn" viewBox="0 0 24 24" {...icon}>
+            <circle cx="12" cy="13" r="4.5" />
+            <path d="M12 8.5v3" />
+            <path d="M18.5 9.5A7.5 7.5 0 0 0 6.2 6.6" />
+            <path d="M6 3.5v3.3h3.3" />
+          </svg>
+          <svg className="i-spark" viewBox="0 0 24 24" {...icon}>
+            <path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2L18 18M18 6l-2.8 2.8M8.8 15.2L6 18" />
           </svg>
         </div>
         <div className="fl-joy">

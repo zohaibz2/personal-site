@@ -240,8 +240,11 @@ export function buildKitchen(M, T) {
   splash(WX1, nx1, CT, 1.5);
   splash(nx1, 1.05, CT, 1.5);
 
-  // gas hob with two burners
+  // gas hob with two burners. Each knob is a pivot (rotation.y = how far the
+  // gas is open) with an invisible, larger pick target so it's easy to grab.
   const hobX = -0.55, hobZ = -1.72;
+  const knobs = [], burners = [];
+  const pickMat = new THREE.MeshBasicMaterial({ visible: false });
   rbox(0.72, 0.012, 0.42, 0.004, M.blackGlass, hobX, CT + 0.006, hobZ);
   for (const bx of [-0.19, 0.19]) {
     const x = hobX + bx;
@@ -256,12 +259,28 @@ export function buildKitchen(M, T) {
       arm.rotation.y = -a;
       arm.castShadow = true; add(arm);
     }
+    burners.push(new THREE.Vector3(x, CT + 0.031, hobZ - 0.02));
+    const pivot = new THREE.Group();
+    pivot.position.set(x, CT + 0.021, hobZ + 0.165);
     const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.021, 0.018, 24), M.knob);
-    knob.position.set(x, CT + 0.021, hobZ + 0.165); add(knob);
-    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.002, 0.018), M.chrome);
-    mark.position.set(x, CT + 0.031, hobZ + 0.165); add(mark);
+    pivot.add(knob);
+    // a grip fin across the top, with a chrome pointer that faces you when off
+    const fin = new THREE.Mesh(P.roundedBox(0.007, 0.01, 0.034, 0.003), M.knob);
+    fin.position.y = 0.012; pivot.add(fin);
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(0.0035, 0.0014, 0.012), M.chrome);
+    mark.position.set(0, 0.0172, 0.0095); pivot.add(mark);
+    const grab = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.06, 12), pickMat);
+    grab.position.y = 0.02; pivot.add(grab);
+    add(pivot);
+    knobs.push({ pivot, x });
   }
   place(P.buildDegchi(M), hobX + 0.19, CT + 0.036, hobZ - 0.02);
+
+  // the long gas lighter, lying on the counter to the right of the hob
+  const LIGHTER = [-0.02, CT, -1.64, 0.35];
+  const lighter = place(P.buildLighter(M), LIGHTER[0], LIGHTER[1], LIGHTER[2], LIGHTER[3]);
+  lighter.userData.blob = blob(LIGHTER[0] + 0.01, CT, LIGHTER[2], 0.34, 0.07, 0.8);
+  lighter.userData.blob.rotation.z = LIGHTER[3];
 
   colliders.push([ROOM.x0, nx1, ROOM.z0, ROOM.z0 + 0.64]);
 
@@ -495,6 +514,7 @@ export function buildKitchen(M, T) {
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,
+    knobs, burners, lighter,
     card: { mesh: card, canvas: cardCanvas, texture: cardTex },
     window: { x0: WX0, x1: WX1, y0: WY0, y1: WY1 },
   };
