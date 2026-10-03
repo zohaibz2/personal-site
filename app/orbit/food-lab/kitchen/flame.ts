@@ -29,6 +29,21 @@ const additive = (o) => new THREE.MeshBasicMaterial(Object.assign({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide,
 }, o));
 
+// Fades each jet out towards its tip, so the flame has soft ends instead of
+// hard spikes. Cone UVs run 0 at the base to 1 at the tip, which is the top
+// row of this canvas.
+function jetFade() {
+  const c = makeCanvas(8, 64);
+  const x = c.getContext("2d");
+  const g = x.createLinearGradient(0, 0, 0, 64);
+  g.addColorStop(0, "rgba(255,255,255,0)");
+  g.addColorStop(0.45, "rgba(255,255,255,0.5)");
+  g.addColorStop(1, "rgba(255,255,255,1)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, 8, 64);
+  return new THREE.CanvasTexture(c);
+}
+
 // A cone standing on its base, so scaling y grows it upwards from the port.
 function jetGeometry(r, h) {
   const g = new THREE.ConeGeometry(r, h, 7, 1, true);
@@ -48,9 +63,10 @@ export function buildBurnerFlame(center) {
     root.add(m);
     return m;
   };
-  const outer = crown(jetGeometry(0.0055, 0.024), additive({ color: 0x1446ff, opacity: 0.5 }));
-  const inner = crown(jetGeometry(0.003, 0.011), additive({ color: 0xa8d8ff, opacity: 0.8 }));
-  const tips = crown(jetGeometry(0.0034, 0.014), additive({ color: 0xff8a2a, opacity: 0 }));
+  const fade = jetFade();
+  const outer = crown(jetGeometry(0.0078, 0.022), additive({ color: 0x1446ff, opacity: 0.5, map: fade }));
+  const inner = crown(jetGeometry(0.0042, 0.0095), additive({ color: 0x4f9dff, opacity: 0.6, map: fade }));
+  const tips = crown(jetGeometry(0.0055, 0.013), additive({ color: 0xff8a2a, opacity: 0, map: fade }));
 
   // blue glow pooled on the hob glass around the burner
   const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), additive({
@@ -106,8 +122,8 @@ export function buildBurnerFlame(center) {
     if (show) {
       const lean = 0.9 - 0.3 * lift;
       const sl = Math.sin(lean), cl = Math.cos(lean);
-      const w = 0.85 + 0.35 * Math.min(1, size);
-      const amp = 0.05 + 0.42 * lift + 0.5 * weak;
+      const w = 0.85 + 0.35 * Math.min(1, size) + 0.25 * lift;
+      const amp = 0.05 + 0.3 * lift + 0.5 * weak;
       for (let i = 0; i < JETS; i++) {
         const ang = (i / JETS) * TAU;
         const [sd, sp] = seeds[i];
@@ -134,9 +150,9 @@ export function buildBurnerFlame(center) {
         tips.setMatrixAt(i, dummy.matrix);
       }
       outer.instanceMatrix.needsUpdate = inner.instanceMatrix.needsUpdate = tips.instanceMatrix.needsUpdate = true;
-      outer.material.opacity = 0.38 + 0.18 * Math.min(1, size) - 0.15 * weak;
-      inner.material.opacity = 0.7 - 0.35 * weak;
-      tips.material.opacity = 0.5 * Math.max(lift, flare * 0.8);
+      outer.material.opacity = 0.45 + 0.2 * Math.min(1, size) - 0.15 * weak;
+      inner.material.opacity = 0.55 - 0.3 * weak;
+      tips.material.opacity = 0.45 * Math.max(lift, flare * 0.8);
     }
     glow.material.opacity = Math.min(1, size) * (0.5 + 0.08 * Math.sin(time * 31)) + flash * 0.35 + flare * 0.5;
     const flick = 1 + 0.1 * Math.sin(time * 29) + 0.3 * lift * Math.sin(time * 11.7);
