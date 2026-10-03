@@ -11,18 +11,19 @@ import * as THREE from "three";
 import { makeCanvas } from "./textures";
 
 const TAU = Math.PI * 2;
-export const MIX_R = 0.075;      // the spoon's head, and the pieces, stay inside this radius
-const FLOOR = 0.006;              // the bowl's inside bottom
+export const MIX_R = 0.055;      // the chicken pieces stay inside this radius
+const FLOOR = 0.004;              // the bowl's inside bottom
 // the bowl's inside radius at height y (same outline as MIX_BOWL in props.ts)
 export function bowlRadius(y) {
-  const P = [[0.06, 0], [0.09, 0.01], [0.115, 0.03], [0.128, 0.055], [0.132, 0.075]];
-  if (y <= 0) return 0.06;
+  const P = [[0.045, 0], [0.07, 0.008], [0.09, 0.022], [0.104, 0.042], [0.113, 0.065], [0.117, 0.088], [0.118, 0.1]];
+  if (y <= 0) return 0.045;
   for (let i = 1; i < P.length; i++) if (y <= P[i][1]) return P[i - 1][0] + ((y - P[i - 1][1]) / (P[i][1] - P[i - 1][1])) * (P[i][0] - P[i - 1][0]);
-  return 0.132;
+  return 0.118;
 }
 
 // the marinade's colour as it's mixed: white dahi -> pale orange -> even orange-red
-const DAHI = new THREE.Color(0xf2ece0), MIXED = new THREE.Color(0xc6532a);
+// (darker than it looks: three.js brightens colours on the way to the screen)
+const DAHI = new THREE.Color(0xf2ece0), MIXED = new THREE.Color(0x9a2f10);
 // what mixing does to the chicken's own colour (multiplies its texture)
 const RAW = new THREE.Color(1, 1, 1), COATED = new THREE.Color(1.0, 0.55, 0.32);
 
@@ -83,9 +84,11 @@ export function buildMarinade(M) {
     m.position.set(Math.cos(a) * d, FLOOR + 0.024, Math.sin(a) * d);
     m.rotation.y = Math.random() * TAU;
     m.receiveShadow = true;
+    m.userData.lump = true;
     root.add(m);
     const l = { m, r, h, grow: 0 };
     lumps.push(l);
+    sizeLump(l); // sized (and hidden, at grow 0) right away: never drawn at its raw 1 m size
     return l;
   }
   const sizeLump = (l) => {

@@ -66,7 +66,7 @@ const PEEL_PX = 170;   // sideways movement that tears off one half of the skin
 const LIFT = 0.105;    // knife height above the board when raised (just clears the biggest onion)
 
 const EYE = 1.62;
-const REACH = 2.3;
+const REACH = 1.6; // about one step: you walk up to things to use them
 const SLOT_R = 0.03;
 const BASKET_S = 0.88;
 const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
@@ -210,7 +210,7 @@ function makeMaterials(T) {
     mint: std({ color: 0x3b7a37, roughness: 0.55, side: THREE.DoubleSide }),
     coriander: std({ color: 0x4f9440, roughness: 0.5, side: THREE.DoubleSide }),
     rubber: std({ color: 0xc73a2c, roughness: 0.5 }),
-    glass: clear({ color: 0xffffff, roughness: 0.04, opacity: 0.2, envMapIntensity: 1.4 }),
+    glass: clear({ color: 0xffffff, roughness: 0.04, opacity: 0.32, envMapIntensity: 1.6 }),
     lidRed: std({ color: 0xb3261c, roughness: 0.4 }),
     lidYellow: std({ color: 0xe0a51b, roughness: 0.4 }),
     lidWhite: std({ color: 0xf2f0ea, roughness: 0.4 }),
@@ -918,11 +918,16 @@ export function initFoodLab(root) {
   const ray = new THREE.Raycaster();
   ray.far = REACH;
   const ndc = new THREE.Vector2();
+  // visible, and so is everything it's inside
+  const shown = (o) => { for (let p = o; p; p = p.parent) if (p.visible === false) return false; return true; };
   function pickAt(x, y) {
     ndc.set(x, y);
     ray.setFromCamera(ndc, S.camera);
     const hits = ray.intersectObjects(S.pickables, true);
     for (const h of hits) {
+      // three.js hits hidden objects too (spare particles, stand-ins); a
+      // hidden thing can't be what you're pointing at
+      if (!shown(h.object)) continue;
       let o = h.object;
       while (o && !o.userData.interact && !o.userData.block) o = o.parent;
       if (!o) continue;
@@ -1602,13 +1607,23 @@ export function initFoodLab(root) {
     if (S.station.update(dt) > 0) Sound.thud();
   }
 
-  // The oil in a bottle settles level: put its surface at the height below
-  // which `fill` of the bottle's inside lies, for the bottle's current tilt.
-  // (Its sample points are spread evenly through the inside, by volume.)
+  // Oil and loose powder settle level: put the surface at the height below
+  // which `fill` of the container's inside lies, for its current tilt. (Its
+  // sample points are spread evenly through the inside, by volume.)
+  const POWDER_JARS = ["redChilli", "haldi", "salt"];
+  function settleAll() {
+    if (!S.items) return;
+    settleFill(S.items.oil.obj, 0.8 - 0.25 * (fr.oil / OIL_TARGET));
+    for (const id of POWDER_JARS) {
+      const o = S.items[id].obj, d = o.userData.fill;
+      if (d) settleFill(o, d.base - (mr.added.has(id) ? 0.15 : 0)); // a spoonful lighter once it's poured
+    }
+  }
   const oilYs = new Float32Array(600);
-  function settleOil(o, fill) {
-    const d = o.userData.oil;
+  function settleFill(o, fill) {
+    const d = o.userData.oil || o.userData.fill;
     if (!d) return;
+    if (d.base === undefined) d.base = d.fill;
     d.fill = fill;
     o.updateWorldMatrix(true, false);
     const e = o.matrixWorld.elements, p = d.pts, n = p.length / 3;
@@ -1945,10 +1960,10 @@ export function initFoodLab(root) {
   // with the spoon until it's an even orange-red and the chicken is coated.
   const MAR = ["chicken", "dahi", "adrak", "lassan", "redChilli", "haldi", "salt", "masala"];
   const MIX_DIST = 1.2;   // metres of spoon travel to mix it fully (about eight turns)
-  const SPOON_YAW = -0.35, SPOON_TILT = 0.75; // handle to the right and towards you, 43 degrees up
+  const SPOON_YAW = -0.35, SPOON_TILT = 0.95; // handle to the right and towards you, 54 degrees up (it's a deep bowl)
   const SPOON_U = [Math.cos(SPOON_YAW), -Math.sin(SPOON_YAW)];
-  const BOWL_RIM_R = 0.133, SPOON_MIN_REACH = 0.075; // keep the head this far from the rim along U, so the handle clears it
-  const SPOON_MAX = 0.06; // and this close to the middle, so the scoop stays off the sloping wall
+  const BOWL_RIM_R = 0.12, SPOON_MIN_REACH = 0.07; // keep the head this far from the rim along U, so the handle clears it
+  const SPOON_MAX = 0.045; // and this close to the middle, so the scoop stays off the curved wall
   const mr = { state: "none", added: new Set(), busy: false, mix: 0, sBlend: 0, sx: -0.02, sz: 0.01, auto: null, done: false, squelchAt: 0 };
   const mixSlots = {};
 
@@ -2068,7 +2083,7 @@ export function initFoodLab(root) {
     const size = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
     const isJar = id !== "dahi" && id !== "masala";
     const lid = isJar ? o.children[2] : null;
-    const over = overBowl(0.1, id === "dahi" ? 0.2 : 0.19, 0);
+    const over = overBowl(0.1, id === "dahi" ? 0.24 : 0.23, 0); // tipped from well above the deeper bowl's rim
     const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, id === "dahi" ? 2.0 : 2.1));
     const upQ = new THREE.Quaternion();
     tween(0.5, (k) => {
@@ -2175,7 +2190,7 @@ export function initFoodLab(root) {
     mr.sBlend = clamp(mr.sBlend + ((view.mode === "bowl" ? 1 : -1) * dt) / 0.45, 0, 1);
     const sp = S.spoon, e = ease(mr.sBlend);
     if (e > 0 || sp.moved) {
-      spP.set(mr.sx, 0.006 + 0.012 + 0.024 * Math.sin(SPOON_TILT), mr.sz);
+      spP.set(mr.sx, 0.004 + 0.012 + 0.024 * Math.sin(SPOON_TILT), mr.sz);
       spQ.setFromEuler(spE.set(0, SPOON_YAW, SPOON_TILT, "YXZ"));
       sp.obj.position.lerpVectors(sp.homeP, spP, e);
       sp.obj.position.y += Math.sin(Math.PI * e) * 0.05;
@@ -2424,9 +2439,9 @@ export function initFoodLab(root) {
     if (phase === "slice") updateBoard(dt);
     if (phase === "fry") updateFry(dt);
     if (phase === "marinate") updateMarinate(dt);
-    if (S.items) settleOil(S.items.oil.obj, 0.8 - 0.25 * (fr.oil / OIL_TARGET));
     updateView(dt);
     syncView();
+    settleAll();
     runTweens(dt);
     if (playing && !touchMode && !view.mode) setHover(pickAt(0, 0));
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));

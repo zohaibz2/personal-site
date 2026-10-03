@@ -425,12 +425,10 @@ export function buildKitchen(M, T) {
   blob(-1.99, CT, 0.19, 0.3);
   // the big mixing bowl for the marinade, with a serving spoon resting in it
   const mixBowl = place(P.buildMixingBowl(M), -1.98, CT, -0.22, 0);
-  // scaled so it fits on the table between the chopping board and the potatoes
-  // (everything inside it, spoon and marinade, scales with it)
-  mixBowl.scale.setScalar(0.9);
+  // (12.2 cm radius: fits on the table between the chopping board and the potatoes)
   const spoon = P.buildSpoon(M);
   spoon.position.set(-0.03, 0.03, 0.0);
-  spoon.rotation.set(0, 0.4, 0.42); // leaning on the rim, handle up and out
+  spoon.rotation.set(0, 0.4, 0.5); // the handle rests on the rim (checked: its underside meets the lip)
   mixBowl.add(spoon);
   mixBowl.userData.blob = blob(-1.98, CT, -0.22, 0.3);
   colliders.push([ROOM.x0, wx1 + 0.02, wz0, wz1 + 0.02]);

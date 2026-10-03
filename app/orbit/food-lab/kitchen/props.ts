@@ -308,15 +308,45 @@ export const buildCoriander = (M) => herbBunch(M, "coriander");
 
 // ================================================================ CUPBOARD ITEMS
 
+// Points spread evenly (by volume) through a lathe outline [[r, y], ...]:
+// the engine finds a container's fill level from these (see settleFill).
+function volumePoints(profile, n, seed) {
+  const rad = (y) => {
+    for (let i = 1; i < profile.length; i++) {
+      const [r1, y1] = profile[i], [r0, y0] = profile[i - 1];
+      if (y <= y1 && y1 > y0) return r0 + ((y - y0) / (y1 - y0)) * (r1 - r0);
+    }
+    return 0;
+  };
+  const ys = profile.map((p) => p[1]), rmax = Math.max(...profile.map((p) => p[0]));
+  const y0 = Math.min(...ys), y1 = Math.max(...ys), rand = rng(seed), pts = [];
+  while (pts.length < n * 3) {
+    const x = (rand() * 2 - 1) * rmax, z = (rand() * 2 - 1) * rmax, y = y0 + rand() * (y1 - y0);
+    if (Math.hypot(x, z) <= rad(y)) pts.push(x, y, z);
+  }
+  return new Float32Array(pts);
+}
+
 function jar(M, { h = 0.1, r = 0.034, fill = 0.75, content = null, lid = M.lidRed, contentGeo = null }) {
   const g = new THREE.Group();
   const shell = [[0.0001, 0], [r * 0.9, 0], [r, 0.006], [r, h * 0.86], [r * 0.84, h * 0.93], [r * 0.84, h]];
   const glass = mesh(lathe(shell, 36), M.glass);
   glass.renderOrder = 3;
-  if (content) {
-    const fh = h * 0.84 * fill;
-    const pr = [[0.0001, 0.003], [r * 0.92, 0.003], [r * 0.93, fh], [r * 0.6, fh + 0.004], [0.0001, fh + 0.006]];
-    g.add(mesh(contentGeo || lathe(pr, 28), content));
+  if (content && !contentGeo) {
+    // Loose powder: fills the whole inside up to a level surface (a clipping
+    // plane the engine keeps horizontal), so it settles to the low end when
+    // the jar is tipped instead of hanging upside down as a solid block.
+    // Double sided, so the cut-open top still looks full of powder.
+    const inside = [[0.0001, 0.003], [r * 0.88, 0.003], [r * 0.93, 0.008], [r * 0.93, h * 0.86], [r * 0.78, h * 0.93], [r * 0.78, h * 0.995], [0.0001, h * 0.995]];
+    const level = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+    const mat = content.clone();
+    mat.side = THREE.DoubleSide;
+    mat.clippingPlanes = [level];
+    const powder = mesh(lathe(inside, 28), mat);
+    g.add(powder);
+    g.userData.fill = { meshes: [powder], pts: volumePoints(inside, 300, 71), fill: fill * 0.84 };
+  } else if (content) {
+    g.add(mesh(contentGeo, content));
   }
   g.add(glass);
   const lidM = mesh(new THREE.CylinderGeometry(r * 0.9, r * 0.9, 0.018, 36), lid, 0, h + 0.006, 0);
@@ -734,13 +764,16 @@ export function buildKafgir(M) {
   return shadowed(g);
 }
 
-// Big steel mixing bowl for the marinade. Origin at the centre of its base;
-// double sided so its inside shows.
-export const MIX_BOWL = [[0.0001, 0], [0.06, 0], [0.09, 0.01], [0.115, 0.03], [0.128, 0.055], [0.132, 0.075], [0.136, 0.078], [0.133, 0.08]];
+// Deep, rounded steel mixing bowl for the marinade (24 cm across, 10.5 cm
+// deep). Origin at the centre of its base; double sided so its inside shows.
+export const MIX_BOWL = [[0.0001, 0], [0.045, 0], [0.07, 0.008], [0.09, 0.022], [0.104, 0.042], [0.113, 0.065], [0.117, 0.088], [0.118, 0.1], [0.122, 0.102], [0.119, 0.105]];
 export function buildMixingBowl(M) {
   const g = new THREE.Group();
   const mat = M.knife.clone();
   mat.side = THREE.DoubleSide;
+  // a thin shell seen from both sides shades itself in streaks ("shadow
+  // acne") if both faces cast; only the outer face casts
+  mat.shadowSide = THREE.FrontSide;
   g.add(mesh(lathe(MIX_BOWL, 56), mat));
   return shadowed(g);
 }
@@ -754,6 +787,7 @@ export function buildSpoon(M) {
   scoop.scale.set(0.034, 0.012, 0.024);
   scoop.material = M.knife.clone();
   scoop.material.side = THREE.DoubleSide;
+  scoop.material.shadowSide = THREE.FrontSide;
   g.add(scoop);
   const handle = mesh(new THREE.CylinderGeometry(0.0035, 0.005, 0.2, 10), M.knife, 0.134, 0, 0);
   handle.rotation.z = Math.PI / 2;
