@@ -492,12 +492,36 @@ export function buildRiceSack(M) {
   return shadowed(g);
 }
 
+// The bottle's inside, as an outline (radius, height): the oil fills this up
+// to a level surface (see buildOil).
+const OIL_INSIDE = [[0.0001, 0.004], [0.0378, 0.004], [0.039, 0.012], [0.039, 0.18], [0.0318, 0.21], [0.0155, 0.236], [0.0136, 0.248], [0.0136, 0.2585], [0.0001, 0.2585]];
+function insideRadius(y) {
+  for (let i = 1; i < OIL_INSIDE.length; i++) {
+    const [r1, y1] = OIL_INSIDE[i], [r0, y0] = OIL_INSIDE[i - 1];
+    if (y <= y1 && y1 > y0) return r0 + ((y - y0) / (y1 - y0)) * (r1 - r0);
+  }
+  return 0;
+}
+
 export function buildOil(M) {
   const g = new THREE.Group();
   const h = 0.26, r = 0.042;
   const shell = [[0.0001, 0], [r * 0.9, 0], [r, 0.008], [r, 0.18], [r * 0.82, 0.21], [0.017, 0.236], [0.015, 0.248], [0.015, h]];
-  const liq = [[0.0001, 0.004], [r * 0.93, 0.004], [r * 0.95, 0.176], [r * 0.78, 0.2], [0.0001, 0.2]];
-  g.add(mesh(lathe(liq, 30), M.liquidOil));
+  // The oil fills the whole inside, neck included, but is cut off by a level
+  // surface: a horizontal clipping plane, kept at the height that leaves the
+  // right amount of oil below it however the bottle is tilted (the engine
+  // moves it every frame). So upright the oil sits at the bottom, and tipped
+  // to pour it runs into the shoulder and neck. Two layers: an amber tint that
+  // colours whatever is seen through it, and a clear gloss for the shine.
+  const level = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  const tint = M.liquidOil.clone();
+  tint.clippingPlanes = [level];
+  const gloss = M.oilGloss.clone();
+  gloss.clippingPlanes = [level];
+  const insideGeo = lathe(OIL_INSIDE, 30);
+  const oil = mesh(insideGeo, tint);
+  oil.add(mesh(insideGeo, gloss));
+  g.add(oil);
   const pet = mesh(lathe(shell, 32), M.pet);
   pet.renderOrder = 3;
   g.add(pet);
@@ -519,16 +543,19 @@ export function buildOil(M) {
   const lip = mesh(new THREE.TorusGeometry(0.0148, 0.0016, 8, 24), neckMat, 0, 0.2595, 0);
   lip.rotation.x = Math.PI / 2;
   g.add(lip);
-  // oil filling the shoulder and neck right up to the mouth, shown while pouring
-  const pourNeck = mesh(lathe([[0.0001, 0.19], [r * 0.8, 0.19], [r * 0.76, 0.208], [0.0158, 0.235], [0.0136, 0.247], [0.0136, 0.2585], [0.0001, 0.2585]], 24), M.liquidOil);
-  pourNeck.visible = false;
-  g.add(pourNeck);
-  // the frying step takes the cap off and lowers the oil inside
+  // Points spread evenly through the inside (by volume): the engine finds the
+  // level by taking the height below which the right share of them lie.
+  const rand = rng(61), pts = [];
+  while (pts.length < 600 * 3) {
+    const x = (rand() * 2 - 1) * 0.039, z = (rand() * 2 - 1) * 0.039, y = 0.004 + rand() * (0.2585 - 0.004);
+    if (Math.hypot(x, z) <= insideRadius(y)) pts.push(x, y, z);
+  }
+  g.userData.oil = { meshes: [oil, oil.children[0]], pts: new Float32Array(pts), fill: 0.8 };
   g.userData.cap = cap;
-  g.userData.pourNeck = pourNeck;
-  g.userData.liquid = g.children[0];
   g.userData.mouth = h;
-  return shadowed(g);
+  shadowed(g);
+  oil.castShadow = false; oil.children[0].castShadow = false; // a clear liquid casts no solid shadow
+  return g;
 }
 
 // ================================================================ DECOR

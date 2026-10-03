@@ -224,7 +224,12 @@ function makeMaterials(T) {
     boxSide: std({ color: 0xa61f16, roughness: 0.55 }),
     liquidKewra: clear({ color: 0xe9f5df, roughness: 0.05, opacity: 0.55 }),
     liquidZarda: phys({ color: 0xf28c0c, roughness: 0.05, transparent: true, opacity: 0.88 }),
-    liquidOil: phys({ color: 0xe0a91f, roughness: 0.05, transparent: true, opacity: 0.86 }),
+    // Cooking oil is clear: it barely scatters light, it tints what you see
+    // through it and it shines. So it's drawn as two layers: an unlit amber
+    // tint that multiplies what's behind it (like tinted glass), and a black,
+    // glossy layer added on top that contributes only reflections.
+    liquidOil: new THREE.MeshBasicMaterial({ color: 0xff9a25, blending: THREE.MultiplyBlending, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }),
+    oilGloss: std({ color: 0x000000, roughness: 0.06, metalness: 0, envMapIntensity: 2.2, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }),
     capGreen: std({ color: 0x2a7a3e, roughness: 0.4 }),
     capRed: std({ color: 0xc0281e, roughness: 0.4 }),
     labelKewra: std({ map: T.kewraLabel, roughness: 0.6 }),
@@ -1567,6 +1572,26 @@ export function initFoodLab(root) {
     if (S.station.update(dt) > 0) Sound.thud();
   }
 
+  // The oil in a bottle settles level: put its surface at the height below
+  // which `fill` of the bottle's inside lies, for the bottle's current tilt.
+  // (Its sample points are spread evenly through the inside, by volume.)
+  const oilYs = new Float32Array(600);
+  function settleOil(o, fill) {
+    const d = o.userData.oil;
+    if (!d) return;
+    d.fill = fill;
+    o.updateWorldMatrix(true, false);
+    const e = o.matrixWorld.elements, p = d.pts, n = p.length / 3;
+    for (let i = 0; i < n; i++) oilYs[i] = e[1] * p[3 * i] + e[5] * p[3 * i + 1] + e[9] * p[3 * i + 2] + e[13];
+    const ys = oilYs.subarray(0, n).sort();
+    const level = ys[Math.min(n - 1, Math.floor(fill * (n - 1)))];
+    // every material that draws this oil (glow cloning may have copied the plane)
+    for (const m of d.meshes) {
+      const pl = m.material.clippingPlanes && m.material.clippingPlanes[0];
+      if (pl) { pl.normal.set(0, -1, 0); pl.constant = level; }
+    }
+  }
+
   // ================================================================ CLOSE VIEWS
   // The board and the stove each have a close-up camera. While one is open,
   // the mouse or a finger works the tool instead of walking and looking.
@@ -1812,7 +1837,6 @@ export function initFoodLab(root) {
       o.position.y += Math.sin(Math.PI * be) * 0.25;
       o.quaternion.copy(b.homeQ).slerp(bQ, be);
       if (o.userData.cap) o.userData.cap.visible = be < 0.5;
-      if (o.userData.liquid) o.userData.liquid.scale.y = 1 - 0.3 * (fr.oil / OIL_TARGET);
       b.moved = be > 0;
       shadowsDirty = true;
     }
@@ -1829,7 +1853,6 @@ export function initFoodLab(root) {
       b.obj.updateMatrixWorld();
       f.setStream(b.obj.localToWorld(mouth.set(0, b.obj.userData.mouth || 0.26, 0)), P.y + f.surface);
     } else f.setStream(null);
-    if (b && b.obj.userData.pourNeck) b.obj.userData.pourNeck.visible = streaming;
     // the oil heats up
     if (fr.state === "heat") {
       fr.heat = Math.min(1, fr.heat + dt / HEAT_S);
@@ -2095,6 +2118,7 @@ export function initFoodLab(root) {
     if (playing && !view.mode) move(dt);
     if (phase === "slice") updateBoard(dt);
     if (phase === "fry") updateFry(dt);
+    if (S.items) settleOil(S.items.oil.obj, 0.8 - 0.25 * (fr.oil / OIL_TARGET));
     updateView(dt);
     syncView();
     runTweens(dt);

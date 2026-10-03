@@ -51,11 +51,16 @@ export function buildFry(M) {
   const root = new THREE.Group();
 
   // ---- oil
-  // Colours are much darker than they look: three.js brightens them on the
-  // way to the screen, and the shiny aluminium behind the oil lightens it more.
-  const OIL_FRESH = new THREE.Color(0x6b3f06), OIL_USED = new THREE.Color(0x3e1f03);
-  const oilMat = new THREE.MeshPhysicalMaterial({ color: OIL_FRESH.clone(), roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.84, envMapIntensity: 1.2 });
-  const oil = new THREE.Mesh(new THREE.CircleGeometry(1, 48), oilMat);
+  // Clear oil, as two layers (see the materials in the engine): an amber tint
+  // over the pot's bottom, deeper than in the bottle because it's 2 cm deep,
+  // and a gloss layer for the shine. The tint deepens as the onions fry.
+  const OIL_FRESH = new THREE.Color(0xe36b10), OIL_USED = new THREE.Color(0xb04208);
+  const oilMat = M.liquidOil.clone();
+  oilMat.color.copy(OIL_FRESH);
+  oilMat.side = THREE.FrontSide;
+  const oilGeo = new THREE.CircleGeometry(1, 48);
+  const oil = new THREE.Mesh(oilGeo, oilMat);
+  oil.add(new THREE.Mesh(oilGeo, M.oilGloss));
   oil.rotation.x = -Math.PI / 2;
   oil.visible = false;
   oil.renderOrder = 2;
@@ -242,6 +247,7 @@ export function buildFry(M) {
   const streamGeo = new THREE.CylinderGeometry(0.0035, 0.0045, 1, 8, 1, true);
   streamGeo.translate(0, -0.5, 0); // hangs down from its top
   const stream = new THREE.Mesh(streamGeo, M.liquidOil);
+  stream.add(new THREE.Mesh(streamGeo, M.oilGloss));
   stream.visible = false;
   function setStream(top, bottomY) {
     if (!top) { stream.visible = false; return; }
