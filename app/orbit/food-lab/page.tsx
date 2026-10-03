@@ -4,7 +4,7 @@ import FoodLab from "./FoodLab";
 export const metadata: Metadata = {
   title: "The Food Lab \u2014 Zohaib Narejo",
   description:
-    "Squish raw dough, bake it, and poke at the physics. A playful 3D material study.",
+    "Walk into a Karachi kitchen in first person, gather everything, and learn to make biryani.",
 };
 
 export default function FoodLabPage() {

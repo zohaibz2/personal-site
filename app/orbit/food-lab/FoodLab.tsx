@@ -3,8 +3,13 @@
 import { useEffect, useRef } from "react";
 import "./food-lab.css";
 
-const FONTS_URL =
-  "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&display=swap";
+const icon = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
 
 export default function FoodLab() {
   const rootRef = useRef<HTMLElement>(null);
@@ -13,7 +18,7 @@ export default function FoodLab() {
     const root = rootRef.current;
     if (!root) return;
 
-    // Fit the lab into the viewport below the site header.
+    // Fit the kitchen into the viewport below the site header.
     const siteHeader = Array.from(document.querySelectorAll("header")).find(
       (h) => !root.contains(h)
     );
@@ -38,128 +43,115 @@ export default function FoodLab() {
   }, []);
 
   return (
-    <main ref={rootRef} className="food-lab" data-theme="light">
-      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-      <link rel="stylesheet" href={FONTS_URL} />
-      <div className="app">
-        <div className="stage" id="stage">
-          <div className="fallback" id="fallback">The 3D view needs WebGL and the Three.js library. Reload the page, or try a current desktop browser.</div>
+    <main ref={rootRef} className="food-lab" aria-label="Biryani kitchen">
+      <div className="fl-stage" />
+      <div className="fl-vignette" />
+
+      <div className="fl-hud" aria-hidden="true">
+        <div className="fl-strip" />
+        <div className="fl-reticle">
+          <svg className="i-grab" viewBox="0 0 24 24" {...icon}>
+            <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12" />
+            <path d="M11 11V5a1.5 1.5 0 0 1 3 0v6" />
+            <path d="M14 11.5V6.5a1.5 1.5 0 0 1 3 0V14c0 3.6-2.4 6.5-6 6.5-2.6 0-4.2-1.4-5.4-3.4L4 14.4a1.5 1.5 0 0 1 2.5-1.6L8 15" />
+          </svg>
+          <svg className="i-door" viewBox="0 0 24 24" {...icon}>
+            <path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21" />
+            <path d="M4 21h16M14.5 12.5v1" />
+          </svg>
+          <svg className="i-place" viewBox="0 0 24 24" {...icon}>
+            <path d="M12 3v10M8 9.5l4 4 4-4" />
+            <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+          </svg>
         </div>
-
-        <aside className="rail-left" aria-label="Recipe and pantry">
-          <header className="masthead">
-            <p className="kicker">MATERIAL STUDIES / NO. 14 — CHOCOLATE CHIP</p>
-            <h1>Cookie<br />Lab.</h1>
-            <p className="dek">Butter, sugar and heat.<br />Squish it raw.<br />Poke it warm.</p>
-          </header>
-
-          <section className="phases" aria-labelledby="phase-label">
-            <h2 className="section-label" id="phase-label"><span>Recipe</span><span id="phase-count">01 / 04</span></h2>
-            <ol>
-              <li data-phase="1"><span>01</span><span>PORTION</span><span className="mark" aria-hidden="true"></span></li>
-              <li data-phase="2"><span>02</span><span>EMBED</span><span className="mark" aria-hidden="true"></span></li>
-              <li data-phase="3"><span>03</span><span>BAKE &amp; EXPAND</span><span className="mark" aria-hidden="true"></span></li>
-              <li data-phase="4"><span>04</span><span>INSPECT</span><span className="mark" aria-hidden="true"></span></li>
-            </ol>
-            <p className="hint" id="hint" aria-live="polite"></p>
-          </section>
-
-          <section className="pantry" aria-labelledby="pantry-label">
-            <h2 className="section-label" id="pantry-label"><span>Pantry</span></h2>
-            <div className="pantry-list">
-              <button className="pantry-item" data-item="scoop" aria-pressed="false" title="Butter dough (D)">
-                <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="13" ry="3" fill="#3b2317" opacity=".12"/><path d="M8 27c-1-9 4-17 12-17s13 7 12 16c-.2 2-2 3-4 3H12c-2 0-3.8-.6-4-2z" fill="#e8c898"/><path d="M13 16c2-2.6 5-3.8 8-3.6" stroke="#fff" strokeOpacity=".7" strokeWidth="1.6" fill="none" strokeLinecap="round"/><circle cx="16" cy="22" r="1" fill="#c9a06a"/><circle cx="24" cy="19" r=".8" fill="#c9a06a"/><circle cx="26" cy="25" r="1" fill="#c9a06a"/></svg>
-                <span><span className="name">Butter dough</span><span className="sub">40 mm scoop</span></span>
-                <span className="count" id="count-dough">0 / 6</span>
-              </button>
-              <button className="pantry-item" data-item="chip" aria-pressed="false" title="Chocolate chunks (C)">
-                <svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="31" rx="11" ry="2.5" fill="#3b2317" opacity=".12"/><path d="M10 26l3-11 9-4 8 6 1 9-9 4z" fill="#3b2317"/><path d="M13 15l9-4 8 6-9 3z" fill="#5a3826"/><path d="M14 16.5l7-3" stroke="#fff" strokeOpacity=".35" strokeWidth="1.2" strokeLinecap="round"/></svg>
-                <span><span className="name">Chocolate chunks</span><span className="sub">70% semi-sweet</span></span>
-                <span className="count" id="count-chip">0</span>
-              </button>
-              <button className="pantry-item" data-item="salt" aria-pressed="false" title="Flaky sea salt (F)">
-                <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M9 22l7-6 9 1 5 5-8 4z" fill="#fff" stroke="#bdb6a8" strokeWidth=".9"/><path d="M20 30l4-5 6 1 2 3-6 2z" fill="#fff" stroke="#bdb6a8" strokeWidth=".9"/><path d="M11 13l4-3 5 1 1 3-6 1z" fill="#fff" stroke="#bdb6a8" strokeWidth=".9"/></svg>
-                <span><span className="name">Flaky sea salt</span><span className="sub">Coarse pyramids</span></span>
-                <span className="count" id="count-salt">0</span>
-              </button>
-            </div>
-            <p className="fine">Click an ingredient to use it, or drag it onto the sheet.</p>
-          </section>
-        </aside>
-
-        <aside className="inspector" aria-label="The inspector">
-          <div className="insp-head"><h2>The inspector</h2><span className="fig">fig. 14</span></div>
-
-          <div className="group">
-            <h3 className="section-label">Tool</h3>
-            <div className="seg" role="group" aria-label="Tool">
-              <button data-tool="hand" aria-pressed="true" title="Hand / squish (H)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 12V5.5a1.5 1.5 0 013 0V11"/><path d="M11 10.5V4.5a1.5 1.5 0 013 0V11"/><path d="M14 10.5V6a1.5 1.5 0 013 0v7"/><path d="M8 11.5l-1.6-1.7a1.6 1.6 0 00-2.3 2.2L8 17c1.3 1.6 3 3 5.4 3H14a5 5 0 005-5V13"/><path d="M17 9.5a1.5 1.5 0 013 0V14"/></svg>
-                Hand
-              </button>
-              <button data-tool="scoop" aria-pressed="false" title="Scooper / drop (S)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 13a6 6 0 0012 0z"/><path d="M15.5 12.5L21 4"/><path d="M7 16.5c1 .8 2.2 1.2 3 1.2"/></svg>
-                Scooper
-              </button>
-              <button data-tool="tongs" aria-pressed="false" title="Tongs / move (T)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 3l6 11v7"/><path d="M19 3l-6 11v7"/><path d="M8.5 9.5h7"/><path d="M9 20h6"/></svg>
-                Tongs
-              </button>
-            </div>
-          </div>
-
-          <div className="group">
-            <h3 className="section-label">Appliance</h3>
-            <div className="field">
-              <div className="field-row"><label htmlFor="watt">Microwave wattage</label><output id="watt-out" htmlFor="watt">900 W</output></div>
-              <input type="range" id="watt" min="600" max="1200" step="50" defaultValue="900" />
-              <div className="ends"><span>600 W</span><span>1200 W</span></div>
-            </div>
-            <div className="field">
-              <div className="field-row"><label htmlFor="dur">Bake duration</label><output id="dur-out" htmlFor="dur">15 s</output></div>
-              <input type="range" id="dur" min="6" max="30" step="1" defaultValue="15" />
-              <div className="ends"><span>gooey</span><span>crisp</span></div>
-            </div>
-            <div className="field">
-              <div className="field-row"><label htmlFor="moist">Internal moisture</label><output id="moist-out" htmlFor="moist">78 %</output></div>
-              <input type="range" id="moist" min="45" max="92" step="1" defaultValue="78" />
-              <div className="ends"><span>dry, cracks more</span><span>wet, spreads more</span></div>
-            </div>
-            <div className="field">
-              <div className="field-row"><label htmlFor="mrate">Maillard reaction rate</label><output id="mrate-out" htmlFor="mrate">1.00×</output></div>
-              <input type="range" id="mrate" min="0.4" max="2.2" step="0.05" defaultValue="1" />
-              <div className="ends"><span>pale</span><span>deep</span></div>
-            </div>
-          </div>
-
-          <div className="group">
-            <div className="timer"><span>Bake timer</span><strong id="timer">0:15</strong></div>
-            <div className="actions">
-              <button className="btn" id="btn-transfer">TRANSFER TO OVEN</button>
-              <button className="btn primary" id="btn-bake">START BAKE <kbd>B</kbd></button>
-              <button className="btn" id="btn-door">OPEN DOOR</button>
-              <button className="btn quiet" id="btn-reset">RESET SPECIMEN</button>
-            </div>
-          </div>
-
-          <div className="group toggles">
-            <label><input type="checkbox" id="opt-sound" defaultChecked /> Sound</label>
-            <label><input type="checkbox" id="opt-lattice" /> Show lattice</label>
-          </div>
-        </aside>
-
-        <dl className="telemetry" aria-label="Telemetry">
-          <div className="metric" id="m-temp"><dt>TEMPERATURE</dt><dd><span id="t-temp">24.2</span><span className="unit">°C</span></dd></div>
-          <div className="metric"><dt>CORE MOISTURE</dt><dd><span id="t-moist">78.4</span><span className="unit">%</span></dd></div>
-          <div className="metric"><dt>MAILLARD INDEX</dt><dd><span id="t-maillard">0.00</span></dd></div>
-          <div className="metric"><dt>CRACK COUNT</dt><dd><span id="t-crack">0</span></dd></div>
-          <div className="metric"><dt>DOUGH VISCOSITY</dt><dd><span id="t-visc">1.42</span><span className="unit">Pa·s</span></dd></div>
-        </dl>
+        <div className="fl-joy">
+          <i />
+        </div>
       </div>
 
-      <div className="cursor" id="cursor" aria-hidden="true"><div className="ring"></div><div className="dot"></div><div className="label" id="cursor-label">Contact 0.0 mm</div></div>
-      <div className="toast" id="toast" role="status" aria-live="polite"></div>
-      <div className="ghost" id="ghost" aria-hidden="true"></div>
+      <div className="fl-start hide" role="button" tabIndex={0} aria-label="Start">
+        <div className="fl-start-card">
+          <div className="fl-play">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+            </svg>
+          </div>
+          <div className="fl-controls only-desk">
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <rect x="17" y="12" width="14" height="22" rx="7" />
+                <path d="M24 12v6" />
+                <path d="M9 23c0-4 2-7.5 5-9.5M39 23c0-4-2-7.5-5-9.5" />
+                <path d="M11.5 12.5L14 13.5 13.2 16M36.5 12.5L34 13.5 34.8 16" />
+              </svg>
+            </div>
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <rect x="18" y="9" width="12" height="11" rx="2.5" />
+                <rect x="5" y="23" width="12" height="11" rx="2.5" />
+                <rect x="18" y="23" width="12" height="11" rx="2.5" />
+                <rect x="31" y="23" width="12" height="11" rx="2.5" />
+                <path d="M24 12.5v4.5M22 14.5l2-2 2 2M24 30.5V26M22 28.5l2 2 2-2M13.5 28.5H9M11 26.5l-2 2 2 2M34.5 28.5H39M37 26.5l2 2-2 2" />
+              </svg>
+            </div>
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <path d="M19 26V13.5a2.5 2.5 0 0 1 5 0V24" />
+                <path d="M24 22.5v-3a2.5 2.5 0 0 1 5 0v4" />
+                <path d="M29 23.5v-2a2.5 2.5 0 0 1 5 0V29c0 6-4 10-9.5 10-4 0-6.5-2-8.5-5.5L13 28a2.4 2.4 0 0 1 4-2.6l2 2.6" />
+                <path d="M14 9.5l-2.5-2.5M21.5 6.5V3M29 9.5l2.5-2.5" />
+              </svg>
+            </div>
+          </div>
+          <div className="fl-controls only-touch">
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <circle cx="24" cy="24" r="15" />
+                <circle cx="24" cy="24" r="6" />
+                <path d="M24 5.5v3M24 39.5v3M5.5 24h3M39.5 24h3" />
+              </svg>
+            </div>
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <path d="M21 30V17.5a2.5 2.5 0 0 1 5 0V27" />
+                <path d="M26 25.5v-2a2.5 2.5 0 0 1 5 0V31c0 5-3.5 8.5-8 8.5-3.5 0-5.5-1.8-7-4.6L13.8 31a2.4 2.4 0 0 1 4-2.6l3.2 2.6" />
+                <path d="M8 12h12M8 12l3-3M8 12l3 3M40 12H28M40 12l-3-3M40 12l-3 3" />
+              </svg>
+            </div>
+            <div className="fl-ctl">
+              <svg viewBox="0 0 48 48" {...icon}>
+                <path d="M21 30V17.5a2.5 2.5 0 0 1 5 0V27" />
+                <path d="M26 25.5v-2a2.5 2.5 0 0 1 5 0V31c0 5-3.5 8.5-8 8.5-3.5 0-5.5-1.8-7-4.6L13.8 31a2.4 2.4 0 0 1 4-2.6l3.2 2.6" />
+                <circle cx="23.5" cy="17.5" r="8" strokeDasharray="2.5 3" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="fl-loading" aria-label="Loading">
+        <span className="fl-spin" />
+      </div>
+
+      <div className="fl-done" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10.5" fill="#2f9e5b" />
+          <path d="M7.5 12.3l3 3 6-6.3" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div className="fl-pips">
+          <i className="on" />
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
+
+      <div className="fl-fallback" aria-label="This experience needs WebGL">
+        <svg viewBox="0 0 48 48" {...icon}>
+          <rect x="6" y="9" width="36" height="24" rx="3" />
+          <path d="M18 39h12M24 33v6M17 15l14 12M31 15L17 27" />
+        </svg>
+      </div>
     </main>
   );
 }

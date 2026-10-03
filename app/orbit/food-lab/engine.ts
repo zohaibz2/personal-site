@@ -1,1753 +1,946 @@
 // @ts-nocheck
 /* eslint-disable */
-// The Food Lab (Material Studies / No. 14: The Cookie Lab), ported to a
-// React-mounted module. The physics core runs at module scope; everything
-// that touches the page lives in initFoodLab(), which returns a dispose
-// function that stops the loop, removes listeners and frees WebGL/audio.
-import * as THREE_NS from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { gsap } from "gsap";
-import confetti from "canvas-confetti";
+// The Biryani Kitchen, stage 1: walk a Karachi kitchen in first person and
+// gather every ingredient for a chicken biryani. No text anywhere: the HUD is
+// pictures of the ingredients, grouped by where they're found.
+import * as THREE from "three";
+import { makeTextures } from "./kitchen/textures";
+import { buildKitchen, ITEMS, TABLE, ROOM } from "./kitchen/kitchen";
+import { buildHandBasket } from "./kitchen/props";
 
-const THREE = Object.assign({}, THREE_NS, { OrbitControls });
-
-// ============================================================
-// CORE — soft-body lattice, dough mechanics, thermal model.
-// Pure JavaScript (no Three.js), so it can be reasoned about
-// and stepped independently of the renderer.
-// ============================================================
-const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
-const lerp = (a, b, t) => a + (b - a) * t;
-const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-const ROOM = 24.2;          // °C, ambient
-const MM_PER_UNIT = 100;    // 1 scene unit = 100 mm
-
-function hashI(x, y, z, s) {
-  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 1440662683) ^ Math.imul(s | 0, 2246822519);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967295;
-}
-function vnoise(x, y, z, s) {
-  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
-  const xf = x - xi, yf = y - yi, zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
-  const c = (i, j, k) => hashI(xi + i, yi + j, zi + k, s);
-  const x00 = lerp(c(0, 0, 0), c(1, 0, 0), u), x10 = lerp(c(0, 1, 0), c(1, 1, 0), u);
-  const x01 = lerp(c(0, 0, 1), c(1, 0, 1), u), x11 = lerp(c(0, 1, 1), c(1, 1, 1), u);
-  return lerp(lerp(x00, x10, v), lerp(x01, x11, v), w) * 2 - 1;
-}
-
-// Indexed icosphere with CSR adjacency — the spring lattice.
-function buildLattice(subdivisions) {
-  const t = (1 + Math.sqrt(5)) / 2;
-  const verts = [];
-  const push = (x, y, z) => { const l = Math.hypot(x, y, z); verts.push(x / l, y / l, z / l); return verts.length / 3 - 1; };
-  [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]]
-    .forEach(p => push(p[0], p[1], p[2]));
-  let faces = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
-    [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
-  for (let s = 0; s < subdivisions; s++) {
-    const cache = new Map();
-    const mid = (a, b) => {
-      const key = a < b ? a * 1048576 + b : b * 1048576 + a;
-      let m = cache.get(key);
-      if (m === undefined) {
-        m = push((verts[3 * a] + verts[3 * b]) / 2, (verts[3 * a + 1] + verts[3 * b + 1]) / 2, (verts[3 * a + 2] + verts[3 * b + 2]) / 2);
-        cache.set(key, m);
-      }
-      return m;
-    };
-    const next = [];
-    for (const [a, b, c] of faces) {
-      const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
-      next.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
-    }
-    faces = next;
-  }
-  const N = verts.length / 3;
-  const index = N < 65536 ? new Uint16Array(faces.length * 3) : new Uint32Array(faces.length * 3);
-  const sets = Array.from({ length: N }, () => new Set());
-  faces.forEach((f, i) => {
-    index[3 * i] = f[0]; index[3 * i + 1] = f[1]; index[3 * i + 2] = f[2];
-    sets[f[0]].add(f[1]); sets[f[0]].add(f[2]);
-    sets[f[1]].add(f[0]); sets[f[1]].add(f[2]);
-    sets[f[2]].add(f[0]); sets[f[2]].add(f[1]);
-  });
-  const nbStart = new Int32Array(N + 1);
-  let total = 0;
-  for (let i = 0; i < N; i++) { nbStart[i] = total; total += sets[i].size; }
-  nbStart[N] = total;
-  const nbList = new Int32Array(total);
-  for (let i = 0, p = 0; i < N; i++) for (const j of sets[i]) nbList[p++] = j;
-  return { N, T: faces.length, dir: new Float32Array(verts), index, nbStart, nbList };
-}
-
-class SoftBody {
-  constructor(L, r, seed, moisture) {
-    this.L = L; this.r = r; this.seed = seed;
-    const N = L.N;
-    this.R = new Float32Array(3 * N);     // rest (plastic) shape
-    this.D = new Float32Array(3 * N);     // elastic offset
-    this.V = new Float32Array(3 * N);     // velocity of offset
-    this.Q = new Float32Array(3 * N);     // scratch: R + D
-    this.snap = new Float32Array(3 * N);  // rest shape at bake start
-    this.pos = new Float32Array(3 * N);   // composed output (mesh space)
-    this.nrm = new Float32Array(3 * N);   // output normals
-    const d = L.dir, k = 0.05 * r;
-    for (let i = 0; i < N; i++) {
-      const x = d[3 * i], y = d[3 * i + 1], z = d[3 * i + 2];
-      const lump = 1 + 0.085 * vnoise(x * 1.7 + seed, y * 1.7, z * 1.7, seed) + 0.03 * vnoise(x * 4.3, y * 4.3 + seed, z * 4.3, seed + 7);
-      let px = x * r * lump, py = y * r * lump + r * 0.8, pz = z * r * lump;
-      py = py / k > 20 ? py : k * Math.log1p(Math.exp(py / k)); // soft floor: a scoop slumps onto the sheet
-      this.R[3 * i] = px; this.R[3 * i + 1] = py; this.R[3 * i + 2] = pz;
-    }
-    // global wobble modes: vertical squash + two shear modes
-    this.sq = 0; this.sqv = 0; this.shx = 0; this.shxv = 0; this.shz = 0; this.shzv = 0;
-    this.acc = { x: 0, y: 0, z: 0 };
-    this.contact = { active: false, hx: 0, hy: 0, hz: 0, nx: 0, ny: 1, nz: 0, depth: 0, rf: r * 0.38, cx: 0, cy: 0, cz: 0, vx: 0, vz: 0, has: false };
-    // thermal / material state
-    this.T = ROOM; this.moist0 = moisture; this.moist = moisture;
-    this.M = 0; this.s = 0; this.set = 0; this.crack = 0; this.sSnap = 0; this.snapH = 1;
-    this.baking = false;
-    this.V0 = this.volumeOf(this.R); this.vol = this.V0;
-    this.maxV2 = 0; this.calm = 0; this.sleeping = false;
-    this.measure();
-    this.updateParams();
-    this.compose();
-  }
-
-  volumeOf(A) {
-    const I = this.L.index, n = I.length;
-    let v = 0;
-    for (let t = 0; t < n; t += 3) {
-      const a = 3 * I[t], b = 3 * I[t + 1], c = 3 * I[t + 2];
-      const ax = A[a], ay = A[a + 1], az = A[a + 2], bx = A[b], by = A[b + 1], bz = A[b + 2], cx = A[c], cy = A[c + 1], cz = A[c + 2];
-      v += ax * (by * cz - bz * cy) + ay * (bz * cx - bx * cz) + az * (bx * cy - by * cx);
-    }
-    return v / 6;
-  }
-
-  measure() {
-    const R = this.R, N = this.L.N;
-    let H = 0, F = 0;
-    for (let i = 0; i < N; i++) {
-      const o = 3 * i;
-      if (R[o + 1] > H) H = R[o + 1];
-      const rr = R[o] * R[o] + R[o + 2] * R[o + 2];
-      if (rr > F) F = rr;
-    }
-    this.H = H; this.footR = Math.sqrt(F);
-  }
-
-  wake() { this.calm = 0; this.sleeping = false; }
-
-  get warmth() { return clamp((this.T - 38) / 90, 0, 1); }
-
-  updateParams() {
-    const set = this.set, warm = this.warmth, wet = Math.pow(78 / clamp(this.moist0, 30, 95), 0.7);
-    const firm = smooth(0, 0.4, set);
-    this.k = lerp(165 * wet, 950, set) * (1 - 0.35 * warm * set);
-    this.c = lerp(8, 30, set);
-    this.cpl = lerp(240, 650, set);
-    this.plast = lerp(2.4 / wet, 0, firm) * (1 + 1.5 * warm * (1 - set));
-    this.yieldD = lerp(0.02 * this.r, this.r, firm);
-    this.kG = lerp(70, 640, set);
-    this.cG = lerp(3.0, 26, set);
-    this.pK = lerp(260, 420, set);
-    this.maxDepth = lerp(0.62 * this.r, 0.06 * this.r * (1 + 2 * warm), smooth(0, 0.6, set));
-  }
-
-  // finger press, in composed (mesh) space
-  press(px, py, pz, nx, ny, nz) {
-    const ct = this.contact;
-    const sy = 1 + this.sq, sxz = 1 / Math.sqrt(Math.max(0.25, sy));
-    const qy = py / sy;
-    ct.hx = (px - this.shx * qy) / sxz; ct.hy = qy; ct.hz = (pz - this.shz * qy) / sxz;
-    const l = Math.hypot(nx, ny, nz) || 1;
-    ct.nx = nx / l; ct.ny = ny / l; ct.nz = nz / l;
-    ct.depth = 0.012 * this.r; ct.active = true; ct.has = false; ct.vx = 0; ct.vz = 0;
-    this.wake();
-  }
-  moveContact(px, pz) {
-    const ct = this.contact; if (!ct.active) return;
-    const sy = 1 + this.sq, sxz = 1 / Math.sqrt(Math.max(0.25, sy));
-    const lim = this.footR * 1.15;
-    let qx = (px - this.shx * ct.hy) / sxz, qz = (pz - this.shz * ct.hy) / sxz;
-    const rr = Math.hypot(qx, qz);
-    if (rr > lim) { qx *= lim / rr; qz *= lim / rr; }
-    ct.hx = qx; ct.hz = qz;
-  }
-  release() {
-    const ct = this.contact; if (!ct.active) return;
-    this.sqv += 4.5 * (ct.depth / this.r) * (1 - 0.8 * this.set);
-    ct.active = false; ct.depth = 0;
-    this.wake();
-  }
-  updateContact(dt) {
-    const ct = this.contact; if (!ct.active) return;
-    ct.depth += (this.maxDepth - ct.depth) * (1 - Math.exp(-2.4 * dt));
-    const cx = ct.hx + ct.nx * (ct.rf - ct.depth);
-    const cy = Math.max(ct.hy + ct.ny * (ct.rf - ct.depth), ct.rf * 0.3);
-    const cz = ct.hz + ct.nz * (ct.rf - ct.depth);
-    if (ct.has) {
-      const iv = 1 / Math.max(dt, 1e-3);
-      ct.vx = lerp(ct.vx, clamp((cx - ct.cx) * iv, -4, 4), 0.35);
-      ct.vz = lerp(ct.vz, clamp((cz - ct.cz) * iv, -4, 4), 0.35);
-    } else { ct.vx = 0; ct.vz = 0; ct.has = true; }
-    ct.cx = cx; ct.cy = cy; ct.cz = cz;
-    this.shxv += ct.vx * 2.0 * dt * (1 - 0.7 * this.set);
-    this.shzv += ct.vz * 2.0 * dt * (1 - 0.7 * this.set);
-  }
-
-  // a small local dent around a vertex (used when pieces are pressed in)
-  dent(i, amount, radius) {
-    const N = this.L.N, R = this.R, D = this.D, V = this.V, nr = this.nrm;
-    const ax = R[3 * i] + D[3 * i], ay = R[3 * i + 1] + D[3 * i + 1], az = R[3 * i + 2] + D[3 * i + 2];
-    const nx = nr[3 * i], ny = nr[3 * i + 1], nz = nr[3 * i + 2];
-    const r2 = radius * radius;
-    for (let j = 0; j < N; j++) {
-      const o = 3 * j;
-      const dx = R[o] + D[o] - ax, dy = R[o + 1] + D[o + 1] - ay, dz = R[o + 2] + D[o + 2] - az;
-      const d2 = dx * dx + dy * dy + dz * dz;
-      if (d2 < r2) {
-        const f = 1 - d2 / r2;
-        D[o] -= nx * amount * f; D[o + 1] -= ny * amount * f; D[o + 2] -= nz * amount * f;
-        V[o] -= nx * amount * f * 30; V[o + 1] -= ny * amount * f * 30; V[o + 2] -= nz * amount * f * 30;
-      }
-    }
-    this.wake();
-  }
-
-  step(h) {
-    const L = this.L, N = L.N, R = this.R, D = this.D, V = this.V, Q = this.Q, nr = this.nrm, ns = L.nbStart, nl = L.nbList;
-    const n3 = 3 * N;
-    for (let o = 0; o < n3; o++) Q[o] = R[o] + D[o];
-    this.vol = this.volumeOf(Q);
-    const pf = this.pK * (this.V0 - this.vol) / this.V0 * this.r;
-    const k = this.k, c = this.c, cpl = this.cpl;
-    const ct = this.contact, act = ct.active, rf = ct.rf, rf2 = rf * rf, cx = ct.cx, cy = ct.cy, cz = ct.cz, cvx = ct.vx, cvz = ct.vz;
-    const pl = this.plast * h, yd = this.yieldD, y2 = yd * yd;
-    let maxV2 = 0, plastic = false;
-    for (let i = 0; i < N; i++) {
-      const o = 3 * i;
-      let lx = 0, ly = 0, lz = 0;
-      const a0 = ns[i], a1 = ns[i + 1];
-      for (let j = a0; j < a1; j++) { const q = 3 * nl[j]; lx += D[q]; ly += D[q + 1]; lz += D[q + 2]; }
-      const inv = 1 / (a1 - a0);
-      let dx = D[o], dy = D[o + 1], dz = D[o + 2];
-      lx = lx * inv - dx; ly = ly * inv - dy; lz = lz * inv - dz;
-      let vx = V[o], vy = V[o + 1], vz = V[o + 2];
-      vx += (-k * dx - c * vx + cpl * lx + pf * nr[o]) * h;
-      vy += (-k * dy - c * vy + cpl * ly + pf * nr[o + 1]) * h;
-      vz += (-k * dz - c * vz + cpl * lz + pf * nr[o + 2]) * h;
-      dx += vx * h; dy += vy * h; dz += vz * h;
-      const ry = R[o + 1];
-      if (ry + dy < 0) { dy = -ry; if (vy < 0) vy = 0; vx *= 0.9; vz *= 0.9; }
-      if (act) {
-        const qx = R[o] + dx - cx, qy = ry + dy - cy, qz = R[o + 2] + dz - cz;
-        const d2 = qx * qx + qy * qy + qz * qz;
-        if (d2 < rf2) {
-          const d = Math.sqrt(d2) + 1e-9, s = (rf - d) / d;
-          dx += qx * s; dy += qy * s; dz += qz * s;
-          const nx = qx / d, ny = qy / d, nz = qz / d, vn = vx * nx + vy * ny + vz * nz;
-          if (vn < 0) { vx -= nx * vn; vy -= ny * vn; vz -= nz * vn; }
-          vx += (cvx - vx) * 0.2; vz += (cvz - vz) * 0.2;
-          if (ry + dy < 0) dy = -ry;
-        }
-      }
-      if (pl > 0) {
-        const m2 = dx * dx + dy * dy + dz * dz;
-        if (m2 > y2) {
-          const a = pl * (1 - yd / Math.sqrt(m2));
-          R[o] += dx * a; R[o + 1] += dy * a; R[o + 2] += dz * a;
-          dx -= dx * a; dy -= dy * a; dz -= dz * a;
-          plastic = true;
-        }
-      }
-      D[o] = dx; D[o + 1] = dy; D[o + 2] = dz;
-      V[o] = vx; V[o + 1] = vy; V[o + 2] = vz;
-      const v2 = vx * vx + vy * vy + vz * vz;
-      if (v2 > maxV2) maxV2 = v2;
-    }
-    if (plastic) this.measure();
-    // global modes: support acceleration drives squash and shear (inertia)
-    const a = this.acc, kG = this.kG, cG = this.cG;
-    this.sqv += (-kG * this.sq - cG * this.sqv - a.y * 0.9) * h; this.sq += this.sqv * h;
-    this.shxv += (-kG * this.shx - cG * this.shxv - a.x * 1.3) * h; this.shx += this.shxv * h;
-    this.shzv += (-kG * this.shz - cG * this.shzv - a.z * 1.3) * h; this.shz += this.shzv * h;
-    this.sq = clamp(this.sq, -0.45, 0.6); this.shx = clamp(this.shx, -0.5, 0.5); this.shz = clamp(this.shz, -0.5, 0.5);
-    this.maxV2 = maxV2;
-  }
-
-  compose() {
-    const L = this.L, N = L.N, R = this.R, D = this.D, P = this.pos, Nn = this.nrm, I = L.index;
-    const sy = 1 + this.sq, sxz = 1 / Math.sqrt(Math.max(0.25, sy)), shx = this.shx, shz = this.shz;
-    for (let i = 0; i < N; i++) {
-      const o = 3 * i;
-      const qx = R[o] + D[o], qy = R[o + 1] + D[o + 1], qz = R[o + 2] + D[o + 2];
-      P[o] = qx * sxz + shx * qy; P[o + 1] = qy * sy; P[o + 2] = qz * sxz + shz * qy;
-    }
-    Nn.fill(0);
-    for (let t = 0; t < I.length; t += 3) {
-      const a = 3 * I[t], b = 3 * I[t + 1], c = 3 * I[t + 2];
-      const e1x = P[b] - P[a], e1y = P[b + 1] - P[a + 1], e1z = P[b + 2] - P[a + 2];
-      const e2x = P[c] - P[a], e2y = P[c + 1] - P[a + 1], e2z = P[c + 2] - P[a + 2];
-      const nx = e1y * e2z - e1z * e2y, ny = e1z * e2x - e1x * e2z, nz = e1x * e2y - e1y * e2x;
-      Nn[a] += nx; Nn[a + 1] += ny; Nn[a + 2] += nz;
-      Nn[b] += nx; Nn[b + 1] += ny; Nn[b + 2] += nz;
-      Nn[c] += nx; Nn[c + 1] += ny; Nn[c + 2] += nz;
-    }
-    for (let i = 0; i < N; i++) {
-      const o = 3 * i, l = Math.hypot(Nn[o], Nn[o + 1], Nn[o + 2]) || 1;
-      Nn[o] /= l; Nn[o + 1] /= l; Nn[o + 2] /= l;
-    }
-  }
-
-  // advance the body; returns true if geometry changed
-  simulate(dt) {
-    const accMag = Math.abs(this.acc.x) + Math.abs(this.acc.y) + Math.abs(this.acc.z);
-    if (accMag > 0.25 || this.contact.active || this.baking) this.wake();
-    if (this.sleeping) return false;
-    this.updateContact(dt);
-    const sub = 2, h = Math.min(dt, 1 / 30) / sub;
-    for (let s = 0; s < sub; s++) this.step(h);
-    this.compose();
-    const glob = Math.abs(this.sqv) + Math.abs(this.shxv) + Math.abs(this.shzv) + Math.abs(this.sq) + Math.abs(this.shx) + Math.abs(this.shz);
-    if (!this.contact.active && !this.baking && this.maxV2 < 2e-6 && glob < 2e-3 && accMag < 0.25) this.calm++;
-    else this.calm = 0;
-    if (this.calm > 45) this.sleeping = true;
-    return true;
-  }
-
-  beginBake() {
-    this.snap.set(this.R);
-    this.sSnap = this.s;
-    this.snapH = Math.max(this.H, 1e-3);
-    this.baking = true;
-    this.wake();
-  }
-  endBake() { this.baking = false; }
-
-  applySpread() {
-    const N = this.L.N, S = this.snap, R = this.R;
-    const hr = (1 - 0.55 * this.s) / (1 - 0.55 * this.sSnap);
-    const rr = (1 + 0.78 * this.s) / (1 + 0.78 * this.sSnap);
-    const H = this.snapH;
-    for (let i = 0; i < N; i++) {
-      const o = 3 * i;
-      const yn = clamp(S[o + 1] / H, 0, 1);
-      const f = 1 + (rr - 1) * (1.12 - 0.32 * yn);
-      R[o] = S[o] * f; R[o + 1] = Math.max(0, S[o + 1] * hr); R[o + 2] = S[o + 2] * f;
-    }
-    this.V0 = this.volumeOf(R);
-    this.measure();
-  }
-
-  // thermal model; `on` = magnetron running at W watts
-  heat(dt, on, W, mRate) {
-    if (on) this.T += (60 + W * 0.14 - this.T) * (1 - Math.exp(-0.22 * (W / 900) * dt));
-    else this.T += (ROOM - this.T) * (1 - Math.exp(-0.035 * dt));
-    const evap = Math.max(0, (this.T - 70) / 100);
-    this.moist = Math.max(6, this.moist - evap * 2.2 * dt * (on ? 1 : 0.15));
-    this.M += mRate * 0.12 * Math.pow(Math.max(0, (this.T - 118) / 70), 1.3) * dt;
-    let changed = false;
-    if (this.baking && this.T > 34 && this.set < 0.98) {
-      const melt = clamp((this.T - 34) / 45, 0, 1);
-      const sMax = 0.45 + this.moist0 / 100 * 0.7;
-      const ds = 0.5 * melt * (this.moist0 / 78) * Math.max(0, 1 - this.s / sMax) * (1 - this.set) * dt;
-      if (ds > 1e-6) { this.s += ds; changed = true; }
-    }
-    if (this.T > 90) this.set = Math.min(1, this.set + 0.25 * ((this.T - 90) / 80) * Math.max(0.1, 1.3 - this.moist / 100) * dt);
-    this.crack = clamp((this.s - 0.2) * 1.8, 0, 1) * smooth(0.15, 0.7, this.set) * (0.55 + (1 - this.moist0 / 100) * 0.9);
-    if (changed) this.applySpread();
-    this.updateParams();
-    return changed;
-  }
-
-  get viscosity() {
-    return 1.42 * Math.pow(78 / clamp(this.moist0, 30, 95), 2) * Math.exp(-(this.T - ROOM) / 30) + Math.pow(this.set, 1.5) * 2600;
-  }
-  get crackCount() { return Math.round(this.crack * (6 + 12 * this.s)); }
-}
-// ===== CORE END =====
-
-// ============================================================
-// RENDERER, SCENE, INTERACTION
-// ============================================================
-export function initFoodLab(root) {
-  const __ac = new AbortController();
-  const __sig = __ac.signal;
-  const __timers = new Set();
-  let __dead = false, __raf = 0, __extra = null;
-
-  function __body() {
-'use strict';
-// timers that die with the component
-const setTimeout = (fn, ms) => {
-  const id = window.setTimeout(() => { __timers.delete(id); if (!__dead) fn(); }, ms);
-  __timers.add(id);
-  return id;
+const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
+const LOC_ICONS = {
+  fridge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M6 9.5h12M9 5.5v1.5M9 12.5v3"/></svg>',
+  cupboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3" width="15" height="18" rx="1.5"/><path d="M12 3v18M10 10.5v3M14 10.5v3"/></svg>',
+  sabzi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5h18l-2.2 8.2A2 2 0 0 1 16.9 20H7.1a2 2 0 0 1-1.9-1.3z"/><path d="M8 10.5l3.2-6M16 10.5l-3.2-6M7 14.5h10"/></svg>',
+  pantry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 3.5h7l-1.6 3.2c3.2 1.6 5.1 4.6 5.1 8.6 0 3.6-2.7 5.7-7 5.7s-7-2.1-7-5.7c0-4 1.9-7 5.1-8.6z"/><path d="M9.4 6.7h5.2"/></svg>',
 };
-const clearTimeout = (id) => { __timers.delete(id); window.clearTimeout(id); };
-const $ = (s, r = root) => r.querySelector(s);
-const $$ = (s, r = root) => Array.from(r.querySelectorAll(s));
-const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-if (typeof THREE === 'undefined' || typeof gsap === 'undefined') {
-  $('#fallback').classList.add('show');
-  return;
-}
+const EYE = 1.62;
+const REACH = 2.3;
+const SLOT_R = 0.03;
+const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-const V3 = THREE.Vector3;
-const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
-const UP = new V3(0, 1, 0);
-const _a = new V3(), _b = new V3(), _v = new V3(), _w = new V3(), _n = new V3(), _q = new THREE.Quaternion();
-
-// ---------------- constants ----------------
-const MAX_DOUGH = 6;
-const TRAY_W = 2.1, TRAY_D = 1.6;
-const TRAY_Y = 0.04;           // tray origin = top of sheet
-const TRAY_IN_Y = 0.31;        // on the turntable (microwave local)
-const MW_POS = new V3(2.3, 0, -3.9), MW_YAW = -0.42;
-const CAV_X = -0.5;            // cavity centre (microwave local)
-
-const params = { watt: 900, dur: 15, moist: 78, mrate: 1 };
-const ui = { tool: 'hand', lattice: false };
-let state = 'counter';         // counter | transferring | loaded | baking | unloading | inspect
-let phase = 1;
-let timer = params.dur;
-let focus = null;
-const doughs = [];
-
-// ---------------- renderer ----------------
-const stageEl = $('#stage');
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
-} catch (err) {
-  $('#fallback').classList.add('show');
-  return;
-}
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setClearColor(0x000000, 0);
-renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.02;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-stageEl.appendChild(renderer.domElement);
-const canvas = renderer.domElement;
-canvas.setAttribute('aria-label', 'Interactive 3D cookie dough specimen on a baking sheet, with a microwave oven behind it');
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(30, 1, 0.05, 80);
-camera.position.set(0.05, 2.15, 3.75);
-const controls = new THREE.OrbitControls(camera, canvas);
-controls.target.set(0.14, 0.28, -0.55);
-controls.enableDamping = true;
-controls.dampingFactor = 0.08;
-controls.minDistance = 1.1;
-controls.maxDistance = 14;
-controls.maxPolarAngle = 1.38;
-controls.rotateSpeed = 0.6;
-controls.zoomSpeed = 0.7;
-controls.update();
-
-// ---------------- environment (studio reflections) ----------------
-(function buildEnvironment() {
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = new THREE.Scene();
-  const g = new THREE.SphereGeometry(20, 32, 16);
-  const p = g.attributes.position, cols = [];
-  const lo = new THREE.Color(0.32, 0.29, 0.25), hi = new THREE.Color(1.0, 0.97, 0.92), c = new THREE.Color();
-  for (let i = 0; i < p.count; i++) {
-    const t = smooth(-0.5, 0.8, p.getY(i) / 20);
-    c.copy(lo).lerp(hi, t);
-    cols.push(c.r, c.g, c.b);
+// Neutral studio environment for reflections (same construction as three's RoomEnvironment).
+function roomEnvironment() {
+  const scene = new THREE.Scene();
+  const geometry = new THREE.BoxGeometry();
+  const roomMaterial = new THREE.MeshStandardMaterial({ side: THREE.BackSide });
+  const boxMaterial = new THREE.MeshStandardMaterial();
+  const main = new THREE.PointLight(0xffffff, 5.0, 28, 2);
+  main.position.set(0.418, 16.199, 0.3);
+  scene.add(main);
+  const room = new THREE.Mesh(geometry, roomMaterial);
+  room.position.set(-0.757, 13.219, 0.717);
+  room.scale.set(31.713, 28.305, 28.591);
+  scene.add(room);
+  const boxes = [
+    [[-10.906, 2.009, 1.846], -0.195, [2.328, 7.905, 4.651]],
+    [[-5.607, -0.754, -0.758], 0.994, [1.97, 1.534, 3.955]],
+    [[6.167, 0.857, 7.803], 0.561, [3.927, 6.285, 3.687]],
+    [[-2.017, 0.018, 6.124], 0.333, [2.002, 4.566, 2.064]],
+    [[2.291, -0.756, -2.621], -0.286, [1.546, 1.552, 1.496]],
+    [[-2.193, -0.369, -5.547], 0.516, [3.875, 3.487, 2.986]],
+  ];
+  for (const [p, ry, s] of boxes) {
+    const b = new THREE.Mesh(geometry, boxMaterial);
+    b.position.set(p[0], p[1], p[2]); b.rotation.y = ry; b.scale.set(s[0], s[1], s[2]);
+    scene.add(b);
   }
-  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  env.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
-  const box = (w, h, x, y, z, k) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k * 0.98, k * 0.94), side: THREE.DoubleSide }));
-    m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m);
-  };
-  box(10, 6, -8, 10, 6, 3.2);
-  box(5, 11, 11, 5, -3, 1.7);
-  box(16, 2, 0, 4, -14, 1.3);
-  scene.environment = pmrem.fromScene(env, 0.025).texture;
-  pmrem.dispose();
-})();
-
-// ---------------- lights ----------------
-scene.add(new THREE.HemisphereLight(0xfffaf2, 0xd9cdb8, 0.45));
-const key = new THREE.DirectionalLight(0xfff3e4, 1.15);
-key.position.set(-3.5, 7.5, 4.5);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -7; key.shadow.camera.right = 7; key.shadow.camera.top = 7; key.shadow.camera.bottom = -7;
-key.shadow.camera.near = 1; key.shadow.camera.far = 26;
-key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
-key.target.position.set(0.8, 0, -1.6);
-scene.add(key, key.target);
-const fill = new THREE.DirectionalLight(0xe9eefc, 0.28); fill.position.set(5, 3, 3); scene.add(fill);
-const rim = new THREE.DirectionalLight(0xffe2c0, 0.35); rim.position.set(1.5, 4, -6); scene.add(rim);
-
-const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-const shadowFloorMat = new THREE.ShadowMaterial({ opacity: 0.14 });
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), shadowFloorMat);
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-function applyScheme() {
-  const t = root.getAttribute('data-theme');
-  const dark = t ? t === 'dark' : darkScheme.matches;
-  shadowFloorMat.opacity = dark ? 0.42 : 0.14;
+  const lights = [
+    [[-16.116, 14.37, 8.208], [0.1, 2.428, 2.739], 50],
+    [[-16.109, 18.021, -8.207], [0.1, 2.425, 2.751], 50],
+    [[14.904, 12.198, -1.832], [0.15, 4.265, 6.331], 17],
+    [[-0.462, 8.89, 14.52], [4.38, 5.441, 0.088], 43],
+    [[3.235, 11.486, -12.541], [2.5, 2.0, 0.1], 20],
+    [[0.0, 20.0, 0.0], [1.0, 0.1, 1.0], 100],
+  ];
+  for (const [p, s, k] of lights) {
+    const mat = new THREE.MeshBasicMaterial();
+    mat.color.setScalar(k);
+    const l = new THREE.Mesh(geometry, mat);
+    l.position.set(p[0], p[1], p[2]); l.scale.set(s[0], s[1], s[2]);
+    scene.add(l);
+  }
+  return scene;
 }
-applyScheme();
-if (darkScheme.addEventListener) darkScheme.addEventListener('change', applyScheme, { signal: __sig });
 
-// soft contact blobs (ambient occlusion stand-in)
-function blobTexture(alpha) {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(64, 64, 4, 64, 64, 64);
-  g.addColorStop(0, `rgba(40,24,12,${alpha})`); g.addColorStop(0.55, `rgba(40,24,12,${alpha * 0.45})`); g.addColorStop(1, 'rgba(40,24,12,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+function makeMaterials(T) {
+  const std = (o) => new THREE.MeshStandardMaterial(o);
+  const phys = (o) => new THREE.MeshPhysicalMaterial(o);
+  const clear = (o) => phys(Object.assign({ transparent: true, depthWrite: false, metalness: 0 }, o));
+  T.plaster.repeat.set(3, 2);
+  T.wicker.repeat.set(4, 1.5);
+  T.burlap.repeat.set(2, 1);
+  T.onion.repeat.set(2, 1);
+  T.garlic.repeat.set(2, 1);
+  T.terracotta.repeat.set(3, 1);
+  return {
+    floor: std({ map: T.floor, bumpMap: T.floorBump, bumpScale: 0.0015, roughness: 0.3 }),
+    wall: std({ map: T.plaster, roughness: 0.92, envMapIntensity: 0.8 }),
+    ceiling: std({ color: 0xf3f0e9, roughness: 0.95, envMapIntensity: 0.7 }),
+    skirting: std({ color: 0xd9d0c1, roughness: 0.6 }),
+    frame: std({ color: 0xf1f0ec, roughness: 0.45 }),
+    windowGlass: clear({ color: 0xffffff, roughness: 0.02, opacity: 0.07 }),
+    marble: std({ color: 0xe9e4da, roughness: 0.28 }),
+    sky: new THREE.MeshBasicMaterial({ map: T.sky, color: new THREE.Color(1.3, 1.25, 1.15) }),
+    plinth: std({ color: 0x2a2623, roughness: 0.8 }),
+    carcass: std({ color: 0x4f3423, roughness: 0.7 }),
+    carcassInside: std({ map: T.oak, color: 0xf3e6d2, roughness: 0.7 }),
+    cabinetDoor: std({ map: T.teak, roughness: 0.46 }),
+    teakShelf: std({ map: T.teak, roughness: 0.5 }),
+    tableWood: std({ map: T.oak, roughness: 0.55 }),
+    boardWood: std({ map: T.oak, color: 0xf2e2c8, roughness: 0.6 }),
+    doorWood: std({ map: T.teak, color: 0xd9c6b2, roughness: 0.55 }),
+    chrome: std({ color: 0xffffff, metalness: 1, roughness: 0.12 }),
+    steel: std({ map: T.brushed, color: 0xdadcde, metalness: 1, roughness: 0.3 }),
+    aluminium: std({ color: 0xcfd1d3, metalness: 1, roughness: 0.38 }),
+    tin: std({ color: 0xd4d6d8, metalness: 1, roughness: 0.3 }),
+    brass: std({ color: 0xb48a3e, metalness: 1, roughness: 0.3 }),
+    castIron: std({ color: 0x1b1b1b, metalness: 0.5, roughness: 0.6 }),
+    knob: std({ color: 0x151515, roughness: 0.35 }),
+    granite: phys({ map: T.granite, roughness: 0.18, clearcoat: 0.6, clearcoatRoughness: 0.08 }),
+    subway: std({ map: T.subway, bumpMap: T.subwayBump, bumpScale: 0.0012, roughness: 0.16 }),
+    blackGlass: phys({ color: 0x050505, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.03 }),
+    enamel: phys({ color: 0xf3f3f0, roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.1 }),
+    fridgePlastic: std({ color: 0xf7f7f4, roughness: 0.4 }),
+    gasket: std({ color: 0x8d8f91, roughness: 0.7 }),
+    shelfGlass: clear({ color: 0xe6f3f1, roughness: 0.05, opacity: 0.28 }),
+    crisper: clear({ color: 0xeaf6ff, roughness: 0.1, opacity: 0.22 }),
+    waterBottle: clear({ color: 0xdff1ff, roughness: 0.05, opacity: 0.35 }),
+    fridgeLamp: std({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0 }),
+    magnetRed: std({ color: 0xc8352a, roughness: 0.35 }),
+    magnetGreen: std({ color: 0x2f8a52, roughness: 0.35 }),
+    clockFace: std({ map: T.clock, roughness: 0.4 }),
+    clockHand: std({ color: 0x1d1a17, roughness: 0.4 }),
+    tube: std({ color: 0xffffff, emissive: 0xfff5e6, emissiveIntensity: 1.6 }),
+    // ingredients
+    foam: std({ color: 0xf2efe8, roughness: 0.9 }),
+    chicken: phys({ map: T.chicken, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.25 }),
+    bone: std({ color: 0xf0e6d6, roughness: 0.5 }),
+    film: clear({ color: 0xffffff, roughness: 0.12, opacity: 0.16 }),
+    terracotta: std({ map: T.terracotta, roughness: 0.88, side: THREE.DoubleSide }),
+    dahi: phys({ color: 0xf7f4ec, roughness: 0.35, clearcoat: 0.4 }),
+    tomato: phys({ color: 0xc8241a, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.12 }),
+    calyx: std({ color: 0x3f6b2a, roughness: 0.6, side: THREE.DoubleSide }),
+    stem: std({ color: 0x5c7a35, roughness: 0.7 }),
+    chilli: phys({ color: 0x2d7a1f, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 }),
+    lemon: std({ color: 0xe3c63a, roughness: 0.45, bumpMap: T.bumpFine, bumpScale: 0.0006 }),
+    mint: std({ color: 0x3b7a37, roughness: 0.55, side: THREE.DoubleSide }),
+    coriander: std({ color: 0x4f9440, roughness: 0.5, side: THREE.DoubleSide }),
+    rubber: std({ color: 0xc73a2c, roughness: 0.5 }),
+    glass: clear({ color: 0xffffff, roughness: 0.04, opacity: 0.2, envMapIntensity: 1.4 }),
+    lidRed: std({ color: 0xb3261c, roughness: 0.4 }),
+    lidYellow: std({ color: 0xe0a51b, roughness: 0.4 }),
+    lidWhite: std({ color: 0xf2f0ea, roughness: 0.4 }),
+    lidBrown: std({ color: 0x5b3a22, roughness: 0.4 }),
+    powderRed: std({ map: T.redChilli, roughness: 0.95 }),
+    powderHaldi: std({ map: T.haldi, roughness: 0.95 }),
+    powderSalt: std({ map: T.salt, roughness: 0.6 }),
+    powderGaram: std({ map: T.garam, roughness: 0.9 }),
+    plum: phys({ color: 0x3b130e, roughness: 0.45, clearcoat: 0.5, bumpMap: T.bump, bumpScale: 0.0008 }),
+    cinnamon: std({ color: 0x7a4422, roughness: 0.8, bumpMap: T.bumpFine, bumpScale: 0.0005 }),
+    anise: std({ color: 0x4a2c1a, roughness: 0.75 }),
+    bayLeaf: std({ color: 0x7d8a4a, roughness: 0.6, side: THREE.DoubleSide }),
+    boxFront: std({ map: T.masala, roughness: 0.55 }),
+    boxSide: std({ color: 0xa61f16, roughness: 0.55 }),
+    liquidKewra: clear({ color: 0xe9f5df, roughness: 0.05, opacity: 0.55 }),
+    liquidZarda: phys({ color: 0xf28c0c, roughness: 0.05, transparent: true, opacity: 0.88 }),
+    liquidOil: phys({ color: 0xe0a91f, roughness: 0.05, transparent: true, opacity: 0.86 }),
+    capGreen: std({ color: 0x2a7a3e, roughness: 0.4 }),
+    capRed: std({ color: 0xc0281e, roughness: 0.4 }),
+    labelKewra: std({ map: T.kewraLabel, roughness: 0.6 }),
+    labelZarda: std({ map: T.zardaLabel, roughness: 0.6 }),
+    labelOil: std({ map: T.oilLabel, roughness: 0.6 }),
+    labelGhee: std({ map: T.gheeLabel, roughness: 0.5 }),
+    onion: std({ map: T.onion, roughness: 0.55, bumpMap: T.bumpFine, bumpScale: 0.0004 }),
+    onionRoot: std({ color: 0xc9b393, roughness: 0.9 }),
+    potato: std({ color: 0xc4a06a, roughness: 0.9, bumpMap: T.bump, bumpScale: 0.0012 }),
+    ginger: std({ color: 0xc69b62, roughness: 0.85, bumpMap: T.bump, bumpScale: 0.0015 }),
+    garlic: std({ map: T.garlic, roughness: 0.6 }),
+    burlap: std({ map: T.burlap, roughness: 0.95, bumpMap: T.burlap, bumpScale: 0.002 }),
+    rope: std({ color: 0x9a7b4f, roughness: 0.95 }),
+    pet: clear({ color: 0xfafcff, roughness: 0.05, opacity: 0.25 }),
+    knife: std({ color: 0xe8eaec, metalness: 1, roughness: 0.18 }),
+    knifeHandle: std({ color: 0x1a1512, roughness: 0.5 }),
+    wicker: std({ map: T.wicker, roughness: 0.85, side: THREE.DoubleSide, bumpMap: T.wicker, bumpScale: 0.002 }),
+    wickerRim: std({ color: 0x9a6c39, roughness: 0.8 }),
+    daalYellow: std({ color: 0xe8b934, roughness: 0.9, bumpMap: T.bumpFine, bumpScale: 0.0008 }),
+    daalRed: std({ color: 0xd2652d, roughness: 0.9, bumpMap: T.bumpFine, bumpScale: 0.0008 }),
+    daalGreen: std({ color: 0x6e8a3a, roughness: 0.9, bumpMap: T.bumpFine, bumpScale: 0.0008 }),
+  };
+}
+
+function glowTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const x = c.getContext("2d");
+  const g = x.createRadialGradient(128, 128, 10, 128, 128, 128);
+  g.addColorStop(0, "rgba(255,214,150,0.9)");
+  g.addColorStop(0.55, "rgba(255,190,110,0.35)");
+  g.addColorStop(1, "rgba(255,170,90,0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
   return new THREE.CanvasTexture(c);
 }
-const BLOB_TEX = blobTexture(0.55);
-function blob(w, d, op) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: BLOB_TEX, transparent: true, depthWrite: false, opacity: op }));
-  m.rotation.x = -Math.PI / 2; m.renderOrder = 1;
-  return m;
-}
 
-// ---------------- geometry helpers ----------------
-function rrect(target, w, h, r, cx = 0, cy = 0) {
-  const x = cx - w / 2, y = cy - h / 2;
-  target.moveTo(x + r, y);
-  target.lineTo(x + w - r, y); target.quadraticCurveTo(x + w, y, x + w, y + r);
-  target.lineTo(x + w, y + h - r); target.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  target.lineTo(x + r, y + h); target.quadraticCurveTo(x, y + h, x, y + h - r);
-  target.lineTo(x, y + r); target.quadraticCurveTo(x, y, x + r, y);
-  return target;
-}
-function roundedBox(w, h, d, r, bevel = 0.012) {
-  const s = rrect(new THREE.Shape(), w - bevel * 2, h - bevel * 2, Math.max(0.001, r - bevel));
-  const g = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.001, d - bevel * 2), bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 8 });
-  g.center();
-  return g;
-}
-function jitterGeo(base, amt) {
-  const g = base.clone(), p = g.attributes.position, map = new Map();
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const k = `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
-    if (!map.has(k)) map.set(k, 1 + (Math.random() - 0.5) * amt);
-    const f = map.get(k);
-    p.setXYZ(i, x * f, y * f, z * f);
-  }
-  g.computeVertexNormals();
-  return g;
-}
-
-// ---------------- materials ----------------
-const MAT = {
-  alu: new THREE.MeshStandardMaterial({ color: lin('#c9cdd1'), metalness: 0.88, roughness: 0.36, envMapIntensity: 1.0 }),
-  aluRim: new THREE.MeshStandardMaterial({ color: lin('#d6d9dc'), metalness: 0.9, roughness: 0.28, envMapIntensity: 1.1 }),
-  body: new THREE.MeshStandardMaterial({ color: lin('#ebe8e1'), metalness: 0.0, roughness: 0.46, envMapIntensity: 0.7 }),
-  trim: new THREE.MeshStandardMaterial({ color: lin('#1e1d1c'), metalness: 0.25, roughness: 0.42, envMapIntensity: 0.8 }),
-  interior: new THREE.MeshStandardMaterial({ color: lin('#d8d3c9'), metalness: 0.05, roughness: 0.62, emissive: new THREE.Color(0, 0, 0), side: THREE.DoubleSide }),
-  heater: new THREE.MeshStandardMaterial({ color: lin('#8c8c8c'), metalness: 0.3, roughness: 0.4, emissive: lin('#ff5a12'), emissiveIntensity: 0 }),
-  glassDisc: new THREE.MeshStandardMaterial({ color: lin('#e8efec'), metalness: 0, roughness: 0.06, transparent: true, opacity: 0.42, envMapIntensity: 1.3 }),
-  crumb: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.92, metalness: 0 }),
-  salt: new THREE.MeshPhysicalMaterial({ color: lin('#ffffff'), roughness: 0.12, metalness: 0, transparent: true, opacity: 0.9, clearcoat: 1, clearcoatRoughness: 0.1, envMapIntensity: 1.5, emissive: lin('#2a2a2a') })
-};
-
-const CHIP_GEOS = [0, 1, 2, 3, 4].map(() => jitterGeo(new THREE.IcosahedronGeometry(1, 0), 0.55));
-const SALT_GEOS = [0, 1, 2].map(() => jitterGeo(new THREE.OctahedronGeometry(1, 0), 0.7));
-const CRUMB_GEO = jitterGeo(new THREE.IcosahedronGeometry(1, 0), 0.6);
-
-// ---------------- dough shader ----------------
-const DOUGH_HEAD = `
-varying vec3 vRest;
-varying vec3 vObj;
-uniform float uBrown;
-uniform float uCrack;
-uniform float uSet;
-uniform float uSeed;
-uniform float uRadius;
-uniform float uHeight;
-uniform float uWarm;
-uniform vec4 uSmearA[6];
-uniform vec4 uSmearB[6];
-vec3 ck_mod289(vec3 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
-vec4 ck_mod289(vec4 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
-vec4 ck_permute(vec4 x){ return ck_mod289(((x*34.0)+1.0)*x); }
-vec4 ck_tis(vec4 r){ return 1.79284291400159 - 0.85373472095314 * r; }
-float ckNoise(vec3 v){
-  const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-  vec3 i = floor(v + dot(v, C.yyy));
-  vec3 x0 = v - i + dot(i, C.xxx);
-  vec3 g = step(x0.yzx, x0.xyz);
-  vec3 l = 1.0 - g;
-  vec3 i1 = min(g.xyz, l.zxy);
-  vec3 i2 = max(g.xyz, l.zxy);
-  vec3 x1 = x0 - i1 + C.xxx;
-  vec3 x2 = x0 - i2 + C.yyy;
-  vec3 x3 = x0 - D.yyy;
-  i = ck_mod289(i);
-  vec4 p = ck_permute(ck_permute(ck_permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-  float n_ = 0.142857142857;
-  vec3 ns = n_ * D.wyz - D.xzx;
-  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-  vec4 x_ = floor(j * ns.z);
-  vec4 y_ = floor(j - 7.0 * x_);
-  vec4 xx = x_ * ns.x + ns.yyyy;
-  vec4 yy = y_ * ns.x + ns.yyyy;
-  vec4 h = 1.0 - abs(xx) - abs(yy);
-  vec4 b0 = vec4(xx.xy, yy.xy);
-  vec4 b1 = vec4(xx.zw, yy.zw);
-  vec4 s0 = floor(b0) * 2.0 + 1.0;
-  vec4 s1 = floor(b1) * 2.0 + 1.0;
-  vec4 sh = -step(h, vec4(0.0));
-  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
-  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
-  vec3 p0 = vec3(a0.xy, h.x);
-  vec3 p1 = vec3(a0.zw, h.y);
-  vec3 p2 = vec3(a1.xy, h.z);
-  vec3 p3 = vec3(a1.zw, h.w);
-  vec4 norm = ck_tis(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-  m = m * m;
-  return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-}
-vec3 ckHash(vec3 p){
-  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)), dot(p, vec3(269.5, 183.3, 246.1)), dot(p, vec3(113.5, 271.9, 124.6)));
-  return fract(sin(p) * 43758.5453123);
-}
-vec2 ckVoro(vec3 x){
-  vec3 p = floor(x); vec3 f = fract(x);
-  float d1 = 8.0; float d2 = 8.0;
-  for (int k = -1; k <= 1; k++)
-  for (int j = -1; j <= 1; j++)
-  for (int i = -1; i <= 1; i++) {
-    vec3 b = vec3(float(i), float(j), float(k));
-    vec3 r = b + ckHash(p + b) - f;
-    float d = dot(r, r);
-    if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
-  }
-  return vec2(sqrt(d1), sqrt(d2));
-}
-vec3 ckLin(vec3 c){ return pow(c, vec3(2.2)); }
-vec3 ckPerturb(vec3 surfPos, vec3 surfNorm, vec2 dHdxy){
-  vec3 sx = dFdx(surfPos);
-  vec3 sy = dFdy(surfPos);
-  vec3 r1 = cross(sy, surfNorm);
-  vec3 r2 = cross(surfNorm, sx);
-  float fd = gl_FrontFacing ? 1.0 : -1.0;
-  float det = dot(sx, r1) * fd;
-  vec3 grad = sign(det) * (dHdxy.x * r1 + dHdxy.y * r2);
-  return normalize(abs(det) * surfNorm - grad);
-}
-`;
-const DOUGH_COLOR = `
-vec3 rd = normalize(vRest);
-float n1 = ckNoise(rd * 3.0 + vec3(uSeed));
-float n2 = ckNoise(rd * 11.0 + vec3(uSeed * 1.7));
-float n3 = ckNoise(rd * 34.0 + vec3(uSeed * 2.3));
-float rN = clamp(length(vObj.xz) / max(uRadius, 1e-3), 0.0, 1.4);
-float hN = clamp(vObj.y / max(uHeight, 1e-3), 0.0, 1.0);
-vec3 cRaw = ckLin(vec3(0.910, 0.784, 0.596));
-vec3 cRawDark = ckLin(vec3(0.80, 0.64, 0.43));
-vec3 cGold = ckLin(vec3(0.80, 0.56, 0.29));
-vec3 cToast = ckLin(vec3(0.659, 0.361, 0.141));
-vec3 cDeep = ckLin(vec3(0.33, 0.17, 0.07));
-vec3 cChar = ckLin(vec3(0.09, 0.06, 0.04));
-vec3 col = mix(cRaw, cRawDark, smoothstep(0.1, 0.9, n2 * 0.5 + 0.5) * 0.4);
-col += vec3(0.07) * smoothstep(0.55, 0.85, n3) * (1.0 - clamp(uBrown, 0.0, 1.0));
-col = mix(col, cRawDark * 0.8, smoothstep(0.7, 0.95, -n3) * 0.35);
-float edge = smoothstep(0.55, 1.05, rN);
-float bottom = 1.0 - smoothstep(0.02, 0.25, hN);
-float b = uBrown * (0.55 + 0.75 * edge + 0.6 * bottom + 0.3 * n1);
-col = mix(col, cGold, smoothstep(0.08, 0.55, b));
-col = mix(col, cToast, smoothstep(0.5, 1.0, b));
-col = mix(col, cDeep, smoothstep(1.0, 1.6, b));
-col = mix(col, cChar, smoothstep(1.7, 2.6, b));
-vec3 cq = rd * 2.4 + vec3(uSeed) + 0.2 * vec3(ckNoise(rd * 6.0 + vec3(uSeed)), ckNoise(rd * 6.0 + vec3(uSeed + 5.1)), ckNoise(rd * 6.0 + vec3(uSeed + 9.7)));
-vec2 vo = ckVoro(cq);
-float eg = vo.y - vo.x;
-float topMask = smoothstep(0.05, 0.45, rd.y);
-float cw = 0.015 + 0.055 * uCrack;
-float crackOn = smoothstep(0.02, 0.25, uCrack) * topMask;
-float ckCrack = (1.0 - smoothstep(0.0, cw, eg)) * crackOn;
-float ckLip = clamp((1.0 - smoothstep(cw, cw * 2.4, eg)) * crackOn - ckCrack, 0.0, 1.0);
-col = mix(col, col * 0.7, ckLip * 0.55);
-col = mix(col, mix(cRaw * 0.92, cGold, 0.3) * 0.82, ckCrack * 0.85);
-float ckSm = 0.0;
-for (int si = 0; si < 6; si++) {
-  vec4 A = uSmearA[si];
-  vec4 B = uSmearB[si];
-  if (A.w > 0.0) {
-    vec3 pa = vObj - A.xyz;
-    vec3 ba = B.xyz - A.xyz;
-    float hh = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-    float dd = length(pa - ba * hh);
-    float wd = B.w * (1.0 - 0.55 * hh);
-    ckSm = max(ckSm, (1.0 - smoothstep(wd * 0.55, wd, dd)) * A.w * (1.0 - 0.35 * hh));
-  }
-}
-col = mix(col, ckLin(vec3(0.231, 0.137, 0.090)) * 0.85, ckSm);
-diffuseColor.rgb = col;
-float ckH = n3 * 0.0012 * (0.4 + uSet) + n2 * 0.0028 * uSet + n1 * 0.003 - ckCrack * 0.012 + ckLip * 0.003 + ckSm * 0.002;
-float ckRough = mix(0.48, 0.86, smoothstep(0.0, 0.7, uSet));
-ckRough = mix(ckRough, ckRough * 0.82, uWarm * (1.0 - uSet));
-ckRough = mix(ckRough, 0.65, clamp(uBrown - 1.2, 0.0, 1.0));
-ckRough = mix(ckRough, 0.16, ckSm);
-`;
-const DOUGH_EMIS = `
-float ckFres = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
-totalEmissiveRadiance += diffuseColor.rgb * ckFres * 0.12 * (1.0 - 0.5 * uSet);
-`;
-function makeDoughMaterial(u) {
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0, envMapIntensity: 0.55 });
-  m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, u);
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aRest;\nvarying vec3 vRest;\nvarying vec3 vObj;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = aRest;\nvObj = transformed;');
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + DOUGH_HEAD)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + DOUGH_COLOR)
-      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = ckRough;')
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = ckPerturb(-vViewPosition, normal, vec2(dFdx(ckH), dFdy(ckH)));')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n' + DOUGH_EMIS);
+// ============================================================================
+export function initFoodLab(root) {
+  const ac = new AbortController();
+  const sig = ac.signal;
+  const timers = new Set();
+  let dead = false, raf = 0;
+  const on = (t, type, fn, opts) => t.addEventListener(type, fn, Object.assign({ signal: sig }, opts || {}));
+  const later = (fn, ms) => {
+    const id = window.setTimeout(() => { timers.delete(id); if (!dead) fn(); }, ms);
+    timers.add(id);
+    return id;
   };
-  m.customProgramCacheKey = () => 'cookie-dough-v3';
-  m.extensions = { derivatives: true };
-  return m;
-}
-
-// ---------------- the baking sheet ----------------
-const tray = new THREE.Group();
-tray.position.set(0, TRAY_Y, 0);
-scene.add(tray);
-let trayBase;
-(function buildTray() {
-  const s = rrect(new THREE.Shape(), TRAY_W, TRAY_D, 0.14);
-  const base = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.008, bevelSegments: 2, curveSegments: 10 });
-  trayBase = new THREE.Mesh(base, MAT.alu);
-  trayBase.rotation.x = -Math.PI / 2; trayBase.position.y = -0.03;
-  trayBase.receiveShadow = true; trayBase.castShadow = true;
-  tray.add(trayBase);
-  const outer = rrect(new THREE.Shape(), TRAY_W, TRAY_D, 0.14);
-  outer.holes.push(rrect(new THREE.Path(), TRAY_W - 0.12, TRAY_D - 0.12, 0.09));
-  const rimG = new THREE.ExtrudeGeometry(outer, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.014, bevelSize: 0.012, bevelSegments: 4, curveSegments: 10 });
-  const rimM = new THREE.Mesh(rimG, MAT.aluRim);
-  rimM.rotation.x = -Math.PI / 2; rimM.position.y = -0.02;
-  rimM.castShadow = true; rimM.receiveShadow = true;
-  tray.add(rimM);
-})();
-const trayBlob = blob(TRAY_W * 1.35, TRAY_D * 1.45, 0.42);
-trayBlob.position.y = 0.002;
-scene.add(trayBlob);
-
-// ---------------- the microwave ----------------
-const mw = (function buildMicrowave() {
-  const g = new THREE.Group();
-  g.position.copy(MW_POS); g.rotation.y = MW_YAW;
-  scene.add(g);
-  // housing: front profile with the cavity cut out, extruded along depth
-  const prof = rrect(new THREE.Shape(), 4.4, 2.5, 0.2, 0, 1.25);
-  prof.holes.push(rrect(new THREE.Path(), 3.0, 2.2, 0.05, CAV_X, 1.24));
-  const shell = new THREE.Mesh(new THREE.ExtrudeGeometry(prof, { depth: 2.94, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 3, curveSegments: 10 }), MAT.body);
-  shell.position.set(0, 0.06, -1.47);
-  shell.castShadow = true; shell.receiveShadow = true;
-  g.add(shell);
-  // interior liners
-  const liner = (w, h, x, y, z, rx, ry) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), MAT.interior);
-    m.position.set(x, y, z); m.rotation.set(rx, ry, 0); m.receiveShadow = true; g.add(m); return m;
+  const $ = (s) => root.querySelector(s);
+  const ui = {
+    stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"),
+    start: $(".fl-start"), loading: $(".fl-loading"), done: $(".fl-done"),
+    joy: $(".fl-joy"), joyKnob: $(".fl-joy i"), fallback: $(".fl-fallback"),
   };
-  liner(2.94, 2.14, CAV_X, 1.3, -1.43, 0, 0);
-  liner(2.92, 2.9, CAV_X, 0.236, 0, -Math.PI / 2, 0);
-  liner(2.92, 2.9, CAV_X, 2.36, 0, Math.PI / 2, 0);
-  liner(2.9, 2.14, CAV_X - 1.455, 1.3, 0, 0, Math.PI / 2);
-  liner(2.9, 2.14, CAV_X + 1.455, 1.3, 0, 0, -Math.PI / 2);
-  // heating elements
-  const heaters = [];
-  [-0.55, 0.45].forEach(z => {
-    const h = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 2.5, 12), MAT.heater);
-    h.rotation.z = Math.PI / 2; h.position.set(CAV_X, 2.3, z); g.add(h); heaters.push(h);
-  });
-  // turntable
-  const turntable = new THREE.Group(); turntable.position.set(CAV_X, 0.2, 0); g.add(turntable);
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.05, 24), MAT.trim); hub.position.y = 0.025; turntable.add(hub);
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 1.32, 0.022, 64), MAT.glassDisc); disc.position.y = 0.06; turntable.add(disc);
-  for (let i = 0; i < 3; i++) {
-    const roller = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.016, 8, 16), MAT.trim);
-    const a = i * Math.PI * 2 / 3; roller.position.set(Math.cos(a) * 0.62, 0.03, Math.sin(a) * 0.62); roller.rotation.y = -a; turntable.add(roller);
-  }
-  const light = new THREE.PointLight(0xffb36b, 0, 6, 2); light.position.set(CAV_X, 1.9, 0.4); g.add(light);
-  // feet
-  [[-2, -1.3], [2, -1.3], [-2, 1.3], [2, 1.3]].forEach(([x, z]) => {
-    const f = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 16), MAT.trim); f.position.set(x, 0.03, z); g.add(f);
-  });
-  // door
-  const door = new THREE.Group(); door.position.set(-2.2, 0.06, 1.515); g.add(door);
-  const dShape = rrect(new THREE.Shape(), 3.38, 2.42, 0.1, 1.69, 1.22);
-  dShape.holes.push(rrect(new THREE.Path(), 2.5, 1.62, 0.07, 1.55, 1.27));
-  const dPanel = new THREE.Mesh(new THREE.ExtrudeGeometry(dShape, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 8 }), MAT.trim);
-  dPanel.position.z = 0.012; dPanel.castShadow = true; door.add(dPanel);
-  const dotsC = document.createElement('canvas'); dotsC.width = dotsC.height = 64;
-  const dx = dotsC.getContext('2d'); dx.fillStyle = 'rgba(12,12,12,0.78)'; dx.fillRect(0, 0, 64, 64);
-  dx.globalCompositeOperation = 'destination-out';
-  for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { dx.beginPath(); dx.arc(16 + x * 32, 16 + y * 32, 10, 0, Math.PI * 2); dx.fill(); }
-  const dotsT = new THREE.CanvasTexture(dotsC); dotsT.wrapS = dotsT.wrapT = THREE.RepeatWrapping; dotsT.repeat.set(46, 30);
-  dotsT.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.52, 1.64), new THREE.MeshBasicMaterial({ map: dotsT, transparent: true, depthWrite: false, opacity: 0.85 }));
-  mesh.position.set(1.55, 1.27, 0.03); door.add(mesh);
-  const glass = new THREE.Mesh(new THREE.PlaneGeometry(2.52, 1.64), new THREE.MeshStandardMaterial({ color: lin('#20201f'), roughness: 0.04, metalness: 0, transparent: true, opacity: 0.22, envMapIntensity: 1.6, depthWrite: false }));
-  glass.position.set(1.55, 1.27, 0.07); door.add(glass);
-  const glowC = document.createElement('canvas'); glowC.width = glowC.height = 128;
-  const gx = glowC.getContext('2d'); const gg = gx.createRadialGradient(64, 64, 2, 64, 64, 64);
-  gg.addColorStop(0, 'rgba(255,170,90,1)'); gg.addColorStop(1, 'rgba(255,120,40,0)'); gx.fillStyle = gg; gx.fillRect(0, 0, 128, 128);
-  const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.7, 1.8), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(glowC), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-  glow.position.set(1.55, 1.27, 0.075); door.add(glow);
-  const handle = new THREE.Mesh(roundedBox(0.07, 1.7, 0.08, 0.03, 0.01), MAT.body); handle.position.set(3.16, 1.22, 0.14); door.add(handle);
-  [0.55, 1.89].forEach(y => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.08), MAT.body); st.position.set(3.16, y, 0.09); door.add(st); });
-  // control column
-  const lcdC = document.createElement('canvas'); lcdC.width = 512; lcdC.height = 192;
-  const lcdT = new THREE.CanvasTexture(lcdC); lcdT.encoding = THREE.sRGBEncoding;
-  const bezel = new THREE.Mesh(roundedBox(0.86, 0.4, 0.03, 0.04, 0.008), MAT.trim); bezel.position.set(1.69, 2.0, 1.52); g.add(bezel);
-  const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.3), new THREE.MeshBasicMaterial({ map: lcdT, toneMapped: false })); lcd.position.set(1.69, 2.0, 1.54); g.add(lcd);
-  const knob = new THREE.Group(); knob.position.set(1.69, 1.22, 1.53); g.add(knob);
-  const kb = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.23, 0.1, 40), MAT.trim); kb.rotation.x = Math.PI / 2; kb.position.z = 0.05; knob.add(kb);
-  const notch = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.13, 0.02), MAT.body); notch.position.set(0, 0.11, 0.105); knob.add(notch);
-  const led = new THREE.Mesh(new THREE.CircleGeometry(0.022, 16), new THREE.MeshBasicMaterial({ color: 0x3a2a1a, toneMapped: false })); led.position.set(1.69, 1.66, 1.535); g.add(led);
-  [1.47, 1.91].forEach(x => { const b = new THREE.Mesh(roundedBox(0.3, 0.13, 0.05, 0.04, 0.008), MAT.trim); b.position.set(x, 0.62, 1.52); g.add(b); });
-  const mwBlob = blob(5.6, 4.1, 0.5); mwBlob.position.set(0, 0.002, 0); g.add(mwBlob);
-  g.updateMatrixWorld(true);
 
-  function drawLCD(main, sub, active) {
-    const x = lcdC.getContext('2d');
-    x.fillStyle = '#0d0c0a'; x.fillRect(0, 0, 512, 192);
-    x.textBaseline = 'middle';
-    x.font = '500 112px "IBM Plex Mono", ui-monospace, monospace';
-    x.textAlign = 'left';
-    x.fillStyle = 'rgba(255,170,80,0.07)'; x.fillText('8:88', 34, 102);
-    x.fillStyle = active ? '#ffb45c' : '#9a6a36'; x.fillText(main, 34, 102);
-    x.font = '400 34px "IBM Plex Mono", ui-monospace, monospace';
-    x.textAlign = 'right'; x.fillStyle = active ? '#ffb45c' : '#7a5530'; x.fillText(sub, 486, 58);
-    x.fillText(active ? 'ON' : 'IDLE', 486, 146);
-    lcdT.needsUpdate = true;
-  }
-  return { group: g, door, turntable, heaters, light, glow, led, knob, drawLCD };
-})();
-function mwLocal(x, y, z) { return mw.group.localToWorld(new V3(x, y, z)); }
+  let renderer = null, canvas = null, envRT = null, ro = null;
 
-const heat = { v: 0 };
-const spin = { v: 0 };
-const turn = { a: 0 };
-let inYaw = MW_YAW;
-function applyHeatVisual() {
-  const v = heat.v;
-  MAT.heater.emissiveIntensity = v * 2.4;
-  mw.light.intensity = v * 1.7;
-  MAT.interior.emissive.setRGB(0.32 * v, 0.13 * v, 0.03 * v);
-  mw.glow.material.opacity = v * 0.4;
-  mw.led.material.color.setRGB(0.23 + 0.77 * v, 0.16 + 0.42 * v, 0.1 + 0.05 * v);
-}
-
-// ---------------- crumbs ----------------
-const crumbs = (function () {
-  const n = 260;
-  const mesh = new THREE.InstancedMesh(CRUMB_GEO, MAT.crumb, n);
-  mesh.castShadow = true; mesh.frustumCulled = false;
-  const p = new Float32Array(n * 3), v = new Float32Array(n * 3), r = new Float32Array(n * 3), sz = new Float32Array(n);
-  const alive = new Uint8Array(n), settled = new Uint8Array(n);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), pos = new V3();
-  const shades = ['#c48a4c', '#b07338', '#d9a46a', '#a06230'].map(lin);
-  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  for (let i = 0; i < n; i++) { mesh.setMatrixAt(i, zero); mesh.setColorAt(i, shades[i % shades.length]); }
-  tray.add(mesh);
-  let next = 0, dirty = false;
-  function groundAt(x, z) {
-    let h = 0;
-    for (const d of doughs) {
-      const dx = x - d.group.position.x, dz = z - d.group.position.z, fr = d.body.footR;
-      const dd = dx * dx + dz * dz;
-      if (dd < fr * fr) h = Math.max(h, d.body.H * Math.sqrt(1 - dd / (fr * fr)) * 0.92 + d.group.position.y);
-    }
-    return h;
-  }
-  return {
-    spawn(x, y, z, count, power = 1) {
-      for (let k = 0; k < count; k++) {
-        const i = next; next = (next + 1) % n;
-        const a = Math.random() * Math.PI * 2, sp = (0.25 + Math.random() * 0.6) * power;
-        p[3 * i] = x; p[3 * i + 1] = y; p[3 * i + 2] = z;
-        v[3 * i] = Math.cos(a) * sp; v[3 * i + 1] = 0.5 + Math.random() * 0.9 * power; v[3 * i + 2] = Math.sin(a) * sp;
-        r[3 * i] = Math.random() * 6; r[3 * i + 1] = Math.random() * 6; r[3 * i + 2] = Math.random() * 6;
-        sz[i] = 0.006 + Math.random() * 0.01; alive[i] = 1; settled[i] = 0;
-      }
-      dirty = true;
+  // ---------------------------------------------------------------- sound
+  const Sound = {
+    ctx: null, master: null, buf: null, hum: null, amb: null,
+    init() {
+      if (this.ctx) { if (this.ctx.state === "suspended") this.ctx.resume(); return; }
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.7;
+      this.master.connect(this.ctx.destination);
+      const len = this.ctx.sampleRate * 2;
+      this.buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = this.buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.ambience();
     },
-    update(dt) {
-      for (let i = 0; i < n; i++) {
-        if (!alive[i] || settled[i]) continue;
-        const o = 3 * i;
-        v[o + 1] -= 9.8 * dt;
-        p[o] += v[o] * dt; p[o + 1] += v[o + 1] * dt; p[o + 2] += v[o + 2] * dt;
-        p[o] = clamp(p[o], -TRAY_W / 2 + 0.07, TRAY_W / 2 - 0.07); p[o + 2] = clamp(p[o + 2], -TRAY_D / 2 + 0.07, TRAY_D / 2 - 0.07);
-        const gnd = groundAt(p[o], p[o + 2]) + sz[i] * 0.6;
-        if (p[o + 1] < gnd) {
-          p[o + 1] = gnd;
-          if (v[o + 1] < -0.3) v[o + 1] *= -0.28; else v[o + 1] = 0;
-          v[o] *= 0.6; v[o + 2] *= 0.6;
-          if (gnd > 0.02) { // on top of a cookie: slide outward
-            const dx = p[o], dz = p[o + 2]; v[o] += Math.sign(dx) * 0.05; v[o + 2] += Math.sign(dz) * 0.05;
-          }
-          if (Math.abs(v[o]) + Math.abs(v[o + 1]) + Math.abs(v[o + 2]) < 0.03 && gnd < 0.02) settled[i] = 1;
-        } else { r[o] += dt * 9; r[o + 2] += dt * 7; }
-        pos.set(p[o], p[o + 1], p[o + 2]); e.set(r[o], r[o + 1], r[o + 2]); q.setFromEuler(e); s.setScalar(sz[i]);
-        mesh.setMatrixAt(i, m4.compose(pos, q, s));
-        dirty = true;
-      }
-      if (dirty) { mesh.instanceMatrix.needsUpdate = true; dirty = false; }
+    noise(dur, freq, q, gain, type = "bandpass", when = 0) {
+      if (!this.ctx) return;
+      const c = this.ctx, t = c.currentTime + when;
+      const s = c.createBufferSource(); s.buffer = this.buf;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(f); f.connect(g); g.connect(this.master);
+      s.start(t, Math.random()); s.stop(t + dur + 0.02);
     },
-    clear() { for (let i = 0; i < n; i++) { alive[i] = 0; mesh.setMatrixAt(i, zero); } mesh.instanceMatrix.needsUpdate = true; },
-    settleOn() { settled.fill(0); }
+    tone(freq, dur, gain, type = "sine", when = 0, slide = 0) {
+      if (!this.ctx) return;
+      const c = this.ctx, t = c.currentTime + when;
+      const o = c.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(freq, t);
+      if (slide) o.frequency.exponentialRampToValueAtTime(freq + slide, t + dur * 0.6);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.master);
+      o.start(t); o.stop(t + dur + 0.02);
+    },
+    step() { this.noise(0.09, 380 + Math.random() * 160, 1.1, 0.16); this.noise(0.04, 2600, 0.7, 0.025, "highpass"); },
+    pick() { this.tone(520, 0.14, 0.11, "sine", 0, 360); this.noise(0.05, 1600, 1.2, 0.04); },
+    collect() { this.tone(880, 0.35, 0.06); this.tone(1320, 0.45, 0.045, "sine", 0.06); this.noise(0.08, 900, 0.9, 0.08, "bandpass", 0.04); },
+    cabinet(open) { this.noise(0.05, 1900, 2, 0.1); this.tone(open ? 150 : 115, 0.09, 0.09, "triangle"); },
+    fridge(open) {
+      if (open) { this.noise(0.14, 950, 0.7, 0.14); this.humStart(); }
+      else { this.tone(68, 0.2, 0.22); this.noise(0.08, 320, 1, 0.16); this.humStop(); }
+    },
+    humStart() {
+      if (!this.ctx || this.hum) return;
+      const c = this.ctx, t = c.currentTime;
+      const o1 = c.createOscillator(); o1.frequency.value = 50;
+      const o2 = c.createOscillator(); o2.frequency.value = 100;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.02, t + 0.4);
+      o1.connect(g); o2.connect(g); g.connect(this.master);
+      o1.start(); o2.start();
+      this.hum = { o1, o2, g };
+    },
+    humStop() {
+      if (!this.hum) return;
+      const { o1, o2, g } = this.hum, t = this.ctx.currentTime;
+      this.hum = null;
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o1.stop(t + 0.35); o2.stop(t + 0.35);
+    },
+    place() { this.noise(0.06, 700, 1.5, 0.1); this.tone(240, 0.08, 0.05, "triangle"); },
+    ready() { [660, 880, 1100].forEach((f, i) => this.tone(f, 0.55, 0.045, "sine", i * 0.09)); },
+    done() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.95, 0.045, "sine", i * 0.12)); },
+    ambience() {
+      const c = this.ctx;
+      const s = c.createBufferSource(); s.buffer = this.buf; s.loop = true;
+      const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 360;
+      const g = c.createGain(); g.gain.value = 0.03;
+      const lfo = c.createOscillator(); lfo.frequency.value = 0.07;
+      const lg = c.createGain(); lg.gain.value = 0.014;
+      lfo.connect(lg); lg.connect(g.gain);
+      s.connect(lp); lp.connect(g); g.connect(this.master);
+      s.start(); lfo.start();
+      this.amb = { s, lfo };
+    },
+    close() {
+      if (!this.ctx) return;
+      try { this.humStop(); } catch (e) {}
+      try { this.ctx.close(); } catch (e) {}
+      this.ctx = null;
+    },
   };
-})();
 
-// ---------------- dough specimens ----------------
-const LAT = buildLattice(4);
+  // ---------------------------------------------------------------- boot in stages so the loader can paint
+  const S = {};
+  const fail = (err) => {
+    if (err) console.error("[food-lab]", err);
+    ui.loading && ui.loading.classList.add("hide");
+    ui.fallback && ui.fallback.classList.add("show");
+  };
+  const stage = (fn, next, ms = 16) => later(() => { try { fn(); if (next) next(); } catch (e) { fail(e); } }, ms);
 
-class Dough {
-  constructor(x, z, dropHeight) {
-    const r = 0.2 * (0.92 + Math.random() * 0.16);
-    this.body = new SoftBody(LAT, r, (Math.random() * 997) | 0, params.moist + (Math.random() * 1.2 - 0.6));
-    const g = new THREE.BufferGeometry();
-    this.posAttr = new THREE.BufferAttribute(this.body.pos, 3); this.posAttr.setUsage(THREE.DynamicDrawUsage);
-    this.nrmAttr = new THREE.BufferAttribute(this.body.nrm, 3); this.nrmAttr.setUsage(THREE.DynamicDrawUsage);
-    g.setAttribute('position', this.posAttr);
-    g.setAttribute('normal', this.nrmAttr);
-    g.setAttribute('aRest', new THREE.BufferAttribute(LAT.dir.slice(), 3));
-    g.setIndex(new THREE.BufferAttribute(LAT.index.slice(), 1));
-    g.boundingSphere = new THREE.Sphere(new V3(0, r * 0.8, 0), r * 3.4);
-    this.geo = g;
-    const smA = [], smB = [];
-    for (let i = 0; i < 6; i++) { smA.push(new THREE.Vector4(0, 0, 0, 0)); smB.push(new THREE.Vector4(0, 0, 0, 0)); }
-    this.u = {
-      uBrown: { value: 0 }, uCrack: { value: 0 }, uSet: { value: 0 }, uSeed: { value: Math.random() * 40 },
-      uRadius: { value: r }, uHeight: { value: r * 1.8 }, uWarm: { value: 0 }, uSmearA: { value: smA }, uSmearB: { value: smB }
-    };
-    this.mat = makeDoughMaterial(this.u);
-    this.mat.wireframe = ui.lattice;
-    this.mesh = new THREE.Mesh(g, this.mat);
-    this.mesh.castShadow = true; this.mesh.receiveShadow = true;
-    this.mesh.userData.dough = this;
-    this.group = new THREE.Group();
-    this.group.add(this.mesh);
-    this.ao = blob(1, 1, 0.5); this.ao.position.y = 0.003; this.group.add(this.ao);
-    this.group.position.set(x, dropHeight, z);
-    tray.add(this.group);
-    this.gy = dropHeight; this.gvy = 0; this.carried = false;
-    this.chipMat = new THREE.MeshPhysicalMaterial({ color: lin('#3b2317'), roughness: 0.55, metalness: 0, clearcoat: 0, clearcoatRoughness: 0.22, envMapIntensity: 0.9 });
-    this.pieces = []; this.smears = []; this.activeSmear = null;
-    this.meltShape = 0;
-    this.pw = new V3(); this.pv = new V3(); this.acc = new V3(); this.hist = 0;
-  }
-  get chips() { return this.pieces.filter(p => p.kind === 'chip').length; }
-  get salts() { return this.pieces.filter(p => p.kind === 'salt').length; }
+  stage(setupRenderer, () => stage(setupWorld, () => stage(setupEnvAndThumbs, () => stage(setupInput, ready))), 40);
 
-  addPiece(kind, vi) {
-    const chip = kind === 'chip';
-    const geos = chip ? CHIP_GEOS : SALT_GEOS;
-    const mesh = new THREE.Mesh(geos[(Math.random() * geos.length) | 0], chip ? this.chipMat : MAT.salt);
-    mesh.castShadow = true;
-    const size = chip ? 0.032 + Math.random() * 0.016 : 0.013 + Math.random() * 0.01;
-    const base = chip ? new V3(size, size * 0.78, size * 1.05) : new V3(size, size * 0.24, size * 0.8);
-    mesh.scale.copy(base);
-    const spinQ = new THREE.Quaternion().setFromEuler(new THREE.Euler((Math.random() - 0.5) * (chip ? 0.5 : 0.9), Math.random() * Math.PI * 2, (Math.random() - 0.5) * (chip ? 0.5 : 0.9)));
-    this.group.add(mesh);
-    const p = { mesh, vi, size, base, spin: spinQ, kind };
-    this.pieces.push(p);
-    this.body.dent(vi, chip ? 0.01 : 0.003, chip ? 0.06 : 0.03);
-    this.placePiece(p);
-    return p;
-  }
-  placePiece(p) {
-    const b = this.body, o = 3 * p.vi;
-    _n.set(b.nrm[o], b.nrm[o + 1], b.nrm[o + 2]);
-    const melt = p.kind === 'chip' ? this.meltShape : 0;
-    const off = p.kind === 'chip' ? p.size * (0.12 - 0.5 * melt) : p.size * 0.12;
-    p.mesh.position.set(b.pos[o] + _n.x * off, b.pos[o + 1] + _n.y * off, b.pos[o + 2] + _n.z * off);
-    _q.setFromUnitVectors(UP, _n);
-    p.mesh.quaternion.copy(_q).multiply(p.spin);
-    if (p.kind === 'chip') p.mesh.scale.set(p.base.x * (1 + 0.32 * melt), p.base.y * (1 - 0.42 * melt), p.base.z * (1 + 0.32 * melt));
-  }
-  nearestChip(x, y, z, maxD) {
-    let best = null, bd = maxD * maxD;
-    for (const p of this.pieces) {
-      if (p.kind !== 'chip') continue;
-      const d = p.mesh.position.distanceToSquared(_a.set(x, y, z));
-      if (d < bd) { bd = d; best = p; }
+  function setupRenderer() {
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    } catch (e) {
+      throw new Error("WebGL unavailable");
     }
-    return best;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;
+    renderer.autoClear = false;
+    canvas = renderer.domElement;
+    ui.stage.appendChild(canvas);
   }
-  startSmear(p) {
-    const s = { a: p.mesh.position.clone(), b: p.mesh.position.clone(), w: 0.016 + p.size * 0.35, s: 0.9 };
-    this.smears.push(s);
-    if (this.smears.length > 6) this.smears.shift();
-    this.activeSmear = s;
-  }
-  syncSmears() {
-    const A = this.u.uSmearA.value, B = this.u.uSmearB.value;
-    for (let i = 0; i < 6; i++) {
-      const s = this.smears[i];
-      if (s) { A[i].set(s.a.x, s.a.y, s.a.z, s.s); B[i].set(s.b.x, s.b.y, s.b.z, s.w); }
-      else A[i].w = 0;
-    }
-  }
-  update(dt) {
-    const b = this.body;
-    if (this.carried) { this.gy += (0.16 - this.gy) * (1 - Math.exp(-14 * dt)); this.gvy = 0; }
-    else if (this.gy > 0 || this.gvy > 0) {
-      this.gvy -= 15.7 * dt; this.gy += this.gvy * dt;
-      if (this.gy <= 0) {
-        const v = -this.gvy; this.gy = 0; this.gvy = 0;
-        if (v > 0.3) { b.sqv -= v * 1.1 * (1 - 0.7 * b.set); b.wake(); Sound.squelch(clamp(v / 4, 0.15, 1)); }
-      }
-    }
-    this.group.position.y = this.gy;
-    this.ao.position.y = 0.003 - this.gy;
-    const fr = b.footR * 2.6; this.ao.scale.set(fr, fr, 1);
-    this.ao.material.opacity = 0.5 * clamp(1 - this.gy * 5, 0, 1);
-    // support acceleration in world space → body frame (inertia makes it wobble)
-    _w.set(this.group.position.x, 0, this.group.position.z); tray.localToWorld(_w);
-    const idt = 1 / Math.max(dt, 1e-3);
-    if (this.hist >= 2) {
-      _v.copy(_w).sub(this.pw).multiplyScalar(idt);
-      _a.copy(_v).sub(this.pv).multiplyScalar(idt);
-      if (_a.length() > 40) _a.setLength(40);
-      this.acc.lerp(_a, 0.3); this.pv.copy(_v);
-    } else if (this.hist === 1) this.pv.copy(_w).sub(this.pw).multiplyScalar(idt);
-    this.hist++; this.pw.copy(_w);
-    const yaw = tray.rotation.y, c = Math.cos(yaw), s = Math.sin(yaw);
-    b.acc.x = this.acc.x * c - this.acc.z * s;
-    b.acc.z = this.acc.x * s + this.acc.z * c;
-    b.acc.y = this.acc.y;
-    if (b.simulate(dt)) {
-      this.posAttr.needsUpdate = true; this.nrmAttr.needsUpdate = true;
-      for (const p of this.pieces) this.placePiece(p);
-    }
-    // chocolate: shape melts and keeps its slump; gloss tracks current warmth
-    const meltNow = smooth(42, 110, b.T);
-    if (meltNow > this.meltShape) { this.meltShape = meltNow; for (const p of this.pieces) this.placePiece(p); }
-    const gloss = smooth(36, 90, b.T);
-    this.chipMat.roughness = lerp(0.55, 0.13, gloss);
-    this.chipMat.clearcoat = lerp(0.05, 1, gloss);
-    const u = this.u;
-    u.uBrown.value = b.M; u.uCrack.value = b.crack; u.uSet.value = b.set; u.uWarm.value = b.warmth;
-    u.uRadius.value = b.footR; u.uHeight.value = b.H;
-    this.syncSmears();
-  }
-  dispose() {
-    tray.remove(this.group);
-    this.geo.dispose(); this.mat.dispose(); this.chipMat.dispose(); this.ao.material.dispose(); this.ao.geometry.dispose();
-  }
-}
 
-// ---------------- Web Audio ----------------
-const Sound = {
-  ctx: null, out: null, noise: null, on: true, hum: null,
-  init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC(); this.ctx = ctx;
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3;
-    this.out = ctx.createGain(); this.out.gain.value = 0.8;
-    this.out.connect(comp); comp.connect(ctx.destination);
-    const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    this.noise = buf;
-  },
-  ok() { return this.ctx && this.on && this.ctx.state !== 'closed'; },
-  env(g, t, a, peak, dec) {
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t + a);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec);
-  },
-  src() { const s = this.ctx.createBufferSource(); s.buffer = this.noise; s.loop = true; return s; },
-  filt(type, f, q = 1) { const b = this.ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; return b; },
-  squelch(i = 0.6) {
-    if (!this.ok()) return;
-    const c = this.ctx, t = c.currentTime;
-    const n = this.src(), bp = this.filt('bandpass', 900, 3.5), lp = this.filt('lowpass', 2400, 0.7), g = c.createGain();
-    bp.frequency.setValueAtTime(800 + 700 * Math.random(), t); bp.frequency.exponentialRampToValueAtTime(170, t + 0.22);
-    this.env(g, t, 0.012, 0.6 * i, 0.22);
-    n.connect(bp); bp.connect(lp); lp.connect(g); g.connect(this.out);
-    n.start(t, Math.random() * 1.5); n.stop(t + 0.32);
-    const o = c.createOscillator(), g2 = c.createGain(); o.type = 'sine';
-    o.frequency.setValueAtTime(180 + 70 * Math.random(), t); o.frequency.exponentialRampToValueAtTime(52, t + 0.15);
-    this.env(g2, t, 0.006, 0.35 * i, 0.15); o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.22);
-  },
-  pop() {
-    if (!this.ok()) return;
-    const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.08);
-    this.env(g, t, 0.004, 0.22, 0.09); o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.14);
-  },
-  click(level = 1) {
-    if (!this.ok()) return;
-    const c = this.ctx, t = c.currentTime;
-    const n = this.src(), hp = this.filt('highpass', 3200, 0.8), g = c.createGain();
-    this.env(g, t, 0.0015, 0.32 * level, 0.03); n.connect(hp); hp.connect(g); g.connect(this.out); n.start(t, Math.random()); n.stop(t + 0.06);
-    const o = c.createOscillator(), g2 = c.createGain(); o.type = 'square'; o.frequency.value = 2600;
-    this.env(g2, t, 0.001, 0.05 * level, 0.018); o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.04);
-  },
-  latch() {
-    if (!this.ok()) return;
-    this.click(1.2);
-    setTimeout(() => this.click(0.8), 60);
-    const c = this.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'sine'; o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
-    this.env(g, t, 0.004, 0.3, 0.13); o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.2);
-  },
-  thunk() {
-    if (!this.ok()) return;
-    const c = this.ctx, t = c.currentTime;
-    const n = this.src(), lp = this.filt('lowpass', 420, 0.9), g = c.createGain();
-    this.env(g, t, 0.004, 0.65, 0.16); n.connect(lp); lp.connect(g); g.connect(this.out); n.start(t, Math.random()); n.stop(t + 0.25);
-    const o = c.createOscillator(), g2 = c.createGain(); o.type = 'sine';
-    o.frequency.setValueAtTime(85, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.18);
-    this.env(g2, t, 0.003, 0.5, 0.2); o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.28);
-    this.click(0.7);
-  },
-  slide(dur = 0.9) {
-    if (!this.ok()) return;
-    const c = this.ctx, t = c.currentTime;
-    const n = this.src(), bp = this.filt('bandpass', 1300, 1.2), g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + dur * 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    bp.frequency.setValueAtTime(900, t); bp.frequency.linearRampToValueAtTime(1600, t + dur);
-    n.connect(bp); bp.connect(g); g.connect(this.out); n.start(t, Math.random()); n.stop(t + dur + 0.05);
-  },
-  crunch(i = 0.6) {
-    if (!this.ok()) return;
-    const c = this.ctx, t0 = c.currentTime, k = 4 + ((Math.random() * 5) | 0);
-    for (let j = 0; j < k; j++) {
-      const t = t0 + Math.random() * 0.13;
-      const n = this.src(), hp = this.filt('bandpass', 1800 + Math.random() * 2600, 1.4), g = c.createGain();
-      this.env(g, t, 0.0015, (0.15 + Math.random() * 0.25) * i, 0.015 + Math.random() * 0.03);
-      n.connect(hp); hp.connect(g); g.connect(this.out); n.start(t, Math.random() * 1.8); n.stop(t + 0.07);
-    }
-  },
-  humStart() {
-    if (!this.ctx || this.hum) return;
-    const c = this.ctx, t = c.currentTime, g = c.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(this.on ? 0.09 : 0.0001, t + 0.6);
-    const o1 = c.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 60;
-    const lp = this.filt('lowpass', 260, 0.8), pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 60; pk.gain.value = 8; pk.Q.value = 4;
-    o1.connect(lp); lp.connect(pk); pk.connect(g);
-    const o2 = c.createOscillator(), g2 = c.createGain(); o2.type = 'sine'; o2.frequency.value = 120; g2.gain.value = 0.35; o2.connect(g2); g2.connect(g);
-    const n = this.src(), bp = this.filt('bandpass', 520, 0.6), g3 = c.createGain(); g3.gain.value = 0.16; n.connect(bp); bp.connect(g3); g3.connect(g);
-    const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 6.5; lg.gain.value = 0.012; lfo.connect(lg); lg.connect(g.gain);
-    g.connect(this.out);
-    [o1, o2, n, lfo].forEach(s => s.start(t));
-    this.hum = { g, nodes: [o1, o2, n, lfo] };
-  },
-  humStop() {
-    if (!this.hum) return;
-    const c = this.ctx, t = c.currentTime, h = this.hum; this.hum = null;
-    h.g.gain.cancelScheduledValues(t); h.g.gain.setValueAtTime(Math.max(h.g.gain.value, 0.0002), t);
-    h.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-    h.nodes.forEach(s => s.stop(t + 0.5));
-  },
-  ding() {
-    if (!this.ok()) return;
-    const c = this.ctx;
-    const strike = (t, base, amp) => {
-      [[1, 0.3, 1.7], [2.01, 0.11, 0.9], [2.76, 0.09, 0.7], [5.4, 0.035, 0.35], [8.93, 0.015, 0.2]].forEach(([ratio, a, d]) => {
-        const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = base * ratio;
-        this.env(g, t, 0.003, a * amp, d); o.connect(g); g.connect(this.out); o.start(t); o.stop(t + d + 0.1);
+  function setupWorld() {
+    const T = makeTextures();
+    const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    for (const k in T) T[k].anisotropy = aniso;
+    const M = makeMaterials(T);
+    S.M = M;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xd9d2c6);
+    const camera = new THREE.PerspectiveCamera(66, 1, 0.03, 40);
+    camera.rotation.order = "YXZ";
+    S.scene = scene; S.camera = camera;
+
+    const K = buildKitchen(M, T);
+    scene.add(K.root);
+    S.K = K;
+
+    // late-afternoon sun through the window
+    const sun = new THREE.DirectionalLight(0xffdcae, 2.4);
+    sun.position.set(-3.2, 4.4, -5.6);
+    sun.target.position.set(-0.4, 0.4, 0.2);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera;
+    sc.left = -4; sc.right = 4; sc.top = 4; sc.bottom = -4; sc.near = 1; sc.far = 16;
+    sun.shadow.bias = -0.0004;
+    sun.shadow.normalBias = 0.02;
+    scene.add(sun, sun.target);
+    scene.add(new THREE.HemisphereLight(0xfff4e6, 0xb8a58c, 0.28));
+    const lamp = new THREE.PointLight(0xfff1df, 0.55, 7, 2);
+    lamp.position.set(0, 2.5, -0.3);
+    scene.add(lamp);
+
+    // the glow that appears on the prep table once the basket is full
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.95), new THREE.MeshBasicMaterial({
+      map: glowTexture(), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.set(0.05, 0.903, 0.25);
+    scene.add(glow);
+    S.glow = glow;
+
+    // first-person basket, drawn in its own pass so it never clips into counters
+    const vm = new THREE.Scene();
+    vm.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 0.55));
+    const vmKey = new THREE.DirectionalLight(0xffe6c4, 1.1);
+    vmKey.position.set(-1, 2, 1);
+    vm.add(vmKey);
+    const vmRoot = new THREE.Group();
+    vmRoot.matrixAutoUpdate = false;
+    vm.add(vmRoot);
+    const basket = buildHandBasket(M);
+    basket.position.set(0.25, -0.34, -0.58);
+    basket.rotation.set(0.42, -0.25, 0.05);
+    vmRoot.add(basket);
+    S.vm = vm; S.vmRoot = vmRoot; S.basket = basket;
+
+    // per-item state; materials cloned so each item can glow on its own
+    S.items = {};
+    for (const def of ITEMS) {
+      const obj = K.items[def.id];
+      const mats = [];
+      obj.traverse((m) => {
+        if (!m.isMesh) return;
+        m.material = Array.isArray(m.material) ? m.material.map((x) => x.clone()) : m.material.clone();
+        (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => { if (x.emissive) mats.push(x); });
+        m.userData.cast = m.castShadow;
       });
-    };
-    const t = c.currentTime;
-    strike(t, 1975, 1);
-    strike(t + 0.42, 1975, 0.55);
-  },
-  setOn(v) { this.on = v; if (this.hum && this.ctx) this.hum.g.gain.setTargetAtTime(v ? 0.09 : 0.0001, this.ctx.currentTime, 0.1); }
-};
-
-// ---------------- UI helpers ----------------
-const HINTS = {
-  1: 'Scoop dough onto the sheet, then press it with the hand to shape it. Drag while pressing to smear it.',
-  2: 'Click a dough ball to set pieces into its surface. Chunks sink in a little; salt sits on top.',
-  3: 'Set the power and the time, then start the bake. Watch the portions spread and brown through the door.',
-  4: 'Poke the cookie: it springs back firmer now. While it is still warm, drag across a chunk to streak the chocolate.'
-};
-const TOOL_HINT = {
-  scoop: 'Click anywhere on the sheet to drop a portion. Six fit on one sheet.',
-  tongs: 'Drag a portion to move it around the sheet.',
-  chip: 'Click a dough ball to press a chocolate chunk into it.',
-  salt: 'Click a dough ball to sprinkle a pinch of flaky salt.'
-};
-const toastEl = $('#toast');
-let toastTimer = 0;
-function toast(msg) {
-  toastEl.textContent = msg; toastEl.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2800);
-}
-function setHint() {
-  const t = TOOL_HINT[ui.tool];
-  $('#hint').textContent = (t && (state === 'counter' || state === 'inspect') && !(phase === 4 && ui.tool === 'hand')) ? t : HINTS[phase];
-}
-function setPhase(n) {
-  phase = n;
-  $$('.phases li').forEach(li => {
-    const p = +li.dataset.phase;
-    li.classList.toggle('done', p < n);
-    if (p === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-  });
-  $('#phase-count').textContent = `0${n} / 04`;
-  setHint();
-}
-function setTool(t) {
-  ui.tool = t;
-  $$('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === t)));
-  $$('.pantry-item').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.item === t)));
-  if ((t === 'chip' || t === 'salt') && doughs.length && phase < 2) setPhase(2);
-  setHint();
-}
-function setState(s) { state = s; refreshButtons(); setHint(); }
-const busy = () => state === 'transferring' || state === 'unloading';
-const canTouch = () => state === 'counter' || state === 'inspect';
-function refreshButtons() {
-  const onCounter = canTouch();
-  $('#btn-transfer').disabled = !(onCounter && doughs.length);
-  $('#btn-bake').disabled = !((onCounter && doughs.length) || state === 'loaded');
-  $('#btn-door').disabled = !(state === 'loaded' || state === 'baking');
-  $('#btn-reset').disabled = false;
-  $('#dur').disabled = state === 'baking';
-  $('#moist').disabled = state === 'baking';
-  $('#count-dough').textContent = `${doughs.length} / ${MAX_DOUGH}`;
-  $('#count-chip').textContent = doughs.reduce((a, d) => a + d.chips, 0);
-  $('#count-salt').textContent = doughs.reduce((a, d) => a + d.salts, 0);
-}
-const fmtTime = (s) => { s = Math.max(0, Math.ceil(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-function drawIdleLCD() { mw.drawLCD(fmtTime(params.dur), `${params.watt}W`, false); }
-
-// sliders
-function bindRange(id, key, fmt, after) {
-  const el = $('#' + id), out = $('#' + id + '-out');
-  const sync = () => { params[key] = +el.value; out.textContent = fmt(params[key]); if (after) after(); };
-  el.addEventListener('input', sync, { signal: __sig }); sync();
-}
-bindRange('watt', 'watt', v => `${v} W`, () => { if (state !== 'baking') drawIdleLCD(); });
-bindRange('dur', 'dur', v => `${v} s`, () => { if (state !== 'baking') { timer = params.dur; $('#timer').textContent = fmtTime(timer); drawIdleLCD(); } });
-bindRange('moist', 'moist', v => `${v} %`, () => {
-  for (const d of doughs) {
-    const b = d.body;
-    if (b.s === 0 && b.M < 0.01 && !b.baking) { b.moist0 = b.moist = params.moist + (b.seed % 7) * 0.1 - 0.3; b.updateParams(); b.wake(); }
-  }
-});
-bindRange('mrate', 'mrate', v => `${v.toFixed(2)}×`);
-
-$$('.seg button').forEach(b => b.addEventListener('click', () => { Sound.init(); Sound.click(0.7); setTool(b.dataset.tool); }, { signal: __sig }));
-$('#opt-sound').addEventListener('change', e => { Sound.init(); Sound.setOn(e.target.checked); }, { signal: __sig });
-$('#opt-lattice').addEventListener('change', e => { ui.lattice = e.target.checked; doughs.forEach(d => { d.mat.wireframe = ui.lattice; }); }, { signal: __sig });
-$('#btn-transfer').addEventListener('click', () => { Sound.init(); transferToOven(false); }, { signal: __sig });
-$('#btn-bake').addEventListener('click', () => { Sound.init(); startBake(); }, { signal: __sig });
-$('#btn-door').addEventListener('click', () => { Sound.init(); unload(false); }, { signal: __sig });
-$('#btn-reset').addEventListener('click', () => { Sound.init(); resetSpecimen(); }, { signal: __sig });
-
-// ---------------- camera views ----------------
-const views = {
-  counter: () => ({ pos: new V3(0.05, 2.15, 3.75), tgt: new V3(0.14, 0.28, -0.55) }),
-  inspect: () => ({ pos: new V3(0.2, 1.3, 2.2), tgt: new V3(0, 0.1, -0.05) }),
-  oven: () => ({ pos: mwLocal(-0.3, 2.6, 8.4), tgt: mwLocal(-0.45, 0.95, 0.2) })
-};
-function flyTo(v, dur) {
-  dur = reduced ? Math.min(dur, 0.4) : dur;
-  const tl = gsap.timeline();
-  tl.to(camera.position, { x: v.pos.x, y: v.pos.y, z: v.pos.z, duration: dur, ease: 'power3.inOut' }, 0);
-  tl.to(controls.target, { x: v.tgt.x, y: v.tgt.y, z: v.tgt.z, duration: dur, ease: 'power3.inOut' }, 0);
-  return tl;
-}
-
-// ---------------- placing dough ----------------
-const SLOTS = [[0, 0], [-0.64, -0.36], [0.64, 0.36], [0.64, -0.36], [-0.64, 0.36]];
-function spotFree(x, z, gap = 0.6) {
-  return doughs.every(d => Math.hypot(d.group.position.x - x, d.group.position.z - z) > Math.max(gap, d.body.footR + 0.42));
-}
-function clampToSheet(x, z, r) {
-  return [clamp(x, -TRAY_W / 2 + 0.08 + r, TRAY_W / 2 - 0.08 - r), clamp(z, -TRAY_D / 2 + 0.08 + r, TRAY_D / 2 - 0.08 - r)];
-}
-function addDough(x, z) {
-  if (!canTouch()) { toast('Open the door first. The sheet is in the oven.'); return null; }
-  if (doughs.length >= MAX_DOUGH) { toast('The sheet is full. Six portions is the limit.'); return null; }
-  const d = new Dough(x, z, 0.9);
-  doughs.push(d); focus = d;
-  Sound.pop();
-  refreshButtons();
-  return d;
-}
-function autoDrop() {
-  for (const [x, z] of SLOTS) if (spotFree(x, z)) return addDough(x, z);
-  for (let i = 0; i < 60; i++) {
-    const [x, z] = clampToSheet((Math.random() - 0.5) * TRAY_W, (Math.random() - 0.5) * TRAY_D, 0.22);
-    if (spotFree(x, z, 0.5)) return addDough(x, z);
-  }
-  toast('No clear spot left. Move a portion with the tongs to make room.');
-  return null;
-}
-function dropAtWorld(p) {
-  const l = tray.worldToLocal(p.clone());
-  const [x, z] = clampToSheet(l.x, l.z, 0.22);
-  if (!spotFree(x, z, 0.46)) { toast('Too close to another portion. Leave room for it to spread.'); return null; }
-  return addDough(x, z);
-}
-
-function embedAt(hit, kind) {
-  const d = hit.object.userData.dough, b = d.body;
-  const lp = d.group.worldToLocal(hit.point.clone());
-  let vi = hit.face.a, bd = 1e9;
-  [hit.face.a, hit.face.b, hit.face.c].forEach(i => {
-    const dd = (b.pos[3 * i] - lp.x) ** 2 + (b.pos[3 * i + 1] - lp.y) ** 2 + (b.pos[3 * i + 2] - lp.z) ** 2;
-    if (dd < bd) { bd = dd; vi = i; }
-  });
-  if (kind === 'chip') {
-    if (d.chips >= 24) { toast('That portion is packed. Try another one.'); return; }
-    d.addPiece('chip', vi);
-    Sound.squelch(0.28); Sound.click(0.4);
-  } else {
-    if (d.salts >= 40) { toast('That is plenty of salt.'); return; }
-    d.addPiece('salt', vi);
-    const s0 = LAT.nbStart[vi], s1 = LAT.nbStart[vi + 1];
-    for (let k = 0; k < 2; k++) {
-      // walk two rings out for a natural pinch
-      let j = LAT.nbList[s0 + ((Math.random() * (s1 - s0)) | 0)];
-      const t0 = LAT.nbStart[j], t1 = LAT.nbStart[j + 1];
-      j = LAT.nbList[t0 + ((Math.random() * (t1 - t0)) | 0)];
-      if (b.pos[3 * j + 1] > 0.02) d.addPiece('salt', j);
+      const sph = new THREE.Box3().setFromObject(obj).getBoundingSphere(new THREE.Sphere());
+      S.items[def.id] = { def, obj, mats, radius: Math.max(0.02, sph.radius), collected: false, flying: false };
     }
-    Sound.crunch(0.25);
+    S.pickables = [...K.blockers, ...K.doors.map((d) => d.pivot), ...ITEMS.map((d) => S.items[d.id].obj)];
   }
-  focus = d;
-  if (phase < 2) setPhase(2);
-  refreshButtons();
-}
 
-// ---------------- pointer interaction ----------------
-const ray = new THREE.Raycaster();
-const ndc = new THREE.Vector2();
-const plane = new THREE.Plane();
-const pointer = { x: 0, y: 0, inside: false, mouse: true };
-let drag = null;
-const cursorEl = $('#cursor'), cursorLabel = $('#cursor-label');
-
-function setRay(cx, cy) {
-  const r = canvas.getBoundingClientRect();
-  ndc.x = ((cx - r.left) / r.width) * 2 - 1;
-  ndc.y = -((cy - r.top) / r.height) * 2 + 1;
-  ray.setFromCamera(ndc, camera);
-}
-function pickDough() { const h = ray.intersectObjects(doughs.map(d => d.mesh), false); return h.length ? h[0] : null; }
-function pickSheet() { const h = ray.intersectObject(trayBase, false); return h.length ? h[0] : null; }
-function rayToPlaneY(y, out) { plane.set(UP, -y); return ray.ray.intersectPlane(plane, out); }
-function claim(e) {
-  controls.enabled = false;
-  if (!drag) drag = { type: 'claim' };
-  drag.pointerId = e.pointerId;
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
-}
-
-function startPress(hit, e) {
-  const d = hit.object.userData.dough, b = d.body;
-  const lp = d.group.worldToLocal(hit.point.clone());
-  const o = 3 * hit.face.a;
-  b.press(lp.x, lp.y, lp.z, b.nrm[o], b.nrm[o + 1], b.nrm[o + 2]);
-  drag = { type: 'press', dough: d, planeY: hit.point.y, lx: lp.x, lz: lp.z, travel: 0 };
-  focus = d;
-  claim(e);
-  if (b.set > 0.45) {
-    Sound.crunch(b.T > 60 ? 0.35 : 0.7);
-    crumbs.spawn(lp.x + d.group.position.x, lp.y + d.group.position.y, lp.z + d.group.position.z, 4 + ((Math.random() * 5) | 0), 0.8);
-    if (b.T > 46) { const ch = d.nearestChip(lp.x, lp.y, lp.z, 0.1); if (ch) d.startSmear(ch); }
-  } else Sound.squelch(0.42);
-}
-function startCarry(hit, e) {
-  const d = hit.object.userData.dough;
-  const p = rayToPlaneY(tray.localToWorld(_b.set(0, 0, 0)).y, new V3());
-  const l = p ? tray.worldToLocal(p) : d.group.position.clone();
-  drag = { type: 'carry', dough: d, ox: l.x - d.group.position.x, oz: l.z - d.group.position.z };
-  d.carried = true; d.body.wake(); focus = d;
-  claim(e);
-  Sound.click(0.6);
-}
-
-stageEl.addEventListener('pointerdown', (e) => {
-  Sound.init();
-  if (e.target !== canvas) return;
-  if (e.pointerType === 'mouse' && e.button !== 0) return;
-  if (!canTouch() || drag) return;
-  setRay(e.clientX, e.clientY);
-  const hd = pickDough();
-  const t = ui.tool;
-  if (t === 'hand' && hd) startPress(hd, e);
-  else if (t === 'tongs' && hd) startCarry(hd, e);
-  else if (t === 'chip' || t === 'salt') {
-    if (hd) { embedAt(hd, t); claim(e); }
-    else if (pickSheet()) { toast(t === 'chip' ? 'Chunks go into the dough. Click a portion.' : 'Salt goes on the dough. Click a portion.'); claim(e); }
-  } else if (t === 'scoop') {
-    const hs = hd || pickSheet();
-    if (hs) { dropAtWorld(hs.point); claim(e); }
-  }
-}, { capture: true, signal: __sig });
-
-window.addEventListener('pointermove', (e) => {
-  pointer.x = e.clientX; pointer.y = e.clientY; pointer.mouse = e.pointerType === 'mouse';
-  cursorEl.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`;
-  if (!drag) return;
-  if (drag.type === 'press') {
-    setRay(e.clientX, e.clientY);
-    const p = rayToPlaneY(drag.planeY, new V3());
-    if (!p) return;
-    const d = drag.dough, b = d.body, l = d.group.worldToLocal(p);
-    b.moveContact(l.x, l.z);
-    const step = Math.hypot(l.x - drag.lx, l.z - drag.lz);
-    drag.travel += step; drag.lx = l.x; drag.lz = l.z;
-    if (b.set > 0.45 && drag.travel > 0.03) {
-      drag.travel = 0;
-      crumbs.spawn(l.x + d.group.position.x, b.contact.hy + d.group.position.y, l.z + d.group.position.z, 1 + ((Math.random() * 2) | 0), 0.5);
-      if (Math.random() < 0.35) Sound.crunch(0.25);
+  function setupEnvAndThumbs() {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    envRT = pmrem.fromScene(roomEnvironment(), 0.04);
+    pmrem.dispose();
+    S.scene.environment = envRT.texture;
+    S.vm.environment = envRT.texture;
+    S.thumbs = makeThumbs();
+    buildStrip();
+    S.thumbImgs = {};
+    let pending = 0;
+    for (const def of ITEMS) {
+      const url = S.thumbs[def.id];
+      if (!url) continue;
+      const img = new Image();
+      pending++;
+      img.onload = () => { if (--pending === 0 && !dead) drawCard(); };
+      img.src = url;
+      S.thumbImgs[def.id] = img;
     }
-    if (d.activeSmear) {
-      const s = d.activeSmear;
-      s.b.set(b.contact.hx, Math.max(0.01, b.contact.hy - b.contact.depth * 0.5), b.contact.hz);
-      const len = s.b.distanceTo(s.a);
-      if (len > 0.2) s.b.sub(s.a).setLength(0.2).add(s.a);
+    drawCard();
+  }
+
+  // Render a little picture of every ingredient (used by the HUD and the fridge card).
+  function makeThumbs() {
+    let tr;
+    try {
+      tr = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    } catch (e) { return {}; }
+    tr.setPixelRatio(1);
+    tr.setSize(128, 128, false);
+    tr.outputEncoding = THREE.sRGBEncoding;
+    tr.toneMapping = THREE.ACESFilmicToneMapping;
+    tr.toneMappingExposure = 1.05;
+    tr.setClearColor(0x000000, 0);
+    const pm = new THREE.PMREMGenerator(tr);
+    const env = pm.fromScene(roomEnvironment(), 0.04);
+    const ts = new THREE.Scene();
+    ts.environment = env.texture;
+    const key = new THREE.DirectionalLight(0xffffff, 1.3);
+    key.position.set(1, 2, 1.5);
+    ts.add(key);
+    ts.add(new THREE.HemisphereLight(0xffffff, 0x6f665c, 0.35));
+    const cam = new THREE.PerspectiveCamera(26, 1, 0.005, 10);
+    const dir = new THREE.Vector3(0.5, 0.62, 1).normalize();
+    const urls = {};
+    for (const def of ITEMS) {
+      const src = S.items[def.id].obj;
+      const c = src.clone(true);
+      c.position.set(0, 0, 0);
+      c.rotation.set(0, 0.35, 0);
+      c.scale.set(1, 1, 1);
+      ts.add(c);
+      c.updateMatrixWorld(true);
+      const s = new THREE.Box3().setFromObject(c).getBoundingSphere(new THREE.Sphere());
+      const dist = (s.radius / Math.sin(THREE.MathUtils.degToRad(cam.fov / 2))) * 1.02;
+      cam.position.copy(s.center).addScaledVector(dir, dist);
+      cam.near = dist / 40; cam.far = dist * 4;
+      cam.lookAt(s.center);
+      cam.updateProjectionMatrix();
+      tr.clear();
+      tr.render(ts, cam);
+      urls[def.id] = tr.domElement.toDataURL("image/png");
+      ts.remove(c);
     }
-  } else if (drag.type === 'carry') {
-    setRay(e.clientX, e.clientY);
-    const p = rayToPlaneY(tray.localToWorld(_b.set(0, 0, 0)).y + 0.16, new V3());
-    if (!p) return;
-    const l = tray.worldToLocal(p), d = drag.dough;
-    const [x, z] = clampToSheet(l.x - drag.ox, l.z - drag.oz, d.body.footR);
-    d.group.position.x = x; d.group.position.z = z;
+    env.dispose(); pm.dispose();
+    tr.dispose();
+    if (tr.forceContextLoss) tr.forceContextLoss();
+    return urls;
   }
-}, { signal: __sig });
-function endDrag() {
-  if (!drag) return;
-  if (drag.type === 'press') {
-    const d = drag.dough;
-    if (d.body.set < 0.45) Sound.squelch(0.18);
-    d.body.release(); d.activeSmear = null;
-  } else if (drag.type === 'carry') {
-    drag.dough.carried = false;
-    drag.dough.gvy = 0.2;
-  }
-  drag = null;
-  controls.enabled = !busy();
-}
-window.addEventListener('pointerup', endDrag, { signal: __sig });
-window.addEventListener('pointercancel', endDrag, { signal: __sig });
-canvas.addEventListener('pointerenter', (e) => { pointer.inside = true; if (e.pointerType === 'mouse') stageEl.classList.add('custom-cursor'); }, { signal: __sig });
-canvas.addEventListener('pointerleave', () => { pointer.inside = false; stageEl.classList.remove('custom-cursor'); }, { signal: __sig });
 
-function updateCursor() {
-  const show = pointer.inside && pointer.mouse;
-  cursorEl.classList.toggle('show', show);
-  if (!show) return;
-  let over = false, label = '', pressing = false, dotD = 3;
-  if (drag && drag.type === 'press') {
-    const b = drag.dough.body;
-    pressing = true; over = true;
-    const mm = b.contact.depth * MM_PER_UNIT;
-    label = `Depth ${mm.toFixed(1)} mm`;
-    dotD = 3 + (b.contact.depth / b.r) * 26;
-  } else if (drag && drag.type === 'carry') {
-    over = true; label = 'Lifting';
-  } else if (canTouch()) {
-    setRay(pointer.x, pointer.y);
-    const hd = pickDough();
-    const t = ui.tool;
-    if (hd) {
-      over = true;
-      label = t === 'hand' ? 'Contact 0.0 mm' : t === 'tongs' ? 'Lift' : t === 'chip' ? 'Press in a chunk' : t === 'salt' ? 'Sprinkle salt' : 'Drop beside it';
-    } else if (t === 'scoop' && pickSheet()) { label = 'Drop a portion'; }
-  } else if (state === 'baking') label = 'Baking';
-  else if (busy()) label = 'Moving';
-  cursorEl.classList.toggle('over', over);
-  cursorEl.classList.toggle('pressing', pressing);
-  cursorEl.style.setProperty('--d', `${dotD.toFixed(1)}px`);
-  cursorLabel.textContent = label;
-  cursorLabel.style.display = label ? 'block' : 'none';
-}
-
-// pantry: click to select, drag to place
-const ghost = $('#ghost');
-$$('.pantry-item').forEach(btn => {
-  btn.addEventListener('pointerdown', (e) => {
-    Sound.init();
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const item = btn.dataset.item;
-    const start = { x: e.clientX, y: e.clientY };
-    let dragging = false;
-    const move = (ev) => {
-      if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) {
-        dragging = true; ghost.innerHTML = btn.querySelector('svg').outerHTML; ghost.classList.add('show');
+  // ---------------------------------------------------------------- HUD
+  const slotEls = {};
+  function buildStrip() {
+    ui.strip.innerHTML = "";
+    for (const loc of LOCS) {
+      const g = document.createElement("div");
+      g.className = "fl-group";
+      const ic = document.createElement("span");
+      ic.className = "fl-loc";
+      ic.innerHTML = LOC_ICONS[loc];
+      g.appendChild(ic);
+      for (const def of ITEMS.filter((d) => d.loc === loc)) {
+        const s = document.createElement("span");
+        s.className = "fl-slot";
+        const img = document.createElement("img");
+        img.alt = def.name;
+        img.draggable = false;
+        if (S.thumbs[def.id]) img.src = S.thumbs[def.id];
+        s.appendChild(img);
+        g.appendChild(s);
+        slotEls[def.id] = s;
       }
-      if (dragging) ghost.style.transform = `translate(${ev.clientX}px, ${ev.clientY}px)`;
-    };
-    const up = (ev) => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-      ghost.classList.remove('show');
-      if (ev.type === 'pointercancel') return;
-      if (!dragging) { pantryClick(item); return; }
-      const under = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (under !== canvas) return;
-      setTool(item);
-      if (!canTouch()) { toast('Open the door first. The sheet is in the oven.'); return; }
-      setRay(ev.clientX, ev.clientY);
-      if (item === 'scoop') { const h = pickDough() || pickSheet(); if (h) dropAtWorld(h.point); }
-      else { const h = pickDough(); if (h) embedAt(h, item); else toast('Drop it onto a dough portion.'); }
-    };
-    window.addEventListener('pointermove', move, { signal: __sig });
-    window.addEventListener('pointerup', up, { signal: __sig });
-    window.addEventListener('pointercancel', up, { signal: __sig });
-  }, { signal: __sig });
-  btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pantryClick(btn.dataset.item); } }, { signal: __sig });
-});
-function pantryClick(item) {
-  Sound.click(0.6);
-  setTool(item);
-  if (item === 'scoop') autoDrop();
-  else if (!doughs.length) toast('Scoop some dough onto the sheet first.');
-}
-
-window.addEventListener('keydown', (e) => {
-  if (e.target.closest && e.target.closest('input')) return;
-  const k = e.key.toLowerCase();
-  if (k === 'h') setTool('hand');
-  else if (k === 's') setTool('scoop');
-  else if (k === 't') setTool('tongs');
-  else if (k === 'c') setTool('chip');
-  else if (k === 'f') setTool('salt');
-  else if (k === 'd') { Sound.init(); setTool('scoop'); autoDrop(); }
-  else if (k === 'b') { Sound.init(); if (!$('#btn-bake').disabled) startBake(); }
-}, { signal: __sig });
-
-// ---------------- sequences ----------------
-let seq = null;
-const trayProxy = { x: 0, y: TRAY_Y, z: 0, yaw: 0 };
-function applyTray() { tray.position.set(trayProxy.x, trayProxy.y, trayProxy.z); tray.rotation.y = trayProxy.yaw; }
-function readTray() { trayProxy.x = tray.position.x; trayProxy.y = tray.position.y; trayProxy.z = tray.position.z; trayProxy.yaw = tray.rotation.y; }
-
-function transferToOven(thenBake) {
-  if (!canTouch() || !doughs.length) return;
-  endDrag();
-  setState('transferring'); setPhase(3);
-  controls.enabled = false;
-  readTray();
-  inYaw = MW_YAW + Math.round((tray.rotation.y - MW_YAW) / Math.PI) * Math.PI;
-  const front = mwLocal(CAV_X, 0.85, 3.5), level = mwLocal(CAV_X, TRAY_IN_Y, 3.3), inside = mwLocal(CAV_X, TRAY_IN_Y, 0.0);
-  const k = reduced ? 0.5 : 1;
-  const tl = gsap.timeline({ onComplete: () => { seq = null; setState('loaded'); controls.enabled = true; if (thenBake) startBake(); } });
-  tl.add(flyTo(views.oven(), 1.6 * k), 0);
-  tl.add(() => Sound.latch(), 0.3 * k);
-  tl.to(mw.door.rotation, { y: -1.72, duration: 0.95 * k, ease: 'power3.out' }, 0.3 * k);
-  tl.to(trayProxy, { y: 0.55, duration: 0.45 * k, ease: 'power2.out', onUpdate: applyTray }, 0.5 * k);
-  tl.to(trayProxy, { x: front.x, y: front.y, z: front.z, yaw: inYaw, duration: 1.15 * k, ease: 'power2.inOut', onUpdate: applyTray }, 0.95 * k);
-  tl.to(trayProxy, { x: level.x, y: level.y, z: level.z, duration: 0.4 * k, ease: 'power1.out', onUpdate: applyTray }, 2.1 * k);
-  tl.add(() => Sound.slide(0.9 * k), 2.5 * k);
-  tl.to(trayProxy, { x: inside.x, y: inside.y, z: inside.z, duration: 0.95 * k, ease: 'power2.inOut', onUpdate: applyTray }, 2.5 * k);
-  tl.to(mw.door.rotation, { y: 0, duration: 0.38 * k, ease: 'power3.in', onComplete: () => Sound.thunk() }, 3.55 * k);
-  seq = tl;
-  Sound.click(0.6);
-}
-
-function startBake() {
-  if (canTouch()) { if (doughs.length) transferToOven(true); return; }
-  if (state !== 'loaded') return;
-  setState('baking'); setPhase(3);
-  timer = params.dur;
-  turn.a = 0;
-  doughs.forEach(d => d.body.beginBake());
-  Sound.click(1); Sound.humStart();
-  gsap.to(heat, { v: 1, duration: reduced ? 0.2 : 0.9, ease: 'power2.out' });
-  gsap.to(spin, { v: 0.9, duration: reduced ? 0.2 : 1.0, ease: 'power2.inOut' });
-  gsap.to(mw.knob.rotation, { z: -Math.PI * 1.6 * (params.dur / 30), duration: 0.5, ease: 'power2.out' });
-}
-
-function unload(completed) {
-  if (state !== 'loaded' && state !== 'baking') return;
-  const wasBaking = state === 'baking';
-  setState('unloading');
-  controls.enabled = false;
-  doughs.forEach(d => d.body.endBake());
-  Sound.humStop();
-  gsap.to(heat, { v: 0, duration: 1.4, ease: 'power2.out' });
-  gsap.to(spin, { v: 0, duration: 0.6 });
-  gsap.to(mw.knob.rotation, { z: 0, duration: 0.6, ease: 'power2.out' });
-  if (completed) mw.drawLCD('End', `${params.watt}W`, true); else drawIdleLCD();
-  const k = reduced ? 0.5 : 1;
-  const target = wasBaking ? Math.ceil(turn.a / Math.PI) * Math.PI : turn.a;
-  const level = mwLocal(CAV_X, TRAY_IN_Y, 3.3), front = mwLocal(CAV_X, 0.85, 3.5);
-  const tl = gsap.timeline({
-    onComplete: () => {
-      seq = null; turn.a = 0;
-      setState('inspect');
-      if (wasBaking || doughs.some(d => d.body.set > 0.05)) setPhase(4); else setPhase(doughs.some(d => d.pieces.length) ? 2 : 1);
-      controls.enabled = true;
-      if (completed) celebrate();
-      setTimeout(() => { if (state !== 'baking') drawIdleLCD(); }, 2500);
+      ui.strip.appendChild(g);
     }
-  });
-  if (completed) tl.add(() => Sound.ding(), 0);
-  tl.to(turn, { a: target, duration: 0.8 * k, ease: 'power2.out', onUpdate: () => { tray.rotation.y = inYaw + turn.a; mw.turntable.rotation.y = turn.a; } }, 0);
-  const t0 = completed ? 0.75 : 0.25;
-  tl.add(() => Sound.latch(), t0 * k);
-  tl.to(mw.door.rotation, { y: -1.75, duration: 1.0 * k, ease: completed ? 'elastic.out(1, 0.55)' : 'power3.out' }, t0 * k);
-  tl.add(() => { readTray(); Sound.slide(0.9 * k); }, (t0 + 0.55) * k);
-  tl.to(trayProxy, { x: level.x, y: level.y, z: level.z, duration: 0.95 * k, ease: 'power2.inOut', onUpdate: applyTray }, (t0 + 0.56) * k);
-  tl.add(() => {
-    const finalYaw = Math.round(tray.rotation.y / Math.PI) * Math.PI;
-    gsap.timeline({ onUpdate: applyTray })
-      .to(trayProxy, { x: front.x, y: front.y, z: front.z, duration: 0.4 * k, ease: 'power1.inOut' })
-      .to(trayProxy, { x: 0, y: 0.5, z: 0, yaw: finalYaw, duration: 1.05 * k, ease: 'power2.inOut' })
-      .to(trayProxy, { y: TRAY_Y, duration: 0.42 * k, ease: 'power2.in', onComplete: () => Sound.thunk() });
-  }, (t0 + 1.52) * k);
-  tl.add(flyTo(views.inspect(), 1.6 * k), (t0 + 1.7) * k);
-  tl.to(mw.door.rotation, { y: 0, duration: 0.5 * k, ease: 'power3.in', onComplete: () => Sound.click(0.5) }, (t0 + 3.6) * k);
-  seq = tl;
-}
-
-function celebrate() {
-  if (typeof confetti !== 'function' || reduced) return;
-  const r = stageEl.getBoundingClientRect();
-  const ox = (r.left + r.width / 2) / window.innerWidth, oy = (r.top + r.height * 0.55) / window.innerHeight;
-  confetti({ particleCount: 70, spread: 70, startVelocity: 26, gravity: 0.9, scalar: 0.7, ticks: 160, origin: { x: ox, y: oy },
-    colors: ['#e8c898', '#a85c24', '#3b2317', '#ffffff'], shapes: ['circle', 'square'], disableForReducedMotion: true });
-}
-
-function resetSpecimen() {
-  if (seq) { seq.kill(); seq = null; }
-  gsap.killTweensOf([camera.position, controls.target, mw.door.rotation, heat, spin, turn, trayProxy, mw.knob.rotation]);
-  endDrag();
-  Sound.humStop();
-  heat.v = 0; spin.v = 0; turn.a = 0; applyHeatVisual();
-  mw.door.rotation.y = 0; mw.turntable.rotation.y = 0; mw.knob.rotation.z = 0;
-  doughs.forEach(d => d.dispose()); doughs.length = 0;
-  crumbs.clear(); focus = null;
-  tray.position.set(0, TRAY_Y, 0); tray.rotation.y = 0; readTray();
-  timer = params.dur; $('#timer').textContent = fmtTime(timer); drawIdleLCD();
-  setState('counter'); setPhase(1); setTool('hand');
-  controls.enabled = false;
-  flyTo(views.counter(), 1.1).eventCallback('onComplete', () => { controls.enabled = true; });
-  Sound.click(0.8);
-  toast('Specimen reset. The sheet is clean.');
-}
-
-// ---------------- telemetry ----------------
-const tEls = { temp: $('#t-temp'), moist: $('#t-moist'), mail: $('#t-maillard'), crack: $('#t-crack'), visc: $('#t-visc'), tempBox: $('#m-temp') };
-function fmtVisc(v) { return v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.round(v).toLocaleString('en-US'); }
-function updateTelemetry() {
-  const d = (focus && doughs.includes(focus)) ? focus : doughs[0];
-  let T = ROOM, mo = params.moist + 0.4, M = 0, visc = 1.42 * Math.pow(78 / params.moist, 2);
-  if (d) { T = d.body.T; mo = d.body.moist; M = d.body.M; visc = d.body.viscosity; }
-  const cracks = doughs.reduce((a, x) => a + x.body.crackCount, 0);
-  tEls.temp.textContent = T.toFixed(1);
-  tEls.moist.textContent = mo.toFixed(1);
-  tEls.mail.textContent = M.toFixed(2);
-  tEls.crack.textContent = String(cracks);
-  tEls.visc.textContent = fmtVisc(visc);
-  tEls.tempBox.classList.toggle('hot', T > 60);
-  $('#timer').textContent = fmtTime(state === 'baking' ? timer : params.dur);
-}
-
-// ---------------- resize ----------------
-function resize() {
-  const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  camera.fov = camera.aspect < 1.25 ? Math.min(52, 30 * Math.pow(1.25 / camera.aspect, 0.85)) : 30;
-  camera.updateProjectionMatrix();
-}
-const __ro = window.ResizeObserver ? new ResizeObserver(resize) : null;
-if (__ro) __ro.observe(stageEl);
-window.addEventListener('resize', resize, { signal: __sig });
-resize();
-
-// ---------------- loop ----------------
-const clock = new THREE.Clock();
-let teleT = 0, lcdT = 0;
-function frame() {
-  if (__dead) return;
-  const dt = Math.min(clock.getDelta(), 1 / 30);
-  if (state === 'baking') {
-    timer -= dt;
-    turn.a += spin.v * dt;
-    tray.rotation.y = inYaw + turn.a;
-    mw.turntable.rotation.y = turn.a;
-    lcdT -= dt;
-    if (lcdT <= 0) { lcdT = 0.2; mw.drawLCD(fmtTime(timer), `${params.watt}W`, true); }
-    if (timer <= 0) { timer = 0; unload(true); }
-  }
-  applyHeatVisual();
-  tray.updateMatrixWorld(true);
-  const ovenOn = state === 'baking';
-  for (const d of doughs) {
-    d.body.heat(dt, ovenOn, params.watt, params.mrate);
-    d.update(dt);
-  }
-  crumbs.update(dt);
-  trayBlob.position.x = tray.position.x; trayBlob.position.z = tray.position.z;
-  trayBlob.rotation.z = tray.rotation.y;
-  trayBlob.material.opacity = 0.42 * clamp(1 - (tray.position.y - TRAY_Y) * 5, 0, 1);
-  controls.update();
-  updateCursor();
-  teleT -= dt;
-  if (teleT <= 0) { teleT = 0.1; updateTelemetry(); }
-  renderer.render(scene, camera);
-  __raf = requestAnimationFrame(frame);
-}
-
-// ---------------- boot ----------------
-drawIdleLCD();
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (__dead) return; if (state !== 'baking') drawIdleLCD(); });
-setPhase(1); setTool('hand'); refreshButtons(); updateTelemetry();
-__raf = requestAnimationFrame(frame);
-// open with one portion already on the sheet so the specimen is the first thing seen
-setTimeout(() => { if (!doughs.length) { const d = addDough(0, 0); if (d) d.gy = 0.55; } }, reduced ? 0 : 450);
-
-// ---------------- teardown (React unmount) ----------------
-__extra = () => {
-  if (__ro) __ro.disconnect();
-  try { Sound.humStop(); } catch (e) {}
-  try { if (Sound.ctx && Sound.ctx.state !== 'closed') Sound.ctx.close(); } catch (e) {}
-  try { controls.dispose(); } catch (e) {}
-  try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) {}
-  if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
-};
   }
 
-  try { __body(); } catch (err) { console.error('[food-lab]', err); }
+  // The illustrated recipe card stuck to the fridge door.
+  function drawCard() {
+    const { canvas: c, texture } = S.K.card;
+    const x = c.getContext("2d"), w = c.width, h = c.height;
+    x.fillStyle = "#fbf6ea"; x.fillRect(0, 0, w, h);
+    x.strokeStyle = "rgba(160,120,80,0.18)"; x.lineWidth = 2;
+    for (let y = 200; y < h - 20; y += 28) { x.beginPath(); x.moveTo(24, y); x.lineTo(w - 24, y); x.stroke(); }
+    // header: a degchi with steam
+    x.save(); x.translate(w / 2, 104);
+    x.fillStyle = "#9aa1a6"; x.beginPath(); x.ellipse(0, 18, 92, 22, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = "#b9bfc3"; x.fillRect(-88, -22, 176, 40);
+    x.fillStyle = "#d8dcdf"; x.beginPath(); x.ellipse(0, -22, 88, 20, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = "#e7a33a"; x.beginPath(); x.ellipse(0, -24, 74, 14, 0, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = "rgba(120,120,120,0.55)"; x.lineWidth = 5; x.lineCap = "round";
+    for (const sx of [-36, 0, 36]) {
+      x.beginPath(); x.moveTo(sx, -48);
+      x.bezierCurveTo(sx - 14, -64, sx + 14, -76, sx, -92); x.stroke();
+    }
+    x.restore();
+    let y = 196;
+    for (const loc of LOCS) {
+      const defs = ITEMS.filter((d) => d.loc === loc);
+      drawLocIcon(x, loc, 46, y + 26);
+      defs.forEach((d, i) => {
+        const px = 88 + (i % 7) * 58, py = y + Math.floor(i / 7) * 58;
+        const img = S.thumbImgs && S.thumbImgs[d.id];
+        const got = S.items[d.id].collected;
+        x.globalAlpha = got ? 0.45 : 1;
+        if (img && img.complete && img.naturalWidth) x.drawImage(img, px, py, 54, 54);
+        x.globalAlpha = 1;
+        if (got) {
+          x.fillStyle = "#2f9e5b"; x.beginPath(); x.arc(px + 44, py + 44, 11, 0, Math.PI * 2); x.fill();
+          x.strokeStyle = "#fff"; x.lineWidth = 3.5; x.lineCap = "round"; x.lineJoin = "round";
+          x.beginPath(); x.moveTo(px + 39, py + 44); x.lineTo(px + 43, py + 48); x.lineTo(px + 50, py + 40); x.stroke();
+        }
+      });
+      y += 58 * Math.ceil(defs.length / 7) + 22;
+    }
+    texture.needsUpdate = true;
+  }
 
+  function drawLocIcon(x, loc, cx, cy) {
+    x.save(); x.translate(cx, cy);
+    x.strokeStyle = "#6b5a48"; x.lineWidth = 3; x.lineJoin = "round"; x.lineCap = "round";
+    x.beginPath();
+    if (loc === "fridge") { x.rect(-12, -20, 24, 40); x.moveTo(-12, -6); x.lineTo(12, -6); x.moveTo(-6, -14); x.lineTo(-6, -10); x.moveTo(-6, 0); x.lineTo(-6, 8); }
+    else if (loc === "cupboard") { x.rect(-18, -14, 36, 26); x.moveTo(0, -14); x.lineTo(0, 12); x.moveTo(-4, -2); x.lineTo(-4, 2); x.moveTo(4, -2); x.lineTo(4, 2); }
+    else if (loc === "sabzi") { x.moveTo(-19, -4); x.lineTo(19, -4); x.lineTo(14, 16); x.lineTo(-14, 16); x.closePath(); x.moveTo(-9, -4); x.lineTo(-2, -16); x.moveTo(9, -4); x.lineTo(2, -16); }
+    else { x.moveTo(-6, -18); x.lineTo(6, -18); x.lineTo(3, -12); x.bezierCurveTo(16, -6, 18, 18, 0, 18); x.bezierCurveTo(-18, 18, -16, -6, -3, -12); x.closePath(); }
+    x.stroke();
+    x.restore();
+  }
+
+  function markCollected(id) {
+    const el = slotEls[id];
+    if (el) el.classList.add("got");
+    drawCard();
+  }
+
+  // ---------------------------------------------------------------- tweens
+  const tweens = [];
+  const tween = (dur, update, done) => { const t = { t: 0, dur, update, done, dead: false }; tweens.push(t); return t; };
+  const runTweens = (dt) => {
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      const tw = tweens[i];
+      if (tw.dead) { tweens.splice(i, 1); continue; }
+      tw.t = Math.min(tw.dur, tw.t + dt);
+      tw.update(tw.t / tw.dur);
+      if (tw.t >= tw.dur) { tweens.splice(i, 1); if (tw.done) tw.done(); }
+    }
+  };
+
+  // ---------------------------------------------------------------- player state
+  const pos = new THREE.Vector3(0.05, 0, 1.45);
+  const vel = new THREE.Vector2();
+  let yaw = 0, pitch = -0.12, bobPhase = 0, stepDist = 0, bob = 0;
+  let playing = false, touchMode = false, lockedOnce = false, dragLook = false;
+  let shadowsDirty = true, lastYaw = 0, swayYaw = 0, swayPitch = 0, lastPitch = -0.12;
+  const keys = new Set();
+  const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  const look = { id: null, lx: 0, ly: 0, sx: 0, sy: 0, t: 0, moved: false };
+
+  function collide(p) {
+    const R = 0.28;
+    p.x = clamp(p.x, ROOM.x0 + R, ROOM.x1 - R);
+    p.z = clamp(p.z, ROOM.z0 + R, ROOM.z1 - R);
+    for (const b of S.K.colliders) {
+      const cx = clamp(p.x, b[0], b[1]), cz = clamp(p.z, b[2], b[3]);
+      const dx = p.x - cx, dz = p.z - cz, d2 = dx * dx + dz * dz;
+      if (d2 >= R * R) continue;
+      if (d2 > 1e-10) {
+        const d = Math.sqrt(d2);
+        p.x = cx + (dx / d) * R; p.z = cz + (dz / d) * R;
+      } else {
+        const pen = [p.x - b[0], b[1] - p.x, p.z - b[2], b[3] - p.z];
+        const m = Math.min(...pen);
+        if (m === pen[0]) p.x = b[0] - R; else if (m === pen[1]) p.x = b[1] + R;
+        else if (m === pen[2]) p.z = b[2] - R; else p.z = b[3] + R;
+      }
+    }
+  }
+
+  function move(dt) {
+    let fx = 0, fz = 0;
+    if (keys.has("KeyW") || keys.has("ArrowUp")) fz += 1;
+    if (keys.has("KeyS") || keys.has("ArrowDown")) fz -= 1;
+    if (keys.has("KeyA") || keys.has("ArrowLeft")) fx -= 1;
+    if (keys.has("KeyD") || keys.has("ArrowRight")) fx += 1;
+    fx += joy.x; fz += joy.y;
+    const len = Math.hypot(fx, fz);
+    if (len > 1) { fx /= len; fz /= len; }
+    const speed = keys.has("ShiftLeft") || keys.has("ShiftRight") ? 2.6 : 1.6;
+    const sy = Math.sin(yaw), cy = Math.cos(yaw);
+    const tx = (-sy * fz + cy * fx) * speed, tz = (-cy * fz - sy * fx) * speed;
+    const a = 1 - Math.exp(-dt * 10);
+    vel.x += (tx - vel.x) * a; vel.y += (tz - vel.y) * a;
+    pos.x += vel.x * dt; pos.z += vel.y * dt;
+    collide(pos);
+    const sp = Math.hypot(vel.x, vel.y);
+    bobPhase += sp * dt * 5.4;
+    bob = Math.sin(bobPhase) * 0.014 * Math.min(1, sp / 1.6);
+    stepDist += sp * dt;
+    if (stepDist > 0.62) { stepDist = 0; Sound.step(); }
+  }
+
+  function syncView() {
+    const { camera, vmRoot, basket } = S;
+    camera.position.set(pos.x, EYE + bob, pos.z);
+    camera.rotation.set(pitch, yaw, 0);
+    camera.updateMatrixWorld();
+    vmRoot.matrix.copy(camera.matrixWorld);
+    vmRoot.matrixWorldNeedsUpdate = true;
+    // basket sways with walking and lags a touch behind fast turns
+    swayYaw += (yaw - lastYaw - swayYaw) * 0.2;
+    swayPitch += (pitch - lastPitch - swayPitch) * 0.2;
+    lastYaw = yaw; lastPitch = pitch;
+    basket.position.set(
+      0.25 + Math.sin(bobPhase * 0.5) * 0.006 + clamp(swayYaw, -0.05, 0.05) * 0.4,
+      -0.34 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3,
+      -0.58
+    );
+    S.vm.updateMatrixWorld();
+  }
+
+  // ---------------------------------------------------------------- picking
+  const ray = new THREE.Raycaster();
+  ray.far = REACH;
+  const ndc = new THREE.Vector2();
+  function pickAt(x, y) {
+    ndc.set(x, y);
+    ray.setFromCamera(ndc, S.camera);
+    const hits = ray.intersectObjects(S.pickables, true);
+    for (const h of hits) {
+      let o = h.object;
+      while (o && !o.userData.interact && !o.userData.block) o = o.parent;
+      if (!o) continue;
+      if (o.userData.block) return null;
+      return o;
+    }
+    return null;
+  }
+
+  let hover = null;
+  function setHover(o) {
+    if (o === hover) return;
+    if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
+    hover = o;
+    const type = hover ? hover.userData.interact.type : null;
+    ui.reticle.className = "fl-reticle" + (type ? " on " + (type === "item" ? "grab" : type) : "");
+  }
+  function glowItem(o, k) {
+    const st = S.items[o.userData.interact.id];
+    if (!st) return;
+    for (const m of st.mats) { m.emissive.setHex(0x8a5a1c); m.emissiveIntensity = k; }
+  }
+
+  function interactAt(x, y) {
+    if (!playing) return;
+    const o = pickAt(x, y);
+    if (!o) return;
+    const it = o.userData.interact;
+    if (it.type === "item") collect(o);
+    else if (it.type === "door") toggleDoor(it.door);
+    else if (it.type === "place") unload();
+  }
+
+  function toggleDoor(d) {
+    d.open = !d.open;
+    if (d.tw) d.tw.dead = true;
+    const from = d.pivot.rotation.y, to = d.open ? d.openAngle : 0;
+    d.tw = tween(d.kind === "fridge" ? 0.75 : 0.55, (k) => { d.pivot.rotation.y = from + (to - from) * ease(k); shadowsDirty = true; });
+    if (d.kind === "fridge") {
+      Sound.fridge(d.open);
+      const l0 = S.K.fridgeLight.intensity, l1 = d.open ? 0.9 : 0;
+      if (d.lw) d.lw.dead = true;
+      d.lw = tween(0.35, (k) => {
+        S.K.fridgeLight.intensity = l0 + (l1 - l0) * k;
+        S.K.lamp.material.emissiveIntensity = (l0 + (l1 - l0) * k) * 1.4;
+      });
+    } else {
+      Sound.cabinet(d.open);
+    }
+  }
+
+  // ---------------------------------------------------------------- collecting
+  const slots = (() => {
+    const s = [];
+    const ring = (n, r, y, a0) => {
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i / n) * Math.PI * 2;
+        s.push({ pos: new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r), ry: -a + Math.PI / 2 });
+      }
+    };
+    ring(1, 0, 0.016, 0); ring(6, 0.05, 0.016, 0.3); ring(8, 0.092, 0.03, 0.1); ring(6, 0.045, 0.052, 0.6);
+    return s;
+  })();
+  let basketCount = 0, tableReady = false, unloading = false, placed = 0;
+
+  function collect(o) {
+    const id = o.userData.interact.id, st = S.items[id];
+    if (!st || st.collected || st.flying) return;
+    st.flying = true;
+    glowItem(o, 0);
+    setHover(null);
+    S.pickables.splice(S.pickables.indexOf(o), 1);
+    Sound.pick();
+    S.scene.attach(o);
+    const startP = o.position.clone(), startQ = o.quaternion.clone();
+    const slot = slots[basketCount++];
+    const scaleTo = SLOT_R / st.radius;
+    const slotQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, slot.ry, 0));
+    const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), bq = new THREE.Quaternion();
+    tween(0.62, (k) => {
+      const e = ease(k);
+      tp.copy(slot.pos); S.basket.localToWorld(tp);
+      S.basket.getWorldQuaternion(bq); tq.copy(bq).multiply(slotQ);
+      o.position.lerpVectors(startP, tp, e);
+      o.position.y += Math.sin(Math.PI * k) * 0.12;
+      o.quaternion.copy(startQ).slerp(tq, e);
+      o.scale.setScalar(1 + (scaleTo - 1) * e);
+      shadowsDirty = true;
+    }, () => {
+      S.basket.attach(o);
+      o.position.copy(slot.pos);
+      o.quaternion.copy(slotQ);
+      o.scale.setScalar(scaleTo);
+      o.traverse((m) => { if (m.isMesh) m.castShadow = false; });
+      st.flying = false; st.collected = true;
+      markCollected(id);
+      Sound.collect();
+      if (ITEMS.every((d) => S.items[d.id].collected)) basketFull();
+    });
+  }
+
+  function basketFull() {
+    tableReady = true;
+    ui.strip.classList.add("complete");
+    Sound.ready();
+    S.K.tableTop.userData.interact = { type: "place" };
+    S.pickables.push(S.K.tableTop);
+  }
+
+  function unload() {
+    if (!tableReady || unloading) return;
+    unloading = true;
+    S.pickables.splice(S.pickables.indexOf(S.K.tableTop), 1);
+    setHover(null);
+    ITEMS.forEach((def, i) => later(() => flyToTable(def.id), i * 90));
+  }
+
+  function flyToTable(id) {
+    const o = S.items[id].obj;
+    S.scene.attach(o);
+    o.traverse((m) => { if (m.isMesh) m.castShadow = !!m.userData.cast; });
+    const [x, y, z, ry] = TABLE[id];
+    const startP = o.position.clone(), startQ = o.quaternion.clone(), s0 = o.scale.x;
+    const end = new THREE.Vector3(x, y, z);
+    const endQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0));
+    tween(0.7, (k) => {
+      const e = ease(k);
+      o.position.lerpVectors(startP, end, e);
+      o.position.y += Math.sin(Math.PI * k) * 0.15;
+      o.quaternion.copy(startQ).slerp(endQ, e);
+      o.scale.setScalar(s0 + (1 - s0) * e);
+      shadowsDirty = true;
+    }, () => {
+      Sound.place();
+      if (++placed === ITEMS.length) finish();
+    });
+  }
+
+  function finish() {
+    Sound.done();
+    tween(0.8, (k) => { S.glow.material.opacity = 0.55 * (1 - k); });
+    tableReady = false;
+    later(() => ui.done.classList.add("show"), 400);
+  }
+
+  // ---------------------------------------------------------------- input
+  function setPlaying(v) {
+    playing = v;
+    ui.start.classList.toggle("hide", v);
+    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); }
+  }
+  function lockFailed() { if (!lockedOnce) { dragLook = true; setPlaying(true); } }
+  function begin() {
+    Sound.init();
+    if (touchMode) { setPlaying(true); return; }
+    try {
+      const p = canvas.requestPointerLock();
+      if (p && p.catch) p.catch(lockFailed);
+    } catch (e) { lockFailed(); }
+  }
+  const markTouch = () => { if (!touchMode) { touchMode = true; root.classList.add("touch"); } };
+  const clampPitch = () => { pitch = clamp(pitch, -1.35, 1.2); };
+
+  function setupInput() {
+    resize();
+    if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(ui.stage); }
+    on(window, "resize", resize);
+    if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) markTouch();
+
+    on(ui.start, "pointerdown", (e) => { if (e.pointerType === "touch") markTouch(); });
+    on(ui.start, "click", begin);
+    on(ui.start, "keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); begin(); } });
+
+    on(document, "pointerlockchange", () => {
+      const locked = document.pointerLockElement === canvas;
+      if (locked) { lockedOnce = true; dragLook = false; setPlaying(true); }
+      else if (!dragLook && !touchMode) setPlaying(false);
+    });
+    on(document, "pointerlockerror", lockFailed);
+    on(document, "mousemove", (e) => {
+      if (document.pointerLockElement !== canvas) return;
+      yaw -= e.movementX * 0.0022;
+      pitch -= e.movementY * 0.0022;
+      clampPitch();
+    });
+
+    on(canvas, "contextmenu", (e) => e.preventDefault());
+    on(canvas, "pointerdown", (e) => {
+      if (e.pointerType === "touch") markTouch();
+      if (!playing) return;
+      if (document.pointerLockElement === canvas) { if (e.button === 0) interactAt(0, 0); return; }
+      const r = canvas.getBoundingClientRect();
+      const lx = e.clientX - r.left, ly = e.clientY - r.top;
+      if (touchMode && lx < r.width * 0.42 && joy.id === null) {
+        joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
+        ui.joy.style.left = lx + "px"; ui.joy.style.top = ly + "px";
+        ui.joyKnob.style.transform = "translate(0px, 0px)";
+        ui.joy.classList.add("on");
+      } else if (look.id === null) {
+        look.id = e.pointerId; look.lx = look.sx = e.clientX; look.ly = look.sy = e.clientY;
+        look.t = performance.now(); look.moved = false;
+      }
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    on(canvas, "pointermove", (e) => {
+      if (e.pointerId === joy.id) {
+        const dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
+        const m = Math.min(1, Math.hypot(dx, dy) / 55), a = Math.atan2(dy, dx);
+        joy.x = Math.cos(a) * m; joy.y = -Math.sin(a) * m;
+        ui.joyKnob.style.transform = `translate(${Math.cos(a) * m * 34}px, ${Math.sin(a) * m * 34}px)`;
+      } else if (e.pointerId === look.id) {
+        const dx = e.clientX - look.lx, dy = e.clientY - look.ly;
+        look.lx = e.clientX; look.ly = e.clientY;
+        const sens = touchMode ? 0.0055 : 0.004;
+        yaw -= dx * sens; pitch -= dy * sens; clampPitch();
+        if (Math.hypot(e.clientX - look.sx, e.clientY - look.sy) > 8) look.moved = true;
+      }
+    });
+    const endPointer = (e) => {
+      if (e.pointerId === joy.id) {
+        joy.id = null; joy.x = joy.y = 0; ui.joy.classList.remove("on");
+      } else if (e.pointerId === look.id) {
+        look.id = null;
+        if (!look.moved && performance.now() - look.t < 350) {
+          const r = canvas.getBoundingClientRect();
+          interactAt(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+        }
+      }
+    };
+    on(canvas, "pointerup", endPointer);
+    on(canvas, "pointercancel", endPointer);
+
+    const MOVE = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"]);
+    on(window, "keydown", (e) => {
+      if (!playing) return;
+      if (MOVE.has(e.code)) { keys.add(e.code); e.preventDefault(); }
+      if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); interactAt(0, 0); }
+    });
+    on(window, "keyup", (e) => keys.delete(e.code));
+    on(window, "blur", () => keys.clear());
+  }
+
+  function resize() {
+    if (!renderer) return;
+    const w = ui.stage.clientWidth, h = ui.stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    S.camera.aspect = w / h;
+    S.camera.updateProjectionMatrix();
+  }
+
+  // ---------------------------------------------------------------- main loop
+  let last = performance.now(), time = 0;
+  function frame(now) {
+    if (dead) return;
+    raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    last = now; time += dt;
+    if (playing) move(dt);
+    syncView();
+    runTweens(dt);
+    if (playing && !touchMode) setHover(pickAt(0, 0));
+    if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));
+    if (tableReady && !unloading) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
+    if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
+    renderer.clear();
+    renderer.render(S.scene, S.camera);
+    renderer.clearDepth();
+    renderer.render(S.vm, S.camera);
+  }
+
+  function ready() {
+    ui.loading.classList.add("hide");
+    ui.start.classList.remove("hide");
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+
+  // ---------------------------------------------------------------- teardown
   return function dispose() {
-    __dead = true;
-    __ac.abort();
-    cancelAnimationFrame(__raf);
-    __timers.forEach((id) => window.clearTimeout(id));
-    __timers.clear();
-    try { gsap.globalTimeline.clear(); } catch (e) {}
-    try { confetti.reset(); } catch (e) {}
-    if (__extra) { try { __extra(); } catch (e) {} }
+    dead = true;
+    ac.abort();
+    cancelAnimationFrame(raf);
+    timers.forEach((id) => window.clearTimeout(id));
+    timers.clear();
+    try { if (canvas && document.pointerLockElement === canvas) document.exitPointerLock(); } catch (e) {}
+    try { if (ro) ro.disconnect(); } catch (e) {}
+    Sound.close();
+    try { if (envRT) envRT.dispose(); } catch (e) {}
+    try { if (renderer) { renderer.dispose(); if (renderer.forceContextLoss) renderer.forceContextLoss(); } } catch (e) {}
+    if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
   };
 }

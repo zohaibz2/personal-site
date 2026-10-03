@@ -21,9 +21,9 @@ const tools = [
   },
   {
     title: "The Food Lab",
-    emoji: "\u{1F36A}",
+    emoji: "\u{1F35B}",
     href: "/orbit/food-lab",
-    blurb: "Squish raw dough, bake it, and poke at the physics. A playful 3D material study.",
+    blurb: "Walk into a Karachi kitchen, gather everything, and cook your own biryani.",
   },
 ];
 
