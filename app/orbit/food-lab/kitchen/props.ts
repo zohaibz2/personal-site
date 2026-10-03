@@ -415,6 +415,7 @@ export function buildOnions(M) {
       root.rotation.set(Math.cos(k * 2) * 0.6, 0, Math.sin(k * 2) * 0.6);
       o.add(root);
     }
+    o.userData.sq = sq; // the slicing step rebuilds this exact onion on the board
     o.position.set(x, 0.004, z + i * 0.012);
     o.rotation.set(tilt * 0.3, i * 1.7, tilt * 0.4);
     g.add(o);

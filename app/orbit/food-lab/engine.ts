@@ -3,21 +3,23 @@
 // The Biryani Kitchen. Stage 1: walk a Karachi kitchen in first person and
 // gather every ingredient for a chicken biryani. Stage 2 (prep): light the
 // stove (pick up the lighter, open the gas, click until it catches, turn the
-// flame down until it burns steady), then slice the onions (bring them to
-// the board, take the knife, chop at a steady pace; mashing makes the knife
-// slip). No text anywhere: the HUD is pictures, and guidance is a soft glow
+// flame down until it burns steady), then slice the onions: bring one to the
+// board and pick up the knife, and the view settles over the board with the
+// knife following your mouse or finger. Push it down through the onion to
+// trim the tip and the root, swipe sideways to peel, then slice it into
+// rings. No text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
 // Testing shortcuts: /orbit/food-lab?stage=2 starts with everything already
 // unloaded on the prep table; ?step=slice also has the stove already lit.
-// root.dataset (phase, stove, gas, hold, cut, slices) mirrors the game state
+// root.dataset (phase, stove, gas, hold, cut, slices, view) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
 import { buildKitchen, ITEMS, TABLE, ROOM, COUNTER_TOP } from "./kitchen/kitchen";
 import { buildHandBasket } from "./kitchen/props";
 import { buildBurnerFlame } from "./kitchen/flame";
-import { buildOnionStation, STROKES, CUT } from "./kitchen/onion";
+import { buildOnionStation, CUT, TRIM_TIP, TRIM_ROOT, SLICE_T, radiusAt, zAt } from "./kitchen/onion";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -45,14 +47,15 @@ const STEP_ICONS = {
 const KNOB_MAX = 1.75;
 const BAND = [0.42, 0.82];
 const STEADY_S = 1.5;
-// How each tool sits in the right hand of the first-person view.
+// How a tool sits in the right hand of the first-person view.
 const HAND_POSES = {
   lighter: { p: [0.17, -0.2, -0.36], r: [0, Math.PI / 2 + 0.3, -0.2, "YXZ"] },
-  // blade upright, edge down, pointing ahead and a little towards the centre
-  knife: { p: [0.14, -0.23, -0.34], r: [Math.PI / 2, Math.PI / 2 + 0.35, -0.22, "YZX"] },
 };
-// Onion slicing: strokes closer together than this make the knife slip.
-const MIN_GAP = 0.22;
+// Board view (slicing): the camera settles over the chopping board and the
+// mouse or a finger moves the knife. Metres of knife travel per pixel.
+const KNIFE_PX = { lock: 0.00045, mouse: 0.0005, touch: 0.0007 };
+const PEEL_PX = 170;   // sideways movement that tears off one half of the skin
+const LIFT = 0.12;     // knife height above the board when raised
 
 const EYE = 1.62;
 const REACH = 2.3;
@@ -274,7 +277,7 @@ export function initFoodLab(root) {
     stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"),
     start: $(".fl-start"), loading: $(".fl-loading"), done: $(".fl-done"),
     joy: $(".fl-joy"), joyKnob: $(".fl-joy i"), fallback: $(".fl-fallback"),
-    steps: $(".fl-steps"),
+    steps: $(".fl-steps"), back: $(".fl-back"), gesture: $(".fl-gesture"),
   };
 
   let renderer = null, canvas = null, envRT = null, ro = null;
@@ -370,8 +373,8 @@ export function initFoodLab(root) {
       this.noise(0.035, 2600, 1.4, 0.07, "bandpass", 0.005); // crisp onion
       this.tone(120, 0.06, 0.06, "triangle");
     },
-    halve() { this.noise(0.08, 160, 0.8, 0.26, "lowpass"); this.noise(0.06, 1900, 1, 0.08, "bandpass"); this.tone(95, 0.09, 0.08, "triangle"); },
-    slip() { this.noise(0.14, 4200, 5, 0.06, "bandpass"); this.tone(1700, 0.12, 0.018, "triangle", 0, -500); },
+    crunch(k = 1) { this.noise(0.03, 2300 + Math.random() * 900, 1.4, 0.07 * k, "bandpass"); },
+    peel() { this.noise(0.2, 3600, 0.7, 0.06, "highpass"); this.noise(0.12, 1300, 0.9, 0.035, "bandpass", 0.03); },
     thud() { this.noise(0.02, 1500 + Math.random() * 500, 1.5, 0.025, "bandpass"); },
     // One looping noise source feeds two voices: the hiss of raw gas and the
     // low roar of a burning flame. Levels are set with gasSet(hiss, roar).
@@ -571,19 +574,15 @@ export function initFoodLab(root) {
       K.board.localToWorld(v);
       return [v.x, v.y, v.z, size];
     };
-    S.hintSpots.knife = onBoard(K.knife.position.x + 0.04, K.knife.position.z - 0.02, 0.36);
-    S.hintSpots.cut = onBoard(CUT.x, CUT.z, 0.2);
+    S.hintSpots.knife = onBoard(K.knife.position.x - 0.015, K.knife.position.z - 0.05, 0.4);
 
     // the onion station sits on the chopping board's top surface
     const station = buildOnionStation(M);
     station.root.position.y = 0.024;
     K.board.add(station.root);
     S.station = station;
-    const cutPick = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 0.16), new THREE.MeshBasicMaterial({ visible: false }));
-    cutPick.position.set(CUT.x, 0.05, CUT.z);
-    cutPick.userData.interact = { type: "cut" };
-    station.root.add(cutPick);
-    S.cutPick = cutPick;
+    S.boardCam = new THREE.PerspectiveCamera(66, 1, 0.03, 40); // only used to aim the board view
+    S.knifeHomeQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, K.knife.rotation.y, 0));
     S.onions = S.items.onions;
     S.onionsLeft = S.onions.obj.children.slice();
     // the right hand, for holding tools in the first-person pass
@@ -767,7 +766,7 @@ export function initFoodLab(root) {
   let yaw = 0, pitch = -0.12, bobPhase = 0, stepDist = 0, bob = 0;
   let playing = false, touchMode = false, lockedOnce = false, dragLook = false;
   let shadowsDirty = true, lastYaw = 0, swayYaw = 0, swayPitch = 0, lastPitch = -0.12;
-  let phase = "gather", holding = null, basketDrop = 0, handJab = 0, handChop = 0, handSlip = 0;
+  let phase = "gather", holding = null, basketDrop = 0, handJab = 0;
   const keys = new Set();
   const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
   const look = { id: null, lx: 0, ly: 0, sx: 0, sy: 0, t: 0, moved: false };
@@ -819,6 +818,11 @@ export function initFoodLab(root) {
     const { camera, vmRoot, basket } = S;
     camera.position.set(pos.x, EYE + bob, pos.z);
     camera.rotation.set(pitch, yaw, 0);
+    if (board.blend > 0) {
+      const e = ease(board.blend);
+      camera.position.lerp(board.pos, e);
+      camera.quaternion.slerp(board.q, e);
+    }
     camera.updateMatrixWorld();
     vmRoot.matrix.copy(camera.matrixWorld);
     vmRoot.matrixWorldNeedsUpdate = true;
@@ -831,13 +835,12 @@ export function initFoodLab(root) {
       -0.35 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3 - basketDrop,
       -0.6
     );
-    // a held tool sways the same way; the lighter jabs forward, the knife
-    // chops down, and a slipped knife skids sideways
+    // a held tool sways the same way, and the lighter jabs forward when used
     const hp = handPose.p;
     S.hand.position.set(
-      hp[0] + Math.sin(bobPhase * 0.5) * 0.005 + clamp(swayYaw, -0.05, 0.05) * 0.35 + handSlip * 0.03,
-      hp[1] + Math.abs(Math.cos(bobPhase * 0.5)) * 0.005 - clamp(swayPitch, -0.05, 0.05) * 0.3 - handChop * 0.065,
-      hp[2] - handJab * 0.035 - handChop * 0.012
+      hp[0] + Math.sin(bobPhase * 0.5) * 0.005 + clamp(swayYaw, -0.05, 0.05) * 0.35,
+      hp[1] + Math.abs(Math.cos(bobPhase * 0.5)) * 0.005 - clamp(swayPitch, -0.05, 0.05) * 0.3,
+      hp[2] - handJab * 0.035
     );
     S.vm.updateMatrixWorld();
   }
@@ -861,7 +864,7 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
-  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", knob: "turn", burner: "spark", cut: "cut", door: "door", place: "place" };
+  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
@@ -884,10 +887,10 @@ export function initFoodLab(root) {
     else if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
-    else if (it.type === "lighter" || it.type === "knife") takeTool(it.type);
+    else if (it.type === "lighter") takeTool("lighter");
+    else if (it.type === "knife") enterBoard();
     else if (it.type === "knob") knobClick();
     else if (it.type === "burner") clickLighter();
-    else if (it.type === "cut") stroke();
   }
 
   function toggleDoor(d) {
@@ -1075,10 +1078,9 @@ export function initFoodLab(root) {
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
     if (phase === "slice") {
-      if (slice.done || slice.busy) return null;
-      if (!slice.started) return "onions";
-      if (holding !== "knife") return S.knife.flying ? null : "knife";
-      return "cut";
+      if (ob.done || board.on) return null;
+      if (!ob.started) return "onions";
+      return "knife";
     }
     if (phase !== "light" || stove.done) return null;
     if (stove.lit) return inBand() ? null : "knob";
@@ -1094,8 +1096,8 @@ export function initFoodLab(root) {
     const hk = 0.22 + 0.14 * Math.sin(time * 6);
     set(S.lighter.mats, holding ? 0 : hovered(S.lighter.obj) ? hk : target === "lighter" ? 0.08 + 0.14 * pulse : 0);
     set(S.knob.mats, hovered(S.knob.pivot) ? hk + 0.2 : target === "knob" ? 0.15 + 0.35 * pulse : 0);
-    set(S.knife.mats, holding === "knife" ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
-    if (phase === "slice" && !slice.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
+    set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
     const spot = target && S.hintSpots[target];
     S.hint.visible = !!spot;
     if (spot) {
@@ -1117,7 +1119,7 @@ export function initFoodLab(root) {
   function takeTool(name) {
     const t = S.tools[name];
     if (holding || t.flying) return;
-    if ((name === "lighter" && phase !== "light") || (name === "knife" && phase !== "slice")) return;
+    if (name === "lighter" && phase !== "light") return;
     const o = t.obj;
     t.flying = true;
     dropPick(o);
@@ -1143,7 +1145,6 @@ export function initFoodLab(root) {
       t.flying = false;
       holding = name;
       if (name === "lighter") { if (!stove.lit) addPick(S.burnerPick); Sound.collect(); }
-      if (name === "knife") { addPick(S.cutPick); Sound.knifeUp(); }
     });
   }
 
@@ -1153,7 +1154,7 @@ export function initFoodLab(root) {
     const o = t.obj;
     holding = null;
     t.flying = true;
-    dropPick(name === "lighter" ? S.burnerPick : S.cutPick);
+    if (name === "lighter") dropPick(S.burnerPick);
     S.scene.attach(o);
     const startP = o.position.clone(), startQ = o.quaternion.clone();
     const endP = t.parent.localToWorld(t.home.clone());
@@ -1282,10 +1283,26 @@ export function initFoodLab(root) {
   }
 
   // ================================================================ SLICE THE ONIONS
-  // Bring an onion to the board, take the knife, chop. The first stroke on a
-  // whole onion halves and peels it; each half takes STROKES strokes. Then the
-  // other half slides over, and the next onion comes from the table by itself.
-  const slice = { whole: null, cutting: false, half: 0, strokes: 0, busy: false, done: false, last: -10, started: false };
+  // Bring an onion to the board, then pick up the knife: the view settles over
+  // the board and the knife follows your mouse (or finger). Push it down
+  // through the onion to cut, lift it to move on. Each onion is trimmed at the
+  // tip and the root, peeled with two sideways swipes, then sliced into rings.
+  // A click, tap or Space does one stroke for you.
+  const ob = {
+    state: "none",   // none, fly, tip, root, peel, slice
+    started: false, done: false,
+    ka: TRIM_TIP,    // where the blade is along the onion
+    ky: LIFT,        // blade height above the board
+    kx: CUT.x + 0.155, rock: 0, armed: true, half: 0, peel: 0, auto: null, crunchAt: 0,
+  };
+  const board = { on: false, blend: 0, kBlend: 0, pos: new THREE.Vector3(), q: new THREE.Quaternion(), drag: null, lastKy: -1 };
+  const KX = CUT.x + 0.085; // the blade's heel sits here, so the blade spans the onion
+  const seen = { cut: false, peel: false };
+  const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
+  const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
+  const maxTop = (a0, a1) => { let m = 0; for (let i = 0; i <= 6; i++) m = Math.max(m, topAt(a0 + ((a1 - a0) * i) / 6)); return m; };
+  const targetA = () => (ob.state === "tip" ? TRIM_TIP : ob.state === "root" ? TRIM_ROOT : S.station.aF - SLICE_T);
+  const aligned = () => Math.abs(ob.ka - targetA()) <= 0.0004;
 
   function enterSlice() {
     if (phase === "slice") return;
@@ -1297,24 +1314,24 @@ export function initFoodLab(root) {
     addPick(S.knife.obj);
   }
 
-  // Fly the next whole onion from the table to the cutting spot.
+  // Fly the next whole onion from the table onto the board, lying on its side.
   function bringOnion() {
-    if (phase !== "slice" || slice.busy || slice.whole || slice.cutting || slice.done) return;
+    if (phase !== "slice" || ob.done || ob.state !== "none") return;
     const o = S.onionsLeft.shift();
     if (!o) return;
-    slice.started = true;
+    ob.started = true;
+    ob.state = "fly";
     dropPick(S.onions.obj);
+    for (const m of S.onions.mats) m.emissiveIntensity = 0;
     const blob = S.onions.obj.userData.blob;
     if (blob && !S.onionsLeft.length) blob.visible = false; // last one off the table
-    for (const m of S.onions.mats) m.emissiveIntensity = 0;
-    slice.busy = true;
     Sound.pick();
+    const st = S.station.root, sq = o.userData.sq || 1;
     S.scene.attach(o);
-    const startP = o.position.clone(), startQ = o.quaternion.clone();
-    const st = S.station.root;
     st.updateWorldMatrix(true, false);
-    const endP = st.localToWorld(CUT.clone());
-    const endQ = st.getWorldQuaternion(new THREE.Quaternion());
+    const startP = o.position.clone(), startQ = o.quaternion.clone();
+    const endP = st.localToWorld(new THREE.Vector3(CUT.x, radiusAt(0.04, sq), zAt(0)));
+    const endQ = st.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)));
     tween(0.6, (k) => {
       const e = ease(k);
       o.position.lerpVectors(startP, endP, e);
@@ -1322,80 +1339,175 @@ export function initFoodLab(root) {
       o.quaternion.copy(startQ).slerp(endQ, e);
       shadowsDirty = true;
     }, () => {
-      st.attach(o);
-      o.position.copy(CUT);
-      o.rotation.set(0, 0, 0);
-      slice.whole = o;
-      slice.busy = false;
+      // swap for the board's own copy of this onion, which can be cut
+      o.visible = false;
+      S.station.newOnion(sq);
+      ob.state = "tip";
+      ob.ka = TRIM_TIP;
+      ob.armed = false;
+      shadowsDirty = true;
       Sound.place();
     });
   }
 
-  // One press with the knife in hand. Too soon after the last one and the
-  // knife slips: no cut, and the timer restarts, so mashing never works.
-  let chopTw = null, slipTw = null;
-  function stroke() {
-    if (holding !== "knife" || slice.done || slice.busy) return;
-    if (!slice.whole && !slice.cutting) return;
-    const gap = time - slice.last;
-    slice.last = time;
-    if (gap < MIN_GAP) {
-      Sound.slip();
-      if (slipTw) slipTw.dead = true;
-      slipTw = tween(0.22, (k) => { handSlip = Math.sin(k * Math.PI * 3) * (1 - k); });
-      return;
-    }
-    if (chopTw) chopTw.dead = true;
-    chopTw = tween(0.16, (k) => { handChop = Math.sin(Math.PI * k); });
-    later(cut, 70);
+  function enterBoard() {
+    if (phase !== "slice" || ob.done || board.on) return;
+    board.on = true;
+    holding = "knife";
+    dropPick(S.knife.obj);
+    setHover(null);
+    root.classList.add("board");
+    // aim the board view: above and in front of the onion, looking down at it
+    const st = S.station.root, cam = S.boardCam;
+    st.updateWorldMatrix(true, false);
+    cam.position.copy(st.localToWorld(new THREE.Vector3(CUT.x + 0.04, 0.22, CUT.z + 0.27)));
+    cam.lookAt(st.localToWorld(new THREE.Vector3(CUT.x, 0.03, CUT.z + 0.035)));
+    cam.updateMatrixWorld();
+    board.pos.copy(cam.position);
+    board.q.copy(cam.quaternion);
+    ob.ky = LIFT;
+    ob.auto = null;
+    Sound.knifeUp();
+    if (ob.state === "none") bringOnion();
   }
 
-  function cut() {
-    if (slice.whole) {
-      // halve and peel: the whole onion becomes two peeled halves
-      slice.whole.visible = false;
-      slice.whole = null;
-      S.station.startHalf(true);
-      slice.cutting = true; slice.half = 0; slice.strokes = 0;
-      Sound.halve();
-      shadowsDirty = true;
-      return;
-    }
-    if (!slice.cutting) return;
-    slice.strokes++;
-    S.station.stroke(slice.strokes / STROKES);
+  function exitBoard() {
+    if (!board.on) return;
+    board.on = false;
+    holding = null;
+    board.drag = null;
+    ob.auto = null;
+    root.classList.remove("board");
+    if (!ob.done) addPick(S.knife.obj);
+  }
+
+  // Move the knife (or peel) by a pointer movement of dx, dy pixels.
+  function knifeMove(dx, dy, sens) {
+    if (!board.on || board.kBlend < 0.98 || ob.auto) return;
+    if (ob.state === "peel") { peelMove(Math.abs(dx) + Math.abs(dy) * 0.4); return; }
+    if (!cutting()) return;
+    ob.rock = clamp(ob.rock + dx * 0.0015, -0.1, 0.1);
+    const top = topAt(ob.ka);
+    let ky = clamp(ob.ky - dy * sens * (ob.ky < top ? 0.45 : 1), 0, LIFT); // the onion resists
+    // the blade can't go back into the onion until it's lined up for the next cut
+    if (!aligned() && ob.ky >= top + 0.003 && ky < top + 0.003) ky = top + 0.003;
+    setKnifeY(ky);
+  }
+
+  function setKnifeY(ky) {
+    const top = topAt(ob.ka), was = ob.ky;
+    ob.ky = ky;
+    if (ky >= top + 0.004) ob.armed = true;
+    if (!ob.armed) return;
+    if (was >= top && ky < top) { Sound.crunch(); ob.crunchAt = ky; }
+    else if (ky < top && Math.abs(ky - ob.crunchAt) > 0.006) { ob.crunchAt = ky; Sound.crunch(0.5); }
+    if (ky <= 0.0015 && aligned()) doCut();
+  }
+
+  function doCut() {
+    ob.armed = false;
+    seen.cut = true;
     Sound.chop();
     shadowsDirty = true;
-    if (slice.strokes < STROKES) return;
-    slice.cutting = false;
-    if (slice.half === 0) {
-      // slide the other half across to the cutting spot
-      slice.busy = true;
-      const w = S.station.waiting, from = w.position.clone(), r0 = w.rotation.y;
-      tween(0.45, (k) => {
-        const e = ease(k);
-        w.position.lerpVectors(from, CUT, e);
-        w.rotation.y = r0 * (1 - e);
-        shadowsDirty = true;
-      }, () => {
-        S.station.hideWaiting();
-        S.station.startHalf(false);
-        slice.cutting = true; slice.half = 1; slice.strokes = 0;
-        slice.busy = false;
-      });
-    } else if (S.onionsLeft.length) {
-      later(bringOnion, 350);
-    } else {
-      sliceDone();
+    if (ob.state === "tip") {
+      S.station.trim("tip");
+      ob.state = "root";
+    } else if (ob.state === "root") {
+      S.station.trim("root");
+      ob.state = "peel"; ob.half = 0; ob.peel = 0;
+    } else if (ob.state === "slice") {
+      if (S.station.slice(S.station.aF - SLICE_T)) onionDone();
     }
+  }
+
+  function peelMove(px) {
+    ob.peel = Math.min(1, ob.peel + px / PEEL_PX);
+    S.station.peelProgress(ob.half, ob.peel);
+    if (ob.peel < 1) return;
+    S.station.peelOff(ob.half);
+    Sound.peel();
+    seen.peel = true;
+    shadowsDirty = true;
+    ob.half++;
+    ob.peel = 0;
+    if (ob.half >= 2) { ob.state = "slice"; ob.armed = false; }
+  }
+
+  function onionDone() {
+    ob.state = "none";
+    if (S.onionsLeft.length) later(bringOnion, 450);
+    else sliceDone();
   }
 
   function sliceDone() {
-    slice.done = true;
+    ob.done = true;
     Sound.stepDone();
     setStep("slice", "got");
-    dropPick(S.cutPick);
-    later(() => returnTool("knife"), 600);
+    later(exitBoard, 1400);
+  }
+
+  // A click, tap or Space: do one whole stroke (or one peel) automatically.
+  function autoStroke() {
+    if (!board.on || board.kBlend < 0.98 || ob.auto) return;
+    if (ob.state === "peel") ob.auto = { kind: "peel" };
+    else if (cutting()) ob.auto = { kind: "cut", stage: "up" };
+  }
+  function runAuto(dt) {
+    const a = ob.auto;
+    if (a.kind === "peel") {
+      if (ob.state !== "peel") { ob.auto = null; return; }
+      const half = ob.half;
+      peelMove((dt * PEEL_PX) / 0.35);
+      if (ob.half !== half) ob.auto = null;
+      return;
+    }
+    if (!cutting()) { ob.auto = null; return; }
+    const top = topAt(ob.ka);
+    if (a.stage === "up") {
+      setKnifeY(Math.min(LIFT, ob.ky + 0.5 * dt));
+      if (aligned() && ob.ky >= top + 0.01) a.stage = "down";
+    } else if (a.stage === "down") {
+      setKnifeY(Math.max(0, ob.ky - (ob.ky < top ? 0.28 : 0.6) * dt));
+      if (!ob.armed) a.stage = "back";
+    } else {
+      setKnifeY(Math.min(LIFT, ob.ky + 0.6 * dt));
+      if (ob.ky >= Math.min(LIFT, top + 0.02)) ob.auto = null;
+    }
+  }
+
+  // Runs every frame during the slicing step.
+  const kActP = new THREE.Vector3(), kActQ = new THREE.Quaternion(), kEuler = new THREE.Euler();
+  let gestureCls = "";
+  function updateBoard(dt) {
+    const dir = board.on ? 1 : -1;
+    board.blend = clamp(board.blend + (dir * dt) / 0.7, 0, 1);
+    board.kBlend = clamp(board.kBlend + (dir * dt) / 0.45, 0, 1);
+    if (board.on && ob.auto) runAuto(dt);
+    if (cutting()) {
+      // the knife glides along the onion only while it's lifted clear of it
+      const ta = targetA();
+      if (!aligned() && ob.ky >= maxTop(ob.ka, ta) + 0.003) ob.ka += clamp(ta - ob.ka, -0.3 * dt, 0.3 * dt);
+      if (ob.ky >= topAt(ob.ka) + 0.004) ob.armed = true;
+    }
+    // over the onion while cutting, raised and to the side otherwise
+    const park = !cutting();
+    ob.kx += ((park ? KX + 0.07 : KX) - ob.kx) * (1 - Math.exp(-dt * 10));
+    if (park) ob.ky += (LIFT - ob.ky) * (1 - Math.exp(-dt * 8));
+    ob.rock *= Math.exp(-dt * 4);
+    // the knife: from its resting place on the board to the cutting pose
+    const t = S.knife, k = t.obj, e = ease(board.kBlend);
+    kActP.set(ob.kx, 0.024 + ob.ky, zAt(ob.ka) + 0.003);
+    kEuler.set(Math.PI / 2, Math.PI, ob.rock, "ZYX"); // blade upright, edge down, handle to the right
+    kActQ.setFromEuler(kEuler);
+    k.position.lerpVectors(t.home, kActP, e);
+    k.quaternion.copy(S.knifeHomeQ).slerp(kActQ, e);
+    const key = ob.ky + e;
+    if (Math.abs(key - board.lastKy) > 0.0005) { board.lastKy = key; shadowsDirty = true; }
+    // a pictogram of the gesture, until you've done it once
+    const g = !board.on || board.kBlend < 1 ? "" : ob.state === "peel" ? (seen.peel ? "" : "peel") : cutting() && !seen.cut ? "cut" : "";
+    if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
+    if (S.station.busy) shadowsDirty = true; // trimmed ends and skins are still moving
+    if (S.station.update(dt) > 0) Sound.thud();
   }
 
   // ?step=slice: the stove is already burning steady
@@ -1418,17 +1530,18 @@ export function initFoodLab(root) {
     if (d.stove !== st) d.stove = st;
     if (d.gas !== gas) d.gas = gas;
     if (d.hold !== hold) d.hold = hold;
-    const cutSt = slice.done ? "done" : slice.busy ? "busy" : slice.whole ? "whole" : slice.cutting ? "half" : "none";
-    const sl = String(S.station.landed);
+    const cutSt = ob.done ? "done" : ob.state;
+    const sl = String(S.station.landed), view = board.on ? "board" : "stand";
     if (d.cut !== cutSt) d.cut = cutSt;
     if (d.slices !== sl) d.slices = sl;
+    if (d.view !== view) d.view = view;
   }
 
   // ---------------------------------------------------------------- input
   function setPlaying(v) {
     playing = v;
     ui.start.classList.toggle("hide", v);
-    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); if (dial.on) endDial(true); }
+    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); if (dial.on) endDial(true); board.drag = null; }
   }
   function lockFailed() { if (!lockedOnce) { dragLook = true; setPlaying(true); } }
   function begin() {
@@ -1460,6 +1573,7 @@ export function initFoodLab(root) {
     on(document, "pointerlockerror", lockFailed);
     on(document, "mousemove", (e) => {
       if (document.pointerLockElement !== canvas) return;
+      if (board.on) { knifeMove(e.movementX || 0, e.movementY || 0, KNIFE_PX.lock); return; }
       if (dial.on && dial.lock) { dialMove(e.movementX || 0); return; }
       yaw -= e.movementX * 0.0022;
       pitch -= e.movementY * 0.0022;
@@ -1471,7 +1585,16 @@ export function initFoodLab(root) {
       if (e.pointerType === "touch") markTouch();
       if (!playing) return;
       if (document.pointerLockElement === canvas) {
+        if (board.on) { if (e.button === 0) autoStroke(); return; }
         if (e.button === 0) { if (!(isKnob(pickAt(0, 0)) && startDial(e.pointerId, true, 0))) interactAt(0, 0); }
+        return;
+      }
+      // board view: any press and drag moves the knife (a quick tap does a stroke)
+      if (board.on) {
+        if (!board.drag) {
+          board.drag = { id: e.pointerId, lx: e.clientX, ly: e.clientY, moved: 0, t: performance.now(), sens: e.pointerType === "touch" ? KNIFE_PX.touch : KNIFE_PX.mouse };
+          try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+        }
         return;
       }
       const r = canvas.getBoundingClientRect();
@@ -1493,7 +1616,13 @@ export function initFoodLab(root) {
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     });
     on(canvas, "pointermove", (e) => {
-      if (dial.on && !dial.lock && e.pointerId === dial.id) {
+      const bd = board.drag;
+      if (bd && e.pointerId === bd.id) {
+        const dx = e.clientX - bd.lx, dy = e.clientY - bd.ly;
+        bd.lx = e.clientX; bd.ly = e.clientY;
+        bd.moved += Math.abs(dx) + Math.abs(dy);
+        knifeMove(dx, dy, bd.sens);
+      } else if (dial.on && !dial.lock && e.pointerId === dial.id) {
         dialMove(e.clientX - dial.lx);
         dial.lx = e.clientX;
       } else if (e.pointerId === joy.id) {
@@ -1510,7 +1639,11 @@ export function initFoodLab(root) {
       }
     });
     const endPointer = (e) => {
-      if (dial.on && e.pointerId === dial.id) {
+      const bd = board.drag;
+      if (bd && e.pointerId === bd.id) {
+        board.drag = null;
+        if (e.type !== "pointercancel" && bd.moved < 8 && performance.now() - bd.t < 350) autoStroke();
+      } else if (dial.on && e.pointerId === dial.id) {
         endDial(e.type === "pointercancel");
       } else if (e.pointerId === joy.id) {
         joy.id = null; joy.x = joy.y = 0; ui.joy.classList.remove("on");
@@ -1526,13 +1659,21 @@ export function initFoodLab(root) {
     on(canvas, "pointercancel", endPointer);
 
     const MOVE = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "ShiftLeft", "ShiftRight"]);
+    const WALK = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
     on(window, "keydown", (e) => {
       if (!playing) return;
+      if (board.on) {
+        // walking away puts the knife down; E or Space does one stroke
+        if (WALK.has(e.code)) { e.preventDefault(); exitBoard(); }
+        else if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); autoStroke(); }
+        return;
+      }
       if (MOVE.has(e.code)) { keys.add(e.code); e.preventDefault(); }
       if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); interactAt(0, 0); }
     });
     on(window, "keyup", (e) => keys.delete(e.code));
-    on(window, "blur", () => { keys.clear(); if (dial.on) endDial(true); });
+    on(window, "blur", () => { keys.clear(); if (dial.on) endDial(true); board.drag = null; });
+    if (ui.back) on(ui.back, "click", (e) => { e.stopPropagation(); exitBoard(); });
   }
 
   function resize() {
@@ -1551,17 +1692,17 @@ export function initFoodLab(root) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now; time += dt;
-    if (playing) move(dt);
+    if (playing && !board.on) move(dt);
+    if (phase === "slice") updateBoard(dt);
     syncView();
     runTweens(dt);
-    if (playing && !touchMode) setHover(pickAt(0, 0));
+    if (playing && !touchMode && !board.on) setHover(pickAt(0, 0));
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));
     if (tableReady && !unloading) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
     if (phase !== "gather") {
       updateStove(dt);
       updateGuide(time);
       S.flame.update(dt, time, stove.flow, stove.lit);
-      if (S.station.update(dt) > 0) Sound.thud();
     }
     syncDebug();
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
