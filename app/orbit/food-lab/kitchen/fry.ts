@@ -301,8 +301,21 @@ export function buildFry(M) {
     return landed;
   }
 
+  // A pot of birista straight away (the ?step=marinate shortcut).
+  function fillRings(n) {
+    for (let j = 0; j < n && meshes[0].count < MAX_RINGS; j++) {
+      const i = meshes[0].count++;
+      const r = { mesh: meshes[0], i, r: 0.015 + Math.random() * 0.025, thick: 0.0058, yaw: Math.random() * TAU, burnt: 0, tilt: (Math.random() - 0.5) * 0.5, x: 0, y: 0, z: 0, fall: null };
+      const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * (WALL_R - r.r);
+      r.x = Math.cos(a) * d; r.z = Math.sin(a) * d; r.y = surface() + 0.005 + Math.random() * 0.01;
+      rings.push(r);
+      paint(r);
+      place(r);
+    }
+  }
+
   return {
-    root, stream, setOil, addRings, stir, setBrown, scorch, setStream, update,
+    root, stream, setOil, addRings, fillRings, stir, setBrown, scorch, setStream, update,
     get surface() { return surface(); },
     get count() { return rings.length; },
     get falling() { return rings.some((r) => r.fall); },

@@ -733,3 +733,31 @@ export function buildKafgir(M) {
   g.add(neck);
   return shadowed(g);
 }
+
+// Big steel mixing bowl for the marinade. Origin at the centre of its base;
+// double sided so its inside shows.
+export const MIX_BOWL = [[0.0001, 0], [0.06, 0], [0.09, 0.01], [0.115, 0.03], [0.128, 0.055], [0.132, 0.075], [0.136, 0.078], [0.133, 0.08]];
+export function buildMixingBowl(M) {
+  const g = new THREE.Group();
+  const mat = M.knife.clone();
+  mat.side = THREE.DoubleSide;
+  g.add(mesh(lathe(MIX_BOWL, 56), mat));
+  return shadowed(g);
+}
+
+// Steel serving spoon. Origin at the centre of its bowl; the handle runs
+// straight along +x.
+export function buildSpoon(M) {
+  const g = new THREE.Group();
+  const head = new THREE.SphereGeometry(1, 20, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2); // lower half: a scoop
+  const scoop = mesh(head, M.knife);
+  scoop.scale.set(0.034, 0.012, 0.024);
+  scoop.material = M.knife.clone();
+  scoop.material.side = THREE.DoubleSide;
+  g.add(scoop);
+  const handle = mesh(new THREE.CylinderGeometry(0.0035, 0.005, 0.2, 10), M.knife, 0.134, 0, 0);
+  handle.rotation.z = Math.PI / 2;
+  g.add(handle);
+  g.add(mesh(new THREE.SphereGeometry(0.006, 10, 8), M.knife, 0.234, 0, 0));
+  return shadowed(g);
+}

@@ -8,15 +8,17 @@
 // knife following your mouse or finger. Push it down through the onion to
 // trim the tip and the root, swipe sideways to peel, then slice it into
 // rings. Then fry them: move the degchi onto the flame, hold to pour the
-// oil, tip the onions in off the board, and stir until golden brown. No
+// oil, tip the onions in off the board, and stir until golden brown. Last,
+// marinate the chicken: bring the bowl, add eight ingredients, and mix. No
 // text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
 // Testing shortcuts: /orbit/food-lab?stage=2 starts with everything already
 // unloaded on the prep table; ?step=slice also has the stove already lit;
-// ?step=fry also has the onions sliced on the board.
+// ?step=fry also has the onions sliced on the board; ?step=marinate also has
+// the birista fried.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt, pot) mirrors the game state
+// brown, burnt, pot, mar, added, mix) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -25,6 +27,7 @@ import { buildHandBasket } from "./kitchen/props";
 import { buildBurnerFlame } from "./kitchen/flame";
 import { buildOnionStation, CUT, TRIM_TIP, TRIM_ROOT, SLICE_T, radiusAt, zAt } from "./kitchen/onion";
 import { buildFry, OIL_TARGET, SPOON_R } from "./kitchen/fry";
+import { buildMarinade } from "./kitchen/marinade";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -290,7 +293,7 @@ export function initFoodLab(root) {
     stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"),
     start: $(".fl-start"), loading: $(".fl-loading"), done: $(".fl-done"),
     joy: $(".fl-joy"), joyKnob: $(".fl-joy i"), fallback: $(".fl-fallback"),
-    steps: $(".fl-steps"), back: $(".fl-back"), gesture: $(".fl-gesture"),
+    steps: $(".fl-steps"), back: $(".fl-back"), gesture: $(".fl-gesture"), mix: $(".fl-mix"),
   };
 
   let renderer = null, canvas = null, envRT = null, ro = null;
@@ -408,6 +411,10 @@ export function initFoodLab(root) {
       }
       this.sizzle.g.gain.setTargetAtTime(level, t, 0.15);
     },
+    // marinating
+    plop() { this.tone(170, 0.09, 0.07, "sine", 0, -60); this.noise(0.06, 500, 1, 0.05, "lowpass"); },
+    powder() { this.noise(0.7, 6500, 0.6, 0.03, "highpass"); },
+    squelch() { this.noise(0.09, 450 + Math.random() * 300, 1.4, 0.06, "lowpass"); this.noise(0.04, 1500, 2, 0.015, "bandpass", 0.03); },
     thud() { this.noise(0.02, 1500 + Math.random() * 500, 1.5, 0.025, "bandpass"); },
     // One looping noise source feeds two voices: the hiss of raw gas and the
     // low roar of a burning flame. Levels are set with gasSet(hiss, roar).
@@ -635,6 +642,15 @@ export function initFoodLab(root) {
     S.boardMats = glowMats(K.board.children[0]);
     S.hintSpots.pot = [deg.position.x, COUNTER_TOP + 0.0125, deg.position.z, 0.5];
     S.hintSpots.potLit = [S.potHome.x, COUNTER_TOP + 0.0125, S.potHome.z, 0.5];
+    // the marinating step: the big bowl comes from the side counter to the table
+    const bowl = K.mixBowl;
+    bowl.userData.interact = { type: "bowl" };
+    S.bowl = { obj: bowl, mats: glowMats(bowl.children[0]), spot: new THREE.Vector3(-0.02, COUNTER_TOP, 0.42) }; // 8 mm from the board, 18 mm from the potatoes
+    S.marinade = buildMarinade(M);
+    bowl.add(S.marinade.root);
+    S.spoon = { obj: K.spoon, homeP: K.spoon.position.clone(), homeQ: K.spoon.quaternion.clone(), moved: false };
+    S.hintSpots.bowlHome = [bowl.position.x, COUNTER_TOP + 0.002, bowl.position.z, 0.42];
+    S.hintSpots.bowl = [S.bowl.spot.x, COUNTER_TOP + 0.002, S.bowl.spot.z, 0.42];
     S.knifeHomeQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, K.knife.rotation.y, 0));
     S.onions = S.items.onions;
     S.onionsLeft = S.onions.obj.children.slice();
@@ -917,7 +933,7 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
-  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
+  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", bowl: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
@@ -938,6 +954,7 @@ export function initFoodLab(root) {
     const it = o.userData.interact;
     if (it.type === "item" && phase === "slice") { if (it.id === "onions") bringOnion(); }
     else if (it.type === "item" && phase === "fry") { if (it.id === "oil") startPourView(); }
+    else if (it.type === "item" && phase === "marinate") { if (MAR.includes(it.id)) addIngredient(it.id); }
     else if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
@@ -945,6 +962,7 @@ export function initFoodLab(root) {
     else if (it.type === "knife") { if (phase === "fry") startTip(); else enterBoard(); }
     else if (it.type === "pot") potClick();
     else if (it.type === "board") startTip();
+    else if (it.type === "bowl") { if (mr.state === "bowl") bringBowl(); else openBowl(); }
     else if (it.type === "knob") knobClick();
     else if (it.type === "burner") clickLighter();
   }
@@ -1133,6 +1151,13 @@ export function initFoodLab(root) {
   // What should glow next: the lighter, then the knob, then the burner; once
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
+    if (phase === "marinate") {
+      if (mr.done || view.mode || mr.busy) return null;
+      if (mr.state === "bowl") return "bowlHome";
+      if (mr.state === "add") { const next = MAR.find((id) => !mr.added.has(id)); return next ? "ing_" + next : null; }
+      if (mr.state === "mix") return "bowl";
+      return null;
+    }
     if (phase === "fry") {
       if (fr.done || view.mode) return null;
       return { pot: "pot", oil: "oil", add: "board", stir: "potLit" }[fr.state] || null;
@@ -1158,6 +1183,11 @@ export function initFoodLab(root) {
     set(S.knob.mats, hovered(S.knob.pivot) ? hk + 0.2 : target === "knob" ? 0.15 + 0.35 * pulse : 0);
     set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "marinate") {
+      const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
+      set(S.bowl.mats, hovered(S.bowl.obj) ? hk : glow(target === "bowlHome" || target === "bowl"));
+      for (const id of MAR) if (!mr.added.has(id)) set(S.items[id].mats, hovered(S.items[id].obj) ? hk : glow(target === "ing_" + id));
+    }
     if (phase === "fry") {
       const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
       set(S.degchi.mats, hovered(S.degchi.obj) ? hk : glow(target === "pot" || target === "potLit"));
@@ -1365,7 +1395,7 @@ export function initFoodLab(root) {
   // In station space the knife's heel sits on the -x side (towards you on the
   // board) and the blade runs along +x across the onion.
   const KX = CUT.x - 0.085;
-  const seen = { cut: false, peel: false, pour: false, stir: false };
+  const seen = { cut: false, peel: false, pour: false, stir: false, mix: false };
   const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
   const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
   const maxTop = (a0, a1) => { let m = 0; for (let i = 0; i <= 6; i++) m = Math.max(m, topAt(a0 + ((a1 - a0) * i) / 6)); return m; };
@@ -1608,13 +1638,13 @@ export function initFoodLab(root) {
     root.classList.add("board"); // the CSS class for any close view
   }
   function closeView() { view.mode = null; view.drag = null; root.classList.remove("board"); }
-  function exitView() { if (view.mode === "board") exitBoard(); else if (view.mode === "stove") exitStove(); }
-  function viewMove(dx, dy, sens) { if (view.mode === "board") knifeMove(dx, dy, sens); else if (view.mode === "stove") stoveMove(dx, dy, sens); }
+  function exitView() { if (view.mode === "board") exitBoard(); else if (view.mode === "stove") exitStove(); else if (view.mode === "bowl") exitBowl(); }
+  function viewMove(dx, dy, sens) { if (view.mode === "board") knifeMove(dx, dy, sens); else if (view.mode === "stove") stoveMove(dx, dy, sens); else if (view.mode === "bowl") bowlMove(dx, dy, sens); }
   // `click` is a pointer-lock click or E/Space: a whole stroke on the board;
   // at the stove any press starts pouring, and a click stirs once round
-  function viewPress(click) { if (view.mode === "board") { if (click) autoStroke(); } else if (view.mode === "stove") stovePress(click); }
+  function viewPress(click) { if (view.mode === "board") { if (click) autoStroke(); } else if (view.mode === "stove") stovePress(click); else if (view.mode === "bowl" && click) autoMix(); }
   function viewRelease() { if (view.mode === "stove") stoveRelease(); }
-  function viewTap() { if (view.mode === "board") autoStroke(); else if (view.mode === "stove") stoveTap(); }
+  function viewTap() { if (view.mode === "board") autoStroke(); else if (view.mode === "stove") stoveTap(); else if (view.mode === "bowl") autoMix(); }
   let gestureCls = "";
   function updateView(dt) {
     view.blend = clamp(view.blend + ((view.mode ? 1 : -1) * dt) / 0.7, 0, 1);
@@ -1622,6 +1652,7 @@ export function initFoodLab(root) {
     let g = "";
     if (view.mode === "board" && board.kBlend >= 1) g = ob.state === "peel" ? (seen.peel ? "" : "peel") : cutting() && !seen.cut ? "cut" : "";
     else if (view.mode === "stove" && view.blend >= 1) g = fr.state === "pour" && !seen.pour ? "hold" : fr.state === "stir" && !seen.stir && fr.kBlend >= 1 ? "stir" : "";
+    else if (view.mode === "bowl" && view.blend >= 1 && mr.sBlend >= 1 && !seen.mix && !mr.done) g = "stir";
     if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
   }
 
@@ -1817,6 +1848,7 @@ export function initFoodLab(root) {
     setStep("fry", "got");
     dropPick(S.degchi.obj);
     later(exitStove, 1500);
+    later(enterMarinate, 2100);
   }
 
   // ---- every frame during the frying step
@@ -1907,6 +1939,253 @@ export function initFoodLab(root) {
     if (f.falling) shadowsDirty = true;
   }
 
+  // ================================================================ MARINATE THE CHICKEN
+  // Bring the big bowl to the table, add the chicken, dahi, ginger and garlic
+  // paste and four spices (each lights up in a strip of pictures), then mix it
+  // with the spoon until it's an even orange-red and the chicken is coated.
+  const MAR = ["chicken", "dahi", "adrak", "lassan", "redChilli", "haldi", "salt", "masala"];
+  const MIX_DIST = 1.2;   // metres of spoon travel to mix it fully (about eight turns)
+  const SPOON_YAW = -0.35, SPOON_TILT = 0.75; // handle to the right and towards you, 43 degrees up
+  const SPOON_U = [Math.cos(SPOON_YAW), -Math.sin(SPOON_YAW)];
+  const BOWL_RIM_R = 0.133, SPOON_MIN_REACH = 0.075; // keep the head this far from the rim along U, so the handle clears it
+  const SPOON_MAX = 0.06; // and this close to the middle, so the scoop stays off the sloping wall
+  const mr = { state: "none", added: new Set(), busy: false, mix: 0, sBlend: 0, sx: -0.02, sz: 0.01, auto: null, done: false, squelchAt: 0 };
+  const mixSlots = {};
+
+  function enterMarinate() {
+    if (phase === "marinate") return;
+    phase = "marinate";
+    setStep("marinate", "now");
+    mr.state = "bowl";
+    addPick(S.bowl.obj);
+    for (const id of MAR) {
+      const o = S.items[id].obj;
+      S.hintSpots["ing_" + id] = [o.position.x, o.position.y + 0.002, o.position.z, id === "chicken" ? 0.36 : 0.2];
+    }
+    // the eight ingredients, as pictures under the steps
+    if (ui.mix) {
+      ui.mix.innerHTML = "";
+      for (const id of MAR) {
+        const s = document.createElement("span");
+        s.className = "fl-slot";
+        const img = document.createElement("img");
+        img.alt = "";
+        img.draggable = false;
+        if (S.thumbs && S.thumbs[id]) img.src = S.thumbs[id];
+        s.appendChild(img);
+        ui.mix.appendChild(s);
+        mixSlots[id] = s;
+      }
+      ui.mix.classList.add("show");
+    }
+  }
+
+  function bringBowl() {
+    if (mr.state !== "bowl") return;
+    mr.state = "moving";
+    dropPick(S.bowl.obj);
+    const b = S.bowl.obj, p0 = b.position.clone(), blob = b.userData.blob;
+    if (blob) blob.visible = false;
+    Sound.pick();
+    tween(0.8, (k) => {
+      b.position.lerpVectors(p0, S.bowl.spot, ease(k));
+      b.position.y += Math.sin(Math.PI * k) * 0.25;
+      shadowsDirty = true;
+    }, () => {
+      if (blob) { blob.position.set(S.bowl.spot.x, S.bowl.spot.y + 0.0015, S.bowl.spot.z); blob.visible = true; }
+      Sound.place();
+      mr.state = "add";
+      for (const id of MAR) addPick(S.items[id].obj);
+    });
+  }
+
+  // a point over the bowl, in world space
+  const overBowl = (x, y, z) => S.bowl.obj.localToWorld(new THREE.Vector3(x, y, z));
+
+  function addIngredient(id) {
+    if (mr.state !== "add" || mr.busy || mr.added.has(id)) return;
+    mr.busy = true;
+    const o = S.items[id].obj;
+    dropPick(o);
+    for (const m of S.items[id].mats) m.emissiveIntensity = 0;
+    const done = () => {
+      mr.added.add(id);
+      mr.busy = false;
+      if (mixSlots[id]) mixSlots[id].classList.add("got");
+      Sound.collect();
+      if (mr.added.size === MAR.length) { mr.state = "mix"; addPick(S.bowl.obj); }
+    };
+    if (id === "chicken") addChicken(o, done);
+    else if (id === "adrak" || id === "lassan") addPaste(id, o, done);
+    else pourOver(id, o, done);
+  }
+
+  // The film comes off the tray and the six pieces go into the bowl one by one.
+  function addChicken(o, done) {
+    const film = o.children[o.children.length - 1];
+    if (film) film.visible = false;
+    const pieces = o.children.slice(1, 7);
+    pieces.forEach((pc, i) => later(() => {
+      const at = S.marinade.planPiece();
+      S.scene.attach(pc);
+      const p0 = pc.position.clone(), q0 = pc.quaternion.clone();
+      const to = overBowl(at.x, at.y, at.z);
+      tween(0.5, (k) => {
+        pc.position.lerpVectors(p0, to, ease(k));
+        pc.position.y += Math.sin(Math.PI * k) * 0.15;
+        pc.quaternion.copy(q0);
+        shadowsDirty = true;
+      }, () => {
+        S.marinade.addPiece(pc, at);
+        Sound.plop();
+        if (i === pieces.length - 1) done();
+      });
+    }, i * 160));
+  }
+
+  // Ginger and garlic go in as paste: the whole root flies over and shrinks into it.
+  function addPaste(id, o, done) {
+    const p0 = o.position.clone(), s0 = o.scale.x, to = overBowl(0, 0.05, 0);
+    const blob = o.userData.blob;
+    if (blob) blob.visible = false;
+    tween(0.55, (k) => {
+      o.position.lerpVectors(p0, to, ease(k));
+      o.position.y += Math.sin(Math.PI * k) * 0.15;
+      o.scale.setScalar(s0 * (1 - 0.8 * ease(k)));
+      shadowsDirty = true;
+    }, () => {
+      o.visible = false;
+      S.marinade.addPaste(id);
+      Sound.plop();
+      done();
+    });
+  }
+
+  // Dahi and the spices: the pot or jar comes over the bowl (a jar's lid comes
+  // off), tips, pours for a moment, then goes back.
+  function pourOver(id, o, done) {
+    const home = o.position.clone(), homeQ = o.quaternion.clone();
+    const size = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+    const isJar = id !== "dahi" && id !== "masala";
+    const lid = isJar ? o.children[2] : null;
+    const over = overBowl(0.1, id === "dahi" ? 0.2 : 0.19, 0);
+    const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, id === "dahi" ? 2.0 : 2.1));
+    const upQ = new THREE.Quaternion();
+    tween(0.5, (k) => {
+      o.position.lerpVectors(home, over, ease(k));
+      o.position.y += Math.sin(Math.PI * k) * 0.08;
+      o.quaternion.copy(homeQ).slerp(upQ, ease(k));
+      shadowsDirty = true;
+    }, () => {
+      if (lid) lid.visible = false;
+      tween(0.35, (k) => { o.quaternion.copy(upQ).slerp(tiltQ, ease(k)); shadowsDirty = true; }, () => {
+        if (id === "dahi") {
+          S.marinade.addDahi();
+          Sound.plop();
+          const top = o.children[1];
+          if (top) top.position.y -= 0.02; // less left in the pot
+        } else {
+          // powder pours from the mouth, which is now over the bowl
+          o.updateMatrixWorld(true);
+          const mouth = S.bowl.obj.worldToLocal(o.localToWorld(new THREE.Vector3(0, size.y, 0)));
+          S.marinade.pourPowder(id, mouth);
+          S.marinade.addMound(id);
+          Sound.powder();
+        }
+        later(() => {
+          S.marinade.pourPowder(null);
+          tween(0.3, (k) => { o.quaternion.copy(tiltQ).slerp(upQ, ease(k)); }, () => {
+            if (lid) lid.visible = true;
+            tween(0.5, (k) => {
+              o.position.lerpVectors(over, home, ease(k));
+              o.position.y += Math.sin(Math.PI * k) * 0.08;
+              o.quaternion.copy(upQ).slerp(homeQ, ease(k));
+              shadowsDirty = true;
+            }, () => { Sound.place(); done(); });
+          });
+        }, id === "dahi" ? 450 : 800);
+      });
+    });
+  }
+
+  // ---- the bowl close-up: mixing
+  function openBowl() {
+    if (mr.state !== "mix" || view.mode) return;
+    dropPick(S.bowl.obj);
+    const B = S.bowl.obj.position;
+    openView("bowl", new THREE.Vector3(B.x + 0.05, B.y + 0.38, B.z + 0.32), new THREE.Vector3(B.x, B.y + 0.04, B.z));
+  }
+  function exitBowl() {
+    if (view.mode !== "bowl") return;
+    mr.auto = null;
+    closeView();
+    if (mr.state === "mix" && !mr.done) addPick(S.bowl.obj);
+  }
+  const bowlToRim = (x, z) => { const su = x * SPOON_U[0] + z * SPOON_U[1], ss = x * x + z * z; return -su + Math.sqrt(Math.max(0, su * su - ss + BOWL_RIM_R * BOWL_RIM_R)); };
+  function bowlMove(dx, dy, sens) {
+    if (mr.state !== "mix" || mr.sBlend < 0.98 || mr.auto || mr.done) return;
+    mixSpoon(dx * sens * 0.8, dy * sens * 0.8);
+  }
+  function mixSpoon(mx, mz) {
+    let nx = mr.sx + mx, nz = mr.sz + mz;
+    const d = Math.hypot(nx, nz);
+    if (d > SPOON_MAX) { nx *= SPOON_MAX / d; nz *= SPOON_MAX / d; }
+    for (let i = 0; i < 3; i++) { const short = SPOON_MIN_REACH - bowlToRim(nx, nz); if (short <= 0) break; nx -= SPOON_U[0] * short; nz -= SPOON_U[1] * short; }
+    const dx = nx - mr.sx, dz = nz - mr.sz, amt = Math.hypot(dx, dz);
+    S.marinade.stir(mr.sx, mr.sz, dx, dz);
+    mr.sx = nx; mr.sz = nz;
+    mr.mix = Math.min(1, mr.mix + amt / MIX_DIST);
+    S.marinade.setMix(mr.mix);
+    if (amt > 0.002) seen.mix = true;
+    if (amt > 0.003 && time > mr.squelchAt) { mr.squelchAt = time + 0.16; Sound.squelch(); }
+    if (mr.mix >= 1) marinateDone();
+  }
+  function autoMix() {
+    if (mr.state !== "mix" || mr.sBlend < 0.98 || mr.auto || mr.done) return;
+    mr.auto = { a: Math.atan2(mr.sz, mr.sx), t: 0 };
+  }
+
+  function marinateDone() {
+    if (mr.done) return;
+    mr.done = true;
+    mr.state = "done";
+    Sound.done();
+    setStep("marinate", "got");
+    if (ui.mix) ui.mix.classList.remove("show");
+    later(exitBowl, 1200);
+    // Stage 2 is complete: the badge again, now with two of its four dots
+    later(() => {
+      const pips = ui.done && ui.done.querySelectorAll ? ui.done.querySelectorAll(".fl-pips i") : [];
+      if (pips[1]) pips[1].classList.add("on");
+      if (ui.done) ui.done.classList.add("show");
+      later(() => ui.done && ui.done.classList.remove("show"), 3500);
+    }, 1600);
+  }
+
+  // every frame during the marinating step
+  const spP = new THREE.Vector3(), spQ = new THREE.Quaternion(), spE = new THREE.Euler();
+  function updateMarinate(dt) {
+    if (mr.auto) {
+      mr.auto.t += dt;
+      const a = mr.auto.a + mr.auto.t * Math.PI * 2;
+      mixSpoon(Math.cos(a) * 0.05 - mr.sx, Math.sin(a) * 0.05 - mr.sz);
+      if (mr.auto.t >= 1) mr.auto = null;
+    }
+    // the spoon: resting in the bowl, or mixing; it lives in the bowl's space
+    mr.sBlend = clamp(mr.sBlend + ((view.mode === "bowl" ? 1 : -1) * dt) / 0.45, 0, 1);
+    const sp = S.spoon, e = ease(mr.sBlend);
+    if (e > 0 || sp.moved) {
+      spP.set(mr.sx, 0.006 + 0.012 + 0.024 * Math.sin(SPOON_TILT), mr.sz);
+      spQ.setFromEuler(spE.set(0, SPOON_YAW, SPOON_TILT, "YXZ"));
+      sp.obj.position.lerpVectors(sp.homeP, spP, e);
+      sp.obj.position.y += Math.sin(Math.PI * e) * 0.05;
+      sp.obj.quaternion.copy(sp.homeQ).slerp(spQ, e);
+      sp.moved = e > 0;
+      shadowsDirty = true;
+    }
+    S.marinade.update(dt);
+  }
+
   // ?step=slice: the stove is already burning steady
   function skipLight() {
     setKnob(KNOB_MAX * 0.62);
@@ -1932,6 +2211,28 @@ export function initFoodLab(root) {
     enterFry();
   }
 
+  // ?step=marinate: the birista is already fried, golden, in the degchi
+  function skipFry() {
+    const d = S.degchi.obj, lid = d.userData.lid;
+    d.position.copy(S.potHome);
+    S.potOnFlame = true;
+    S.K.root.attach(lid);
+    lid.position.copy(S.lidSpot);
+    S.station.takeRings();
+    S.station.clearDebris();
+    fr.oil = OIL_TARGET;
+    S.fry.setOil(fr.oil);
+    S.fry.fillRings(30);
+    fr.p = 1;
+    S.fry.setBrown(1);
+    fr.done = true;
+    fr.state = "done";
+    dropPick(S.degchi.obj);
+    setStep("fry", "got");
+    shadowsDirty = true;
+    enterMarinate();
+  }
+
   // Mirror state onto data-* attributes for the test kit (never displayed).
   function syncDebug() {
     const d = root.dataset;
@@ -1953,6 +2254,10 @@ export function initFoodLab(root) {
     if (d.burnt !== burnt) d.burnt = burnt;
     const pot = String(S.fry.count);
     if (d.pot !== pot) d.pot = pot;
+    const mar = mr.state, added = String(mr.added.size), mixv = mr.mix.toFixed(2);
+    if (d.mar !== mar) d.mar = mar;
+    if (d.added !== added) d.added = added;
+    if (d.mix !== mixv) d.mix = mixv;
   }
 
   // ---------------------------------------------------------------- input
@@ -2118,6 +2423,7 @@ export function initFoodLab(root) {
     if (playing && !view.mode) move(dt);
     if (phase === "slice") updateBoard(dt);
     if (phase === "fry") updateFry(dt);
+    if (phase === "marinate") updateMarinate(dt);
     if (S.items) settleOil(S.items.oil.obj, 0.8 - 0.25 * (fr.oil / OIL_TARGET));
     updateView(dt);
     syncView();
@@ -2143,9 +2449,10 @@ export function initFoodLab(root) {
     try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
     let step = null;
     try { step = new URLSearchParams(window.location.search).get("step"); } catch (e) {}
-    if (jump === "2" || step === "slice" || step === "fry") skipGather();
-    if (step === "slice" || step === "fry") skipLight();
-    if (step === "fry") skipSlice();
+    if (jump === "2" || step === "slice" || step === "fry" || step === "marinate") skipGather();
+    if (step === "slice" || step === "fry" || step === "marinate") skipLight();
+    if (step === "fry" || step === "marinate") skipSlice();
+    if (step === "marinate") skipFry();
     ui.loading.classList.add("hide");
     ui.start.classList.remove("hide");
     last = performance.now();

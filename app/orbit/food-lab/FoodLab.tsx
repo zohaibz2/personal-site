@@ -50,6 +50,7 @@ export default function FoodLab() {
       <div className="fl-hud" aria-hidden="true">
         <div className="fl-strip" />
         <div className="fl-steps" />
+        <div className="fl-mix" />
         <div className="fl-reticle">
           <svg className="i-grab" viewBox="0 0 24 24" {...icon}>
             <path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12" />

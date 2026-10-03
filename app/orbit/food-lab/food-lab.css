@@ -87,6 +87,18 @@
   animation: fl-pop 0.45s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
+/* ---------- marinating: the eight ingredients, under the steps ---------- */
+.food-lab .fl-mix {
+  position: absolute; top: 74px; left: 50%; display: flex; gap: 6px; padding: 6px 10px; border-radius: 16px;
+  background: rgba(255, 252, 246, 0.8);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2); backdrop-filter: blur(10px) saturate(1.2);
+  box-shadow: 0 10px 30px -14px rgba(40, 25, 10, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  opacity: 0; transform: translate(-50%, -10px); pointer-events: none;
+  transition: opacity 0.5s, transform 0.5s;
+}
+.food-lab .fl-mix:empty { display: none; }
+.food-lab .fl-mix.show { opacity: 1; transform: translate(-50%, 0); }
+
 /* ---------- reticle ---------- */
 .food-lab .fl-reticle {
   position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%;
@@ -202,6 +214,7 @@
   .food-lab .fl-slot { width: 27px; height: 27px; border-radius: 7px; }
   .food-lab .fl-steps { top: 10px; gap: 10px; padding: 5px 9px; border-radius: 14px; }
   .food-lab .fl-gesture { width: 64px; height: 64px; margin: -32px 0 0 64px; }
+  .food-lab .fl-mix { top: 56px; gap: 4px; padding: 4px 7px; border-radius: 12px; }
   .food-lab .fl-gesture svg { width: 36px; height: 36px; }
   .food-lab .fl-step { width: 34px; height: 34px; border-radius: 10px; }
   .food-lab .fl-step + .fl-step::before { left: -8px; width: 6px; }
