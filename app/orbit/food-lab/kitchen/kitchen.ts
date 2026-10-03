@@ -462,11 +462,10 @@ export function buildKitchen(M, T) {
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz0 + 0.06);
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz1 - 0.06);
   const board = place(P.buildBoard(M), -0.36, CT, 0.43, 0.08);
-  // the knife rests along the right edge of the board, handle towards you
+  // the knife rests along the front edge of the board, blade to the right
   // (board top is 0.024 up)
   const knife = P.buildKnife(M);
-  knife.position.set(0.17, 0.024, 0.08);
-  knife.rotation.y = Math.PI / 2;
+  knife.position.set(-0.12, 0.024, 0.128);
   board.add(knife);
   blob(-0.36, CT, 0.43, 0.5, 0.34, 0.6);
   blob(0.05, 0, 0.25, 1.5, 0.95, 0.35);

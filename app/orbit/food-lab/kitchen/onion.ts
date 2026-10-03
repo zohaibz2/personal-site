@@ -1,7 +1,8 @@
 // @ts-nocheck
 /* eslint-disable */
 // The onion station on the chopping board. A whole onion lies on its side
-// with the root at the back and the tip towards you (+z). It is prepared the
+// along the station's z axis, root at -z and tip at +z (the engine turns the
+// station so that's left to right on the board). It is prepared the
 // way a cook does it: trim the tip, trim the root, peel the skin off in two
 // pieces, then slice it into rings from the front back.
 //
@@ -25,9 +26,10 @@ export const SLICES = 10;                         // rings per onion
 export const SLICE_T = (TRIM_TIP - TRIM_ROOT) / SLICES;
 export const CUT = new THREE.Vector3(-0.04, 0, -0.06); // centre of the onion on the board
 const FLESH = 0.965;                              // peeled onion is this much of the skin's size
-// where the two peeled skin pieces end up (left side of the board)
-const SCRAPS = [new THREE.Vector3(-0.19, 0, -0.03), new THREE.Vector3(-0.125, 0, -0.1)];
-const PILE = { x: CUT.x, z: CUT.z + LEN / 2 + 0.05, sx: 0.045, sz: 0.022 };
+// where the two peeled skin pieces end up (behind the root end)
+const SCRAPS = [new THREE.Vector3(0.03, 0, -0.185), new THREE.Vector3(-0.07, 0, -0.185)];
+// the rings pile up past the tip end
+const PILE = { x: CUT.x, z: CUT.z + LEN / 2 + 0.09, sx: 0.045, sz: 0.022 };
 const MAX = 3 * SLICES + 4;
 
 // radius of the onion at `a` along its length
@@ -77,7 +79,7 @@ function layersGeometry(bands, arc, h) {
   };
   bands.forEach(([r0, r1], bi) => {
     const k = bi / Math.max(1, bands.length - 1);
-    const face = C(0xf4ebf0).lerp(C(0xe2b9cf), k * k);
+    const face = C(0xf2e2ec).lerp(C(0xd9a6c3), k * k);
     const seg = Math.max(8, Math.ceil(36 * arc / TAU));
     for (let i = 0; i < seg; i++) {
       const t0 = (i / seg) * arc, t1 = ((i + 1) / seg) * arc;
@@ -113,7 +115,7 @@ export function buildOnionStation(M) {
   const root = new THREE.Group();
   const ringMat = new THREE.MeshStandardMaterial({ map: ringsTexture(), roughness: 0.4, alphaTest: 0.5 });
   const layerMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.35, clearcoat: 0.4, clearcoatRoughness: 0.3, side: THREE.DoubleSide });
-  const fleshMat = new THREE.MeshPhysicalMaterial({ color: 0xa0507e, roughness: 0.3, clearcoat: 0.6, clearcoatRoughness: 0.2 });
+  const fleshMat = M.onionFlesh;
 
   // the two cut planes; materials on the onion keep only what's between them
   const front = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
@@ -239,18 +241,18 @@ export function buildOnionStation(M) {
   function peelOff(half) {
     const s = skins[half];
     if (!s) return;
-    // The torn skin lands on the left of the board as a flattened curl with
-    // its hollow side up. Rotating z by -/+90 degrees turns the skin's outer
-    // side (+x or -x) downwards and lays its length along x.
+    // The torn skin lands behind the onion as a flattened curl, hollow side
+    // up and lying along z: x = 90 degrees lays the length along z, then
+    // z = -/+90 degrees turns the skin's outer side (+x or -x) downwards.
     const scrap = new THREE.Mesh(s.geometry, M.onionSkin);
     scrap.castShadow = true; scrap.receiveShadow = true;
     root.add(scrap);
     scrap.position.set(CUT.x + (half === 0 ? 0.01 : -0.01), onion.position.y + 0.004, zAt(0));
-    scrap.rotation.set(onion.rotation.x, 0, 0, "YXZ");
+    scrap.rotation.set(onion.rotation.x, 0, 0, "ZYX");
     s.visible = false;
     const spot = SCRAPS[half];
     const to = new THREE.Vector3(spot.x + (Math.random() - 0.5) * 0.015, 0.042 * sq * 0.3 + 0.001, spot.z + (Math.random() - 0.5) * 0.02);
-    const rot = new THREE.Euler(0, (Math.random() - 0.5) * 0.8, half === 0 ? -Math.PI / 2 : Math.PI / 2, "YXZ");
+    const rot = new THREE.Euler(Math.PI / 2, (Math.random() - 0.5) * 0.5, half === 0 ? -Math.PI / 2 : Math.PI / 2, "ZYX");
     move(scrap, to, rot, 0.45, 0.05, new THREE.Vector3(0.3, 0.6, 0.6));
     setPlanes();
   }

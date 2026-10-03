@@ -506,6 +506,7 @@ export function makeTextures() {
     sky: toTexture(skylineCanvas(), { aniso: 4 }),
     chicken: toTexture(chickenCanvas()),
     onion: toTexture(streakCanvas(0x9c3f2a, 0xcf7a52, 41, 256, 46)),
+    onionFlesh: toTexture(streakCanvas(0x7a2d5a, 0xb9739d, 47, 256, 38)),
     garlic: toTexture(streakCanvas(0xf1e9dc, 0xc9a7b4, 43, 256, 36)),
     bump: toTexture(bumpCanvas(37, 24), { srgb: false }),
     bumpFine: toTexture(bumpCanvas(39, 64), { srgb: false }),

@@ -55,7 +55,7 @@ const HAND_POSES = {
 // mouse or a finger moves the knife. Metres of knife travel per pixel.
 const KNIFE_PX = { lock: 0.00045, mouse: 0.0005, touch: 0.0007 };
 const PEEL_PX = 170;   // sideways movement that tears off one half of the skin
-const LIFT = 0.12;     // knife height above the board when raised
+const LIFT = 0.105;    // knife height above the board when raised (just clears the biggest onion)
 
 const EYE = 1.62;
 const REACH = 2.3;
@@ -234,11 +234,13 @@ function makeMaterials(T) {
     burlap: std({ map: T.burlap, roughness: 0.95, bumpMap: T.burlap, bumpScale: 0.002 }),
     rope: std({ color: 0x9a7b4f, roughness: 0.95 }),
     pet: clear({ color: 0xfafcff, roughness: 0.05, opacity: 0.25 }),
-    knife: std({ color: 0xe8eaec, metalness: 1, roughness: 0.18 }),
+    // brushed rather than mirror steel: a mirror reflects the dim room and reads as black
+    knife: std({ color: 0xdfe3e6, metalness: 0.6, roughness: 0.3, envMapIntensity: 1.3 }),
     knifeHandle: std({ color: 0x1a1512, roughness: 0.5 }),
     lighterBody: std({ color: 0xc8361d, roughness: 0.42 }),
     lighterGrip: std({ color: 0x262422, roughness: 0.6 }),
     onionSkin: std({ map: T.onion, roughness: 0.7, side: THREE.DoubleSide }),
+    onionFlesh: phys({ map: T.onionFlesh, roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
     wicker: std({ map: T.wicker, roughness: 0.85, side: THREE.DoubleSide, bumpMap: T.wicker, bumpScale: 0.002 }),
     wickerRim: std({ color: 0x9a6c39, roughness: 0.8 }),
     daalYellow: std({ color: 0xe8b934, roughness: 0.9, bumpMap: T.bumpFine, bumpScale: 0.0008 }),
@@ -574,11 +576,15 @@ export function initFoodLab(root) {
       K.board.localToWorld(v);
       return [v.x, v.y, v.z, size];
     };
-    S.hintSpots.knife = onBoard(K.knife.position.x - 0.015, K.knife.position.z - 0.05, 0.4);
+    S.hintSpots.knife = onBoard(K.knife.position.x + 0.08, K.knife.position.z - 0.02, 0.4);
 
-    // the onion station sits on the chopping board's top surface
+    // The onion station sits on the chopping board's top surface, turned so
+    // the onion lies left to right with its tip to the right: you slice from
+    // the right end, the rings fall to the right, and the knife's handle
+    // points at you. (Station z is board +x; station -x is board +z.)
     const station = buildOnionStation(M);
-    station.root.position.y = 0.024;
+    station.root.position.set(-0.01, 0.024, -0.07);
+    station.root.rotation.y = Math.PI / 2;
     K.board.add(station.root);
     S.station = station;
     S.boardCam = new THREE.PerspectiveCamera(66, 1, 0.03, 40); // only used to aim the board view
@@ -1293,10 +1299,12 @@ export function initFoodLab(root) {
     started: false, done: false,
     ka: TRIM_TIP,    // where the blade is along the onion
     ky: LIFT,        // blade height above the board
-    kx: CUT.x + 0.155, rock: 0, armed: true, half: 0, peel: 0, auto: null, crunchAt: 0,
+    kx: CUT.x - 0.135, rock: 0, armed: true, half: 0, peel: 0, auto: null, crunchAt: 0,
   };
   const board = { on: false, blend: 0, kBlend: 0, pos: new THREE.Vector3(), q: new THREE.Quaternion(), drag: null, lastKy: -1 };
-  const KX = CUT.x + 0.085; // the blade's heel sits here, so the blade spans the onion
+  // In station space the knife's heel sits on the -x side (towards you on the
+  // board) and the blade runs along +x across the onion.
+  const KX = CUT.x - 0.085;
   const seen = { cut: false, peel: false };
   const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
   const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
@@ -1357,11 +1365,13 @@ export function initFoodLab(root) {
     dropPick(S.knife.obj);
     setHover(null);
     root.classList.add("board");
-    // aim the board view: above and in front of the onion, looking down at it
+    // aim the board view: where a cook stands, a little to the right so the
+    // fresh cut face (towards the tip) is in view, looking down at the onion.
+    // Station -x is towards you, station +z is to your right.
     const st = S.station.root, cam = S.boardCam;
     st.updateWorldMatrix(true, false);
-    cam.position.copy(st.localToWorld(new THREE.Vector3(CUT.x + 0.04, 0.22, CUT.z + 0.27)));
-    cam.lookAt(st.localToWorld(new THREE.Vector3(CUT.x, 0.03, CUT.z + 0.035)));
+    cam.position.copy(st.localToWorld(new THREE.Vector3(CUT.x - 0.25, 0.25, CUT.z + 0.1)));
+    cam.lookAt(st.localToWorld(new THREE.Vector3(CUT.x - 0.005, 0.03, CUT.z + 0.02)));
     cam.updateMatrixWorld();
     board.pos.copy(cam.position);
     board.q.copy(cam.quaternion);
@@ -1476,7 +1486,7 @@ export function initFoodLab(root) {
   }
 
   // Runs every frame during the slicing step.
-  const kActP = new THREE.Vector3(), kActQ = new THREE.Quaternion(), kEuler = new THREE.Euler();
+  const kActP = new THREE.Vector3(), kActQ = new THREE.Quaternion(), kQs = new THREE.Quaternion(), kEuler = new THREE.Euler();
   let gestureCls = "";
   function updateBoard(dt) {
     const dir = board.on ? 1 : -1;
@@ -1491,14 +1501,17 @@ export function initFoodLab(root) {
     }
     // over the onion while cutting, raised and to the side otherwise
     const park = !cutting();
-    ob.kx += ((park ? KX + 0.07 : KX) - ob.kx) * (1 - Math.exp(-dt * 10));
+    ob.kx += ((park ? KX - 0.05 : KX) - ob.kx) * (1 - Math.exp(-dt * 10));
     if (park) ob.ky += (LIFT - ob.ky) * (1 - Math.exp(-dt * 8));
     ob.rock *= Math.exp(-dt * 4);
     // the knife: from its resting place on the board to the cutting pose
     const t = S.knife, k = t.obj, e = ease(board.kBlend);
-    kActP.set(ob.kx, 0.024 + ob.ky, zAt(ob.ka) + 0.003);
-    kEuler.set(Math.PI / 2, Math.PI, ob.rock, "ZYX"); // blade upright, edge down, handle to the right
-    kActQ.setFromEuler(kEuler);
+    // worked out in station space, then turned into the board's space (the
+    // knife lives on the board): blade upright, edge down, along station +x
+    const sr = S.station.root;
+    kActP.set(ob.kx, ob.ky, zAt(ob.ka) - 0.003).applyQuaternion(sr.quaternion).add(sr.position);
+    kEuler.set(Math.PI / 2, 0, ob.rock, "ZYX");
+    kActQ.copy(sr.quaternion).multiply(kQs.setFromEuler(kEuler));
     k.position.lerpVectors(t.home, kActP, e);
     k.quaternion.copy(S.knifeHomeQ).slerp(kActQ, e);
     const key = ob.ky + e;
