@@ -16,7 +16,7 @@
 // unloaded on the prep table; ?step=slice also has the stove already lit;
 // ?step=fry also has the onions sliced on the board.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt) mirrors the game state
+// brown, burnt, pot) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -243,6 +243,7 @@ function makeMaterials(T) {
     knife: std({ color: 0xdfe3e6, metalness: 0.6, roughness: 0.3, envMapIntensity: 1.3 }),
     knifeHandle: std({ color: 0x1a1512, roughness: 0.5 }),
     lighterBody: std({ color: 0xc8361d, roughness: 0.42 }),
+    bottleNeck: phys({ color: 0xf2f5f7, roughness: 0.18, clearcoat: 1, transparent: true, opacity: 0.78 }),
     lighterGrip: std({ color: 0x262422, roughness: 0.6 }),
     onionSkin: std({ map: T.onion, roughness: 0.7, side: THREE.DoubleSide }),
     onionFlesh: phys({ map: T.onionFlesh, roughness: 0.28, clearcoat: 0.7, clearcoatRoughness: 0.15 }),
@@ -624,8 +625,7 @@ export function initFoodLab(root) {
     S.fry = buildFry(M);
     deg.add(S.fry.root);
     scene.add(S.fry.stream);
-    // the kafgir's neck (child 2) bends while stirring so the handle clears the rim
-    S.kafgir = { obj: K.kafgir, neck: K.kafgir.children[2], restNeck: K.kafgir.children[2].rotation.z, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
+    S.kafgir = { obj: K.kafgir, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
     K.board.userData.interact = { type: "board" };
     S.boardMats = glowMats(K.board.children[0]);
     S.hintSpots.pot = [deg.position.x, COUNTER_TOP + 0.0125, deg.position.z, 0.5];
@@ -1605,9 +1605,15 @@ export function initFoodLab(root) {
   // it get hot, tip the onions in off the board, then stir them with the
   // kafgir until they're golden brown. Left unstirred, rings scorch and smoke.
   const FRY_S = 20;        // seconds of frying from raw to golden brown
+  const TIP = 0.75;        // how far the board is tilted over the pot (radians)
   // the handle points right and a little towards you, so you see the spoon side-on
   const KAFGIR_YAW = -0.35, KAFGIR_U = [Math.cos(-0.35), -Math.sin(-0.35)]; // handle's horizontal direction (x, z)
   const POT_RIM_R = 0.158, POT_RIM_Y = 0.152; // the degchi's rim, in its own space
+  const KAFGIR_MIN_REACH = 0.078; // keep the head this far from the rim (along U) so 60 degrees is enough
+  // distance from the spoon head, along U, to the rim
+  const toRim = (x, z) => { const su = x * KAFGIR_U[0] + z * KAFGIR_U[1], ss = x * x + z * z; return -su + Math.sqrt(Math.max(0, su * su - ss + POT_RIM_R * POT_RIM_R)); };
+  // the shallowest tilt at which the handle clears the rim
+  const kafgirTilt = (x, z) => clamp(Math.atan2(POT_RIM_Y + 0.03 - (OIL_TARGET + 0.03), toRim(x, z)), 0.62, 1.05);
   const POUR_RATE = 0.008; // metres of oil per second at full pour
   const HEAT_S = 3;        // seconds for the oil to get hot
   const fr = {
@@ -1698,7 +1704,9 @@ export function initFoodLab(root) {
     openStove();
     const b = S.K.board, P = S.potHome;
     const home = b.position.clone(), homeRy = b.rotation.y;
-    const over = new THREE.Vector3(P.x - 0.34, P.y + 0.3, P.z);
+    // held up and over the pot so its low edge overhangs the oil: the rings
+    // slide off inside the rim rather than into the side of the pot
+    const over = new THREE.Vector3(P.x - 0.3, P.y + 0.36, P.z + 0.03);
     tween(0.8, (k) => {
       const e = ease(k);
       b.position.lerpVectors(home, over, e);
@@ -1706,12 +1714,22 @@ export function initFoodLab(root) {
       b.rotation.set(0, homeRy * (1 - e), 0);
       shadowsDirty = true;
     }, () => {
-      tween(0.45, (k) => { b.rotation.set(0, 0, -0.75 * ease(k)); shadowsDirty = true; }, () => {
-        const n = S.station.takeRings();
-        // the board's low edge, in the degchi's space (the degchi isn't rotated)
-        S.fry.addRings(n.slices, n.loose, new THREE.Vector3(-0.18, 0.17, 0));
+      tween(0.45, (k) => { b.rotation.set(0, 0, -TIP * ease(k)); shadowsDirty = true; }, () => {
+        // hand every ring over to the pot exactly where it lies on the tilted
+        // board; each one then slides down the board and tips off its edge
+        b.updateMatrixWorld(true);
+        const recs = S.station.takeRings(), list = [], v = new THREE.Vector3();
+        for (const [kind, arr] of [[0, recs.slices], [1, recs.loose]]) {
+          for (const r of arr) {
+            S.station.root.localToWorld(v.set(r.x, r.y, r.z));
+            const along = b.worldToLocal(v.clone()).x; // distance along the board, from its middle
+            list.push({ kind, from: v.clone().sub(P), slide: Math.max(0, 0.205 - along), r: r.r, thick: r.thick, yaw: r.yaw });
+          }
+        }
+        // straight down the board's slope (the degchi isn't rotated, so its space is world-aligned)
+        S.fry.addRings(list, new THREE.Vector3(Math.cos(-TIP), Math.sin(-TIP), 0), -TIP);
         later(() => {
-          tween(0.35, (k) => { b.rotation.set(0, 0, -0.75 * (1 - ease(k))); }, () => {
+          tween(0.35, (k) => { b.rotation.set(0, 0, -TIP * (1 - ease(k))); }, () => {
             tween(0.8, (k) => {
               const e = ease(k);
               b.position.lerpVectors(over, home, e);
@@ -1720,12 +1738,12 @@ export function initFoodLab(root) {
               shadowsDirty = true;
             });
           });
-        }, 650);
+        }, 1000);
         later(() => {
           fr.state = "stir";
           fr.stir = 1; // start well stirred
           if (!view.mode) addPick(S.degchi.obj);
-        }, 1100);
+        }, 1500);
       });
     });
   }
@@ -1746,6 +1764,13 @@ export function initFoodLab(root) {
     let nx = fr.sx + mx, nz = fr.sz + mz;
     const d = Math.hypot(nx, nz);
     if (d > SPOON_R) { nx *= SPOON_R / d; nz *= SPOON_R / d; }
+    // too close to the rim on the handle's side and the spoon would have to stand
+    // upright: hold the head back (pulling it away along U)
+    for (let i = 0; i < 3; i++) {
+      const short = KAFGIR_MIN_REACH - toRim(nx, nz);
+      if (short <= 0) break;
+      nx -= KAFGIR_U[0] * short; nz -= KAFGIR_U[1] * short;
+    }
     const dx = nx - fr.sx, dz = nz - fr.sz, amt = Math.hypot(dx, dz);
     S.fry.stir(fr.sx, fr.sz, dx, dz);
     fr.sx = nx; fr.sz = nz;
@@ -1833,16 +1858,13 @@ export function initFoodLab(root) {
     fr.kBlend = clamp(fr.kBlend + ((fr.state === "stir" && view.mode === "stove" ? 1 : -1) * dt) / 0.5, 0, 1);
     const k = S.kafgir, ke = ease(fr.kBlend);
     if (ke > 0 || k.moved) {
-      kP.set(P.x + fr.sx, P.y + f.surface + 0.012, P.z + fr.sz);
-      // head nearly flat in the oil, handle to the right and a little towards you
-      // (horizontal direction U); the neck rises just steeply enough to clear
-      // the rim from wherever the head is
-      kQ.setFromEuler(kE.set(0, KAFGIR_YAW, 0.15, "YXZ"));
-      const su = fr.sx * KAFGIR_U[0] + fr.sz * KAFGIR_U[1], ss = fr.sx * fr.sx + fr.sz * fr.sz;
-      const toRim = -su + Math.sqrt(Math.max(0, su * su - ss + POT_RIM_R * POT_RIM_R)); // along U to the rim
-      const rise = POT_RIM_Y + 0.035 - (f.surface + 0.012);
-      const neck = clamp(Math.atan2(rise, Math.max(0.01, toRim - 0.044)) - 0.15, 0.7, 1.4);
-      k.neck.rotation.z = k.restNeck + (neck - k.restNeck) * ke;
+      // A straight spoon, handle to the right and a little towards you
+      // (horizontal direction U), tilted as a whole: as shallow as it can be
+      // while the handle still clears the rim, between 35 and 60 degrees.
+      // The head dips into the oil at the same angle.
+      const tilt = kafgirTilt(fr.sx, fr.sz);
+      kQ.setFromEuler(kE.set(0, KAFGIR_YAW, tilt, "YXZ"));
+      kP.set(P.x + fr.sx, P.y + f.surface - 0.008 + 0.045 * Math.sin(tilt), P.z + fr.sz); // low edge just under the oil
       k.obj.position.lerpVectors(k.home, kP, ke);
       k.obj.position.y += Math.sin(Math.PI * ke) * 0.1;
       k.obj.quaternion.copy(k.homeQ).slerp(kQ, ke);
@@ -1906,6 +1928,8 @@ export function initFoodLab(root) {
     if (d.oil !== oil) d.oil = oil;
     if (d.brown !== brown) d.brown = brown;
     if (d.burnt !== burnt) d.burnt = burnt;
+    const pot = String(S.fry.count);
+    if (d.pot !== pot) d.pot = pot;
   }
 
   // ---------------------------------------------------------------- input

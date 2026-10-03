@@ -274,9 +274,11 @@ export function buildKitchen(M, T) {
     add(pivot);
     knobs.push({ pivot, x });
   }
-  const degchi = place(P.buildDegchi(M), hobX + 0.19, CT + 0.036, hobZ - 0.02);
+  // resting on the pan supports, whose tops are at CT + 0.036; a hair above
+  // them so the two surfaces don't flicker through each other
+  const degchi = place(P.buildDegchi(M), hobX + 0.19, CT + 0.0372, hobZ - 0.02);
   // the kafgir rests on the counter between the hob and the spice cupboard
-  const kafgir = place(P.buildKafgir(M), -0.13, CT + 0.0015, -1.86, 0);
+  const kafgir = place(P.buildKafgir(M), -0.13, CT + 0.003, -1.86, 0); // lies flat; the handle's underside just touches
 
   // the long gas lighter, lying on the counter to the right of the hob
   const LIGHTER = [-0.02, CT, -1.64, 0.35];

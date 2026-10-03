@@ -12,9 +12,11 @@ import { ringGeometries, LAYER_H } from "./onion";
 
 const TAU = Math.PI * 2;
 export const OIL_TARGET = 0.018;  // depth of oil to fry in
-export const SPOON_R = 0.1;       // the spoon and the rings stay inside this radius
+export const SPOON_R = 0.1;       // the spoon's head stays inside this radius
+const WALL_R = 0.148;             // ring edges stay inside this radius
 const MAX_RINGS = 80;
-const THICK = 0.0058;
+const SLIDE_A = 2.2;              // how fast rings accelerate down the tilted board (m/s^2)
+const G = 9.8;
 
 // inner radius of the degchi at height y (same outline as buildDegchi)
 export function potRadius(y) {
@@ -49,8 +51,10 @@ export function buildFry(M) {
   const root = new THREE.Group();
 
   // ---- oil
-  const OIL_FRESH = new THREE.Color(0xc4841a), OIL_USED = new THREE.Color(0x8a4a0c);
-  const oilMat = new THREE.MeshPhysicalMaterial({ color: OIL_FRESH.clone(), roughness: 0.02, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.62, envMapIntensity: 1.4 });
+  // Colours are much darker than they look: three.js brightens them on the
+  // way to the screen, and the shiny aluminium behind the oil lightens it more.
+  const OIL_FRESH = new THREE.Color(0x6b3f06), OIL_USED = new THREE.Color(0x3e1f03);
+  const oilMat = new THREE.MeshPhysicalMaterial({ color: OIL_FRESH.clone(), roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.03, transparent: true, opacity: 0.84, envMapIntensity: 1.2 });
   const oil = new THREE.Mesh(new THREE.CircleGeometry(1, 48), oilMat);
   oil.rotation.x = -Math.PI / 2;
   oil.visible = false;
@@ -77,12 +81,15 @@ export function buildFry(M) {
   const rings = [];
   let shrink = 1;
   const dummy = new THREE.Object3D();
+  const wallFor = (r) => Math.max(0.01, WALL_R - r.r * shrink);
   const white = new THREE.Color(1, 1, 1), scorched = new THREE.Color(0.32, 0.24, 0.18), tmpC = new THREE.Color();
-  function place(r) {
-    dummy.position.set(r.x, r.y, r.z);
-    dummy.rotation.set(r.tilt, r.yaw, 0, "YXZ");
+  // R = Rz(roll) * Rx(tilt) * Ry(yaw): spin about its own axis, tip, then
+  // lean with the board (roll is only non-zero while on the tilted board)
+  function place(r, x = r.x, y = r.y, z = r.z, tilt = r.tilt, roll = 0) {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(tilt, r.yaw, roll, "ZXY");
     const s = r.r * shrink;
-    dummy.scale.set(s, THICK / LAYER_H, s);
+    dummy.scale.set(s, r.thick / LAYER_H, s);
     dummy.updateMatrix();
     r.mesh.setMatrixAt(r.i, dummy.matrix);
     r.mesh.instanceMatrix.needsUpdate = true;
@@ -92,26 +99,57 @@ export function buildFry(M) {
     if (r.mesh.instanceColor) r.mesh.instanceColor.needsUpdate = true;
   }
 
-  // Tip `n` whole slices and `nLoose` loose rings in, falling from `from`.
-  function addRings(n, nLoose, from) {
-    const add = (kind, count) => {
-      const mesh = meshes[kind];
-      for (let j = 0; j < count && mesh.count < MAX_RINGS; j++) {
-        const i = mesh.count++;
-        const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * SPOON_R * 0.9;
-        const r = {
-          mesh, i, x: Math.cos(a) * d, z: Math.sin(a) * d, y: surface() + 0.003 + Math.random() * 0.016,
-          tilt: (Math.random() - 0.5) * 0.7, yaw: Math.random() * TAU,
-          r: kind === 0 ? 0.018 + Math.random() * 0.022 : 0.02 + Math.random() * 0.018, burnt: 0,
-          fall: { x: from.x + (Math.random() - 0.5) * 0.04, y: from.y + (Math.random() - 0.5) * 0.02, z: from.z + (Math.random() - 0.5) * 0.06, t: -rings.length * 0.012, dur: 0.4 },
-        };
-        rings.push(r);
-        paint(r);
-        place({ ...r, x: r.fall.x, y: r.fall.y, z: r.fall.z });
-      }
-    };
-    add(0, n);
-    add(1, nLoose);
+  // Take over the rings from the tilted board. Each item: { kind (0 slice,
+  // 1 loose), from (where it lies on the board, in the degchi's space), slide
+  // (how far it is from the board's low edge), r, thick, yaw }. `dir` is
+  // straight down the board's slope and `roll` the board's tilt. Each ring
+  // slides down the board, tips off the edge and drops into the oil, and
+  // they spread out across the pot.
+  function addRings(list, dir, roll) {
+    for (const it of list) {
+      const mesh = meshes[it.kind];
+      if (mesh.count >= MAX_RINGS) continue;
+      const i = mesh.count++;
+      const r = { mesh, i, r: it.r, thick: it.thick, yaw: it.yaw, burnt: 0, tilt: (Math.random() - 0.5) * 0.5, x: 0, y: 0, z: 0 };
+      const a = Math.random() * TAU, d = Math.sqrt(Math.random()) * Math.max(0.01, WALL_R - it.r);
+      r.x = Math.cos(a) * d; r.z = Math.sin(a) * d;
+      r.y = surface() + 0.002 + it.thick / 2 + Math.random() * 0.01;
+      // a ring sliding from rest reaches the edge after t = sqrt(2 * slide / a)
+      const ts = Math.sqrt((2 * Math.max(0, it.slide)) / SLIDE_A);
+      r.fall = { from: it.from.clone(), dir: dir.clone(), roll, slide: it.slide, ts, wait: Math.random() * 0.12, t: 0, edge: null, v: 0, tumble: (Math.random() - 0.5) * 2 };
+      rings.push(r);
+      paint(r);
+      place(r, it.from.x, it.from.y, it.from.z, 0, roll);
+    }
+  }
+
+  // One step of a ring's trip from the board into the oil. Returns true on landing.
+  function fallStep(r, dt) {
+    const f = r.fall;
+    f.t += dt;
+    const t = f.t - f.wait;
+    if (t < 0) return false;
+    if (t < f.ts) {
+      // sliding down the board, still lying on it
+      const s = 0.5 * SLIDE_A * t * t;
+      place(r, f.from.x + f.dir.x * s, f.from.y + f.dir.y * s, f.from.z + f.dir.z * s, 0, f.roll);
+      return false;
+    }
+    if (!f.edge) {
+      f.edge = new THREE.Vector3(f.from.x + f.dir.x * f.slide, f.from.y + f.dir.y * f.slide, f.from.z + f.dir.z * f.slide);
+      f.v = SLIDE_A * f.ts + 0.2;
+      f.drop = Math.sqrt((2 * Math.max(0.01, f.edge.y - r.y)) / G) + 0.05; // time to fall to the oil
+    }
+    // off the edge: carried on by its speed, pulled down, steered to its spot
+    const tf = t - f.ts, k = Math.min(1, tf / f.drop), steer = k * k * (3 - 2 * k);
+    const fx = f.edge.x + f.dir.x * f.v * tf, fz = f.edge.z + f.dir.z * f.v * tf;
+    const fy = Math.max(r.y, f.edge.y + f.dir.y * f.v * tf - 0.5 * G * tf * tf);
+    const rollNow = f.roll * (1 - k) + f.tumble * Math.sin(Math.PI * k) * 0.6;
+    place(r, fx + (r.x - fx) * steer, k >= 1 ? r.y : fy, fz + (r.z - fz) * steer, r.tilt * k, k >= 1 ? 0 : rollNow);
+    if (k < 1) return false;
+    r.fall = null;
+    place(r);
+    return true;
   }
 
   // The spoon moved from (sx, sz) by (dx, dz): rings near it are pushed
@@ -126,8 +164,8 @@ export function buildFry(M) {
       if (r.fall) continue;
       const near = Math.max(0, 1 - Math.hypot(r.x - sx, r.z - sz) / 0.06);
       let x = r.x * c - r.z * s + dx * 0.8 * near, z = r.x * s + r.z * c + dz * 0.8 * near;
-      const d = Math.hypot(x, z);
-      if (d > SPOON_R) { x *= SPOON_R / d; z *= SPOON_R / d; }
+      const d = Math.hypot(x, z), w = wallFor(r);
+      if (d > w) { x *= w / d; z *= w / d; }
       r.x = x; r.z = z;
       if (near > 0.3) { r.tilt += (Math.random() - 0.5) * 0.2 * near; r.yaw += (Math.random() - 0.5) * 0.3 * near; r.tilt = Math.max(-0.5, Math.min(0.5, r.tilt)); }
       place(r);
@@ -139,7 +177,7 @@ export function buildFry(M) {
     const c = brownAt(Math.max(0, Math.min(1, p)));
     ringMat.color.setRGB(c[0], c[1], c[2]);
     oilMat.color.copy(OIL_FRESH).lerp(OIL_USED, 0.6 * Math.max(0, Math.min(1, p))); // the oil takes on colour too
-    shrink = 1 - 0.28 * Math.max(0, Math.min(1, p));
+    shrink = 1 - 0.15 * Math.max(0, Math.min(1, p));
   }
 
   // Unstirred onions catch on the bottom: darken `k` rings a bit more.
@@ -152,6 +190,32 @@ export function buildFry(M) {
     }
     for (const r of rings) if (r.burnt >= 0.6) burnt++;
     return burnt;
+  }
+
+  // Rings in the oil gently push apart, so they spread across the pot
+  // rather than bunching up where the spoon left them. They may overlap a
+  // little, as real fried onions do.
+  function spread(dt) {
+    const k = Math.min(1, dt * 5);
+    const settled = rings.filter((r) => !r.fall);
+    for (let a = 0; a < settled.length; a++) {
+      const p = settled[a];
+      for (let b = a + 1; b < settled.length; b++) {
+        const q = settled[b];
+        const dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz) || 1e-4;
+        const want = (p.r + q.r) * shrink * 0.6;
+        if (d >= want) continue;
+        const push = ((want - d) / d) * 0.5 * k;
+        p.x -= dx * push; p.z -= dz * push;
+        q.x += dx * push; q.z += dz * push;
+        p.moved = q.moved = true;
+      }
+    }
+    for (const r of settled) {
+      const d = Math.hypot(r.x, r.z), w = wallFor(r);
+      if (d > w) { r.x *= w / d; r.z *= w / d; r.moved = true; }
+      if (r.moved) { place(r); r.moved = false; }
+    }
   }
 
   // ---- bubbles and smoke
@@ -190,14 +254,8 @@ export function buildFry(M) {
   // 0..1. Returns how many rings landed in the oil this frame.
   function update(dt, bubbling, smoky) {
     let landed = 0;
-    for (const r of rings) {
-      if (!r.fall) continue;
-      r.fall.t += dt;
-      if (r.fall.t < 0) continue;
-      const k = Math.min(1, r.fall.t / r.fall.dur), e = k * k;
-      place({ ...r, x: r.fall.x + (r.x - r.fall.x) * k, y: r.fall.y + (r.y - r.fall.y) * e, z: r.fall.z + (r.z - r.fall.z) * k, tilt: r.tilt * k });
-      if (k >= 1) { r.fall = null; landed++; place(r); }
-    }
+    for (const r of rings) if (r.fall && fallStep(r, dt)) landed++;
+    spread(dt);
     bubbleAcc += dt * bubbling * 40;
     while (bubbleAcc >= 1) {
       bubbleAcc -= 1;

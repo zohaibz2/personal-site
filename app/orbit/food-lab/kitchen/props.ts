@@ -504,8 +504,23 @@ export function buildOil(M) {
   const cap = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.022, 24), M.capRed, 0, h + 0.008, 0);
   g.add(cap);
   g.add(mesh(new THREE.CylinderGeometry(r * 1.012, r * 1.012, 0.09, 32, 1, true), M.labelOil, 0, 0.1, 0));
-  // oil running down the (clear) neck, shown while pouring
-  const pourNeck = mesh(new THREE.CylinderGeometry(0.0115, 0.03, 0.07, 16), M.liquidOil, 0, 0.225, 0);
+  // The neck: the shell is almost invisible clear plastic, so the neck gets
+  // its own slightly frosted sleeve, the support ring below the threads and
+  // a rolled lip at the mouth. With the cap on, the lip is hidden under it.
+  const neckMat = M.bottleNeck;
+  const sleeve = mesh(new THREE.CylinderGeometry(0.0153, 0.0153, 0.012, 24, 1, true), neckMat, 0, 0.2535, 0);
+  g.add(sleeve);
+  const flange = mesh(new THREE.TorusGeometry(0.0192, 0.0019, 8, 28), neckMat, 0, 0.2465, 0);
+  flange.rotation.x = Math.PI / 2;
+  g.add(flange);
+  const thread = mesh(new THREE.TorusGeometry(0.0158, 0.0008, 6, 24), neckMat, 0, 0.2525, 0);
+  thread.rotation.x = Math.PI / 2;
+  g.add(thread);
+  const lip = mesh(new THREE.TorusGeometry(0.0148, 0.0016, 8, 24), neckMat, 0, 0.2595, 0);
+  lip.rotation.x = Math.PI / 2;
+  g.add(lip);
+  // oil filling the shoulder and neck right up to the mouth, shown while pouring
+  const pourNeck = mesh(lathe([[0.0001, 0.19], [r * 0.8, 0.19], [r * 0.76, 0.208], [0.0158, 0.235], [0.0136, 0.247], [0.0136, 0.2585], [0.0001, 0.2585]], 24), M.liquidOil);
   pourNeck.visible = false;
   g.add(pourNeck);
   // the frying step takes the cap off and lowers the oil inside
@@ -680,10 +695,9 @@ export function buildKafgir(M) {
   const rim = mesh(new THREE.TorusGeometry(0.045, 0.0018, 6, 40), M.knife, 0, 0.001, 0);
   rim.rotation.x = Math.PI / 2;
   g.add(rim);
-  // the handle, from the edge of the head, rising slightly
+  // the handle, straight on from the edge of the head
   const neck = new THREE.Group();
   neck.position.set(0.044, 0.002, 0);
-  neck.rotation.z = 0.12;
   const handle = mesh(new THREE.CylinderGeometry(0.0042, 0.0048, 0.3, 10), M.knife, 0.15, 0, 0);
   handle.rotation.z = -Math.PI / 2;
   neck.add(handle);

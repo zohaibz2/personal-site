@@ -175,7 +175,11 @@ export function buildOnionStation(M) {
   const falling = [];
   const dummy = new THREE.Object3D();
   let landed = 0;
+  // where each ring lies (station space), so the pot can take them over exactly
+  const recs = new Map();
   function place(mesh, i, p, tip, yaw, r, thick) {
+    if (!recs.has(mesh)) recs.set(mesh, []);
+    recs.get(mesh)[i] = { x: p.x, y: p.y, z: p.z, yaw, r, thick };
     dummy.position.copy(p);
     dummy.rotation.set(tip, yaw, 0, "YXZ");
     dummy.scale.set(r, thick / LAYER_H, r);
@@ -331,12 +335,14 @@ export function buildOnionStation(M) {
       }
     }
   }
-  // The pile leaves the board (tipped into the pot): returns how many of each.
+  // The pile leaves the board (tipped into the pot): returns every ring's
+  // position (station space), radius, thickness and spin, by kind.
   function takeRings() {
-    const n = { slices: slices.count, loose: loose.count };
+    const take = (m) => (recs.get(m) || []).slice(0, m.count).map((r) => ({ ...r }));
+    const out = { slices: take(slices), loose: take(loose) };
     slices.count = 0;
     loose.count = 0;
-    return n;
+    return out;
   }
   // Scraps go in the bin before the board is carried to the stove.
   function clearDebris() { for (const d of debris) d.visible = false; }
