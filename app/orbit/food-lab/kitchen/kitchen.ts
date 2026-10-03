@@ -274,7 +274,9 @@ export function buildKitchen(M, T) {
     add(pivot);
     knobs.push({ pivot, x });
   }
-  place(P.buildDegchi(M), hobX + 0.19, CT + 0.036, hobZ - 0.02);
+  const degchi = place(P.buildDegchi(M), hobX + 0.19, CT + 0.036, hobZ - 0.02);
+  // the kafgir rests on the counter between the hob and the spice cupboard
+  const kafgir = place(P.buildKafgir(M), -0.13, CT + 0.0015, -1.86, 0);
 
   // the long gas lighter, lying on the counter to the right of the hob
   const LIGHTER = [-0.02, CT, -1.64, 0.35];
@@ -519,7 +521,7 @@ export function buildKitchen(M, T) {
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,
-    knobs, burners, lighter, board, knife,
+    knobs, burners, lighter, board, knife, degchi, kafgir,
     card: { mesh: card, canvas: cardCanvas, texture: cardTex },
     window: { x0: WX0, x1: WX1, y0: WY0, y1: WY1 },
   };

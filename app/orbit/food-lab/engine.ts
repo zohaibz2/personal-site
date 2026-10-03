@@ -7,12 +7,16 @@
 // board and pick up the knife, and the view settles over the board with the
 // knife following your mouse or finger. Push it down through the onion to
 // trim the tip and the root, swipe sideways to peel, then slice it into
-// rings. No text anywhere: the HUD is pictures, and guidance is a soft glow
+// rings. Then fry them: move the degchi onto the flame, hold to pour the
+// oil, tip the onions in off the board, and stir until golden brown. No
+// text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
 // Testing shortcuts: /orbit/food-lab?stage=2 starts with everything already
-// unloaded on the prep table; ?step=slice also has the stove already lit.
-// root.dataset (phase, stove, gas, hold, cut, slices, view) mirrors the game state
+// unloaded on the prep table; ?step=slice also has the stove already lit;
+// ?step=fry also has the onions sliced on the board.
+// root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
+// brown, burnt) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -20,6 +24,7 @@ import { buildKitchen, ITEMS, TABLE, ROOM, COUNTER_TOP } from "./kitchen/kitchen
 import { buildHandBasket } from "./kitchen/props";
 import { buildBurnerFlame } from "./kitchen/flame";
 import { buildOnionStation, CUT, TRIM_TIP, TRIM_ROOT, SLICE_T, radiusAt, zAt } from "./kitchen/onion";
+import { buildFry, OIL_TARGET, SPOON_R } from "./kitchen/fry";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -377,6 +382,26 @@ export function initFoodLab(root) {
     },
     crunch(k = 1) { this.noise(0.03, 2300 + Math.random() * 900, 1.4, 0.07 * k, "bandpass"); },
     peel() { this.noise(0.2, 3600, 0.7, 0.06, "highpass"); this.noise(0.12, 1300, 0.9, 0.035, "bandpass", 0.03); },
+    // frying
+    clank() { this.tone(820, 0.3, 0.03, "triangle"); this.tone(1260, 0.22, 0.02, "sine", 0.01); this.noise(0.04, 3000, 2, 0.05, "bandpass"); },
+    glug() { this.noise(0.09, 240 + Math.random() * 140, 2.5, 0.1, "bandpass"); this.tone(170 + Math.random() * 70, 0.07, 0.03, "sine", 0, -50); },
+    pop() { this.noise(0.014, 4500 + Math.random() * 2500, 1.5, 0.05, "bandpass"); },
+    splash() { this.noise(0.6, 3800, 0.6, 0.12, "highpass"); this.noise(0.3, 900, 0.8, 0.05, "bandpass"); },
+    scrape() { this.noise(0.06, 2100 + Math.random() * 400, 1.2, 0.025, "bandpass"); },
+    // a looping sizzle, level set with sizzleSet
+    sizzleSet(level) {
+      if (!this.ctx) return;
+      const c = this.ctx, t = c.currentTime;
+      if (!this.sizzle) {
+        const s = c.createBufferSource(); s.buffer = this.buf; s.loop = true;
+        const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 4200; bp.Q.value = 0.5;
+        const g = c.createGain(); g.gain.value = 0;
+        s.connect(bp); bp.connect(g); g.connect(this.master);
+        s.start();
+        this.sizzle = { s, g };
+      }
+      this.sizzle.g.gain.setTargetAtTime(level, t, 0.15);
+    },
     thud() { this.noise(0.02, 1500 + Math.random() * 500, 1.5, 0.025, "bandpass"); },
     // One looping noise source feeds two voices: the hiss of raw gas and the
     // low roar of a burning flame. Levels are set with gasSet(hiss, roar).
@@ -415,6 +440,7 @@ export function initFoodLab(root) {
       try { this.ctx.close(); } catch (e) {}
       this.ctx = null;
       this.gas = null;
+      this.sizzle = null;
     },
   };
 
@@ -587,7 +613,23 @@ export function initFoodLab(root) {
     station.root.rotation.y = Math.PI / 2;
     K.board.add(station.root);
     S.station = station;
-    S.boardCam = new THREE.PerspectiveCamera(66, 1, 0.03, 40); // only used to aim the board view
+    S.boardCam = new THREE.PerspectiveCamera(66, 1, 0.03, 40); // only used to aim the close views
+    // the frying step: the degchi moves onto the lit (left) burner and its lid
+    // goes onto the free one; the kafgir rests on the counter
+    const deg = K.degchi;
+    deg.userData.interact = { type: "pot" };
+    S.degchi = { obj: deg, mats: glowMats(deg.children[0]) }; // the pot itself, not the lid
+    S.potHome = new THREE.Vector3(K.burners[0].x, deg.position.y, deg.position.z);
+    S.lidSpot = new THREE.Vector3(K.burners[1].x, deg.position.y, deg.position.z);
+    S.fry = buildFry(M);
+    deg.add(S.fry.root);
+    scene.add(S.fry.stream);
+    // the kafgir's neck (child 2) bends while stirring so the handle clears the rim
+    S.kafgir = { obj: K.kafgir, neck: K.kafgir.children[2], restNeck: K.kafgir.children[2].rotation.z, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
+    K.board.userData.interact = { type: "board" };
+    S.boardMats = glowMats(K.board.children[0]);
+    S.hintSpots.pot = [deg.position.x, COUNTER_TOP + 0.0125, deg.position.z, 0.5];
+    S.hintSpots.potLit = [S.potHome.x, COUNTER_TOP + 0.0125, S.potHome.z, 0.5];
     S.knifeHomeQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, K.knife.rotation.y, 0));
     S.onions = S.items.onions;
     S.onionsLeft = S.onions.obj.children.slice();
@@ -824,10 +866,10 @@ export function initFoodLab(root) {
     const { camera, vmRoot, basket } = S;
     camera.position.set(pos.x, EYE + bob, pos.z);
     camera.rotation.set(pitch, yaw, 0);
-    if (board.blend > 0) {
-      const e = ease(board.blend);
-      camera.position.lerp(board.pos, e);
-      camera.quaternion.slerp(board.q, e);
+    if (view.blend > 0) {
+      const e = ease(view.blend);
+      camera.position.lerp(view.pos, e);
+      camera.quaternion.slerp(view.q, e);
     }
     camera.updateMatrixWorld();
     vmRoot.matrix.copy(camera.matrixWorld);
@@ -870,7 +912,7 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
-  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
+  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
@@ -890,11 +932,14 @@ export function initFoodLab(root) {
     if (!o) return;
     const it = o.userData.interact;
     if (it.type === "item" && phase === "slice") { if (it.id === "onions") bringOnion(); }
+    else if (it.type === "item" && phase === "fry") { if (it.id === "oil") startPourView(); }
     else if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
     else if (it.type === "lighter") takeTool("lighter");
-    else if (it.type === "knife") enterBoard();
+    else if (it.type === "knife") { if (phase === "fry") startTip(); else enterBoard(); }
+    else if (it.type === "pot") potClick();
+    else if (it.type === "board") startTip();
     else if (it.type === "knob") knobClick();
     else if (it.type === "burner") clickLighter();
   }
@@ -1083,6 +1128,10 @@ export function initFoodLab(root) {
   // What should glow next: the lighter, then the knob, then the burner; once
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
+    if (phase === "fry") {
+      if (fr.done || view.mode) return null;
+      return { pot: "pot", oil: "oil", add: "board", stir: "potLit" }[fr.state] || null;
+    }
     if (phase === "slice") {
       if (ob.done || board.on) return null;
       if (!ob.started) return "onions";
@@ -1104,6 +1153,12 @@ export function initFoodLab(root) {
     set(S.knob.mats, hovered(S.knob.pivot) ? hk + 0.2 : target === "knob" ? 0.15 + 0.35 * pulse : 0);
     set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "fry") {
+      const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
+      set(S.degchi.mats, hovered(S.degchi.obj) ? hk : glow(target === "pot" || target === "potLit"));
+      set(S.items.oil.mats, hovered(S.items.oil.obj) ? hk : glow(target === "oil"));
+      set(S.boardMats, hovered(S.K.board) ? hk : glow(target === "board"));
+    }
     const spot = target && S.hintSpots[target];
     S.hint.visible = !!spot;
     if (spot) {
@@ -1301,11 +1356,11 @@ export function initFoodLab(root) {
     ky: LIFT,        // blade height above the board
     kx: CUT.x - 0.135, rock: 0, armed: true, half: 0, peel: 0, auto: null, crunchAt: 0,
   };
-  const board = { on: false, blend: 0, kBlend: 0, pos: new THREE.Vector3(), q: new THREE.Quaternion(), drag: null, lastKy: -1 };
+  const board = { on: false, kBlend: 0, lastKy: -1 };
   // In station space the knife's heel sits on the -x side (towards you on the
   // board) and the blade runs along +x across the onion.
   const KX = CUT.x - 0.085;
-  const seen = { cut: false, peel: false };
+  const seen = { cut: false, peel: false, pour: false, stir: false };
   const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
   const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
   const maxTop = (a0, a1) => { let m = 0; for (let i = 0; i <= 6; i++) m = Math.max(m, topAt(a0 + ((a1 - a0) * i) / 6)); return m; };
@@ -1363,18 +1418,12 @@ export function initFoodLab(root) {
     board.on = true;
     holding = "knife";
     dropPick(S.knife.obj);
-    setHover(null);
-    root.classList.add("board");
     // aim the board view: where a cook stands, a little to the right so the
     // fresh cut face (towards the tip) is in view, looking down at the onion.
     // Station -x is towards you, station +z is to your right.
-    const st = S.station.root, cam = S.boardCam;
+    const st = S.station.root;
     st.updateWorldMatrix(true, false);
-    cam.position.copy(st.localToWorld(new THREE.Vector3(CUT.x - 0.25, 0.25, CUT.z + 0.1)));
-    cam.lookAt(st.localToWorld(new THREE.Vector3(CUT.x - 0.005, 0.03, CUT.z + 0.02)));
-    cam.updateMatrixWorld();
-    board.pos.copy(cam.position);
-    board.q.copy(cam.quaternion);
+    openView("board", st.localToWorld(new THREE.Vector3(CUT.x - 0.25, 0.25, CUT.z + 0.1)), st.localToWorld(new THREE.Vector3(CUT.x - 0.005, 0.03, CUT.z + 0.02)));
     ob.ky = LIFT;
     ob.auto = null;
     Sound.knifeUp();
@@ -1385,9 +1434,8 @@ export function initFoodLab(root) {
     if (!board.on) return;
     board.on = false;
     holding = null;
-    board.drag = null;
     ob.auto = null;
-    root.classList.remove("board");
+    closeView();
     if (!ob.done) addPick(S.knife.obj);
   }
 
@@ -1454,6 +1502,7 @@ export function initFoodLab(root) {
     Sound.stepDone();
     setStep("slice", "got");
     later(exitBoard, 1400);
+    later(enterFry, 2000);
   }
 
   // A click, tap or Space: do one whole stroke (or one peel) automatically.
@@ -1487,10 +1536,8 @@ export function initFoodLab(root) {
 
   // Runs every frame during the slicing step.
   const kActP = new THREE.Vector3(), kActQ = new THREE.Quaternion(), kQs = new THREE.Quaternion(), kEuler = new THREE.Euler();
-  let gestureCls = "";
   function updateBoard(dt) {
     const dir = board.on ? 1 : -1;
-    board.blend = clamp(board.blend + (dir * dt) / 0.7, 0, 1);
     board.kBlend = clamp(board.kBlend + (dir * dt) / 0.45, 0, 1);
     if (board.on && ob.auto) runAuto(dt);
     if (cutting()) {
@@ -1516,11 +1563,299 @@ export function initFoodLab(root) {
     k.quaternion.copy(S.knifeHomeQ).slerp(kActQ, e);
     const key = ob.ky + e;
     if (Math.abs(key - board.lastKy) > 0.0005) { board.lastKy = key; shadowsDirty = true; }
-    // a pictogram of the gesture, until you've done it once
-    const g = !board.on || board.kBlend < 1 ? "" : ob.state === "peel" ? (seen.peel ? "" : "peel") : cutting() && !seen.cut ? "cut" : "";
-    if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
     if (S.station.busy) shadowsDirty = true; // trimmed ends and skins are still moving
     if (S.station.update(dt) > 0) Sound.thud();
+  }
+
+  // ================================================================ CLOSE VIEWS
+  // The board and the stove each have a close-up camera. While one is open,
+  // the mouse or a finger works the tool instead of walking and looking.
+  const view = { mode: null, blend: 0, pos: new THREE.Vector3(), q: new THREE.Quaternion(), drag: null };
+  function openView(mode, camPos, target) {
+    const cam = S.boardCam;
+    cam.position.copy(camPos);
+    cam.lookAt(target);
+    cam.updateMatrixWorld();
+    view.pos.copy(cam.position);
+    view.q.copy(cam.quaternion);
+    view.mode = mode;
+    setHover(null);
+    root.classList.add("board"); // the CSS class for any close view
+  }
+  function closeView() { view.mode = null; view.drag = null; root.classList.remove("board"); }
+  function exitView() { if (view.mode === "board") exitBoard(); else if (view.mode === "stove") exitStove(); }
+  function viewMove(dx, dy, sens) { if (view.mode === "board") knifeMove(dx, dy, sens); else if (view.mode === "stove") stoveMove(dx, dy, sens); }
+  // `click` is a pointer-lock click or E/Space: a whole stroke on the board;
+  // at the stove any press starts pouring, and a click stirs once round
+  function viewPress(click) { if (view.mode === "board") { if (click) autoStroke(); } else if (view.mode === "stove") stovePress(click); }
+  function viewRelease() { if (view.mode === "stove") stoveRelease(); }
+  function viewTap() { if (view.mode === "board") autoStroke(); else if (view.mode === "stove") stoveTap(); }
+  let gestureCls = "";
+  function updateView(dt) {
+    view.blend = clamp(view.blend + ((view.mode ? 1 : -1) * dt) / 0.7, 0, 1);
+    // a pictogram of the gesture to use, until you've done it once
+    let g = "";
+    if (view.mode === "board" && board.kBlend >= 1) g = ob.state === "peel" ? (seen.peel ? "" : "peel") : cutting() && !seen.cut ? "cut" : "";
+    else if (view.mode === "stove" && view.blend >= 1) g = fr.state === "pour" && !seen.pour ? "hold" : fr.state === "stir" && !seen.stir && fr.kBlend >= 1 ? "stir" : "";
+    if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
+  }
+
+  // ================================================================ FRY THE ONIONS (birista)
+  // Move the degchi onto the lit burner, pour in the oil (hold to pour), let
+  // it get hot, tip the onions in off the board, then stir them with the
+  // kafgir until they're golden brown. Left unstirred, rings scorch and smoke.
+  const FRY_S = 20;        // seconds of frying from raw to golden brown
+  const KAFGIR_YAW = -1.107, KAFGIR_U = [Math.cos(-1.107), -Math.sin(-1.107)]; // handle's horizontal direction (x, z)
+  const POT_RIM_R = 0.158, POT_RIM_Y = 0.152; // the degchi's rim, in its own space
+  const POUR_RATE = 0.008; // metres of oil per second at full pour
+  const HEAT_S = 3;        // seconds for the oil to get hot
+  const fr = {
+    state: "none",         // pot, moving, oil, pour, heat, add, tip, stir, done
+    oil: 0, heat: 0, p: 0, stir: 1, scorchT: 0, burnt: 0, smoke: 0, sizzle: -1,
+    pouring: false, tilt: 0, bBlend: 0, kBlend: 0, sx: 0.03, sz: 0.02, auto: null,
+    glugAt: 0, scrapeAt: 0, popAcc: 0, stirSeen: 0, splashed: false, done: false,
+  };
+
+  function enterFry() {
+    if (phase === "fry") return;
+    phase = "fry";
+    setStep("fry", "now");
+    fr.state = "pot";
+    const o = S.items.oil.obj;
+    S.bottle = { obj: o, home: o.position.clone(), homeQ: o.quaternion.clone(), moved: false };
+    S.hintSpots.oil = [o.position.x, o.position.y + 0.002, o.position.z, 0.3];
+    S.K.board.updateWorldMatrix(true, false);
+    const pile = S.K.board.localToWorld(new THREE.Vector3(0.06, 0.026, -0.03));
+    S.hintSpots.board = [pile.x, pile.y, pile.z, 0.42];
+    addPick(S.degchi.obj);
+  }
+
+  function openStove() {
+    const P = S.potHome;
+    openView("stove", new THREE.Vector3(P.x + 0.06, P.y + 0.42, P.z + 0.34), new THREE.Vector3(P.x, P.y + 0.05, P.z));
+  }
+
+  function exitStove() {
+    if (view.mode !== "stove") return;
+    fr.pouring = false;
+    fr.auto = null;
+    closeView();
+    if (fr.state === "pour") { fr.state = "oil"; addPick(S.items.oil.obj); }
+    if (fr.state === "stir") addPick(S.degchi.obj); // come back to keep stirring
+  }
+
+  // Click the degchi: first it moves onto the flame, later it's how you come
+  // back to stir.
+  function potClick() {
+    if (fr.state === "pot") moveDegchi();
+    else if (fr.state === "stir" && !view.mode) { dropPick(S.degchi.obj); openStove(); }
+  }
+
+  function moveDegchi() {
+    fr.state = "moving";
+    dropPick(S.degchi.obj);
+    const d = S.degchi.obj, p0 = d.position.clone();
+    Sound.pick();
+    tween(0.7, (k) => {
+      d.position.lerpVectors(p0, S.potHome, ease(k));
+      d.position.y += Math.sin(Math.PI * k) * 0.05;
+      shadowsDirty = true;
+    }, () => {
+      Sound.place();
+      // then the lid comes off onto the free burner
+      const lid = d.userData.lid;
+      S.K.root.attach(lid);
+      const l0 = lid.position.clone();
+      Sound.clank();
+      tween(0.55, (k) => {
+        lid.position.lerpVectors(l0, S.lidSpot, ease(k));
+        lid.position.y += Math.sin(Math.PI * k) * 0.12;
+        shadowsDirty = true;
+      }, () => {
+        Sound.clank();
+        fr.state = "oil";
+        addPick(S.items.oil.obj);
+      });
+    });
+  }
+
+  function startPourView() {
+    if (fr.state !== "oil") return;
+    fr.state = "pour";
+    dropPick(S.items.oil.obj);
+    openStove();
+  }
+
+  // Carry the board over, tip the rings into the hot oil, take it back.
+  function startTip() {
+    if (fr.state !== "add") return;
+    fr.state = "tip";
+    dropPick(S.K.board);
+    S.station.clearDebris(); // trimmed ends and skins go in the bin first
+    openStove();
+    const b = S.K.board, P = S.potHome;
+    const home = b.position.clone(), homeRy = b.rotation.y;
+    const over = new THREE.Vector3(P.x - 0.34, P.y + 0.3, P.z);
+    tween(0.8, (k) => {
+      const e = ease(k);
+      b.position.lerpVectors(home, over, e);
+      b.position.y += Math.sin(Math.PI * k) * 0.15;
+      b.rotation.set(0, homeRy * (1 - e), 0);
+      shadowsDirty = true;
+    }, () => {
+      tween(0.45, (k) => { b.rotation.set(0, 0, -0.75 * ease(k)); shadowsDirty = true; }, () => {
+        const n = S.station.takeRings();
+        // the board's low edge, in the degchi's space (the degchi isn't rotated)
+        S.fry.addRings(n.slices, n.loose, new THREE.Vector3(-0.18, 0.17, 0));
+        later(() => {
+          tween(0.35, (k) => { b.rotation.set(0, 0, -0.75 * (1 - ease(k))); }, () => {
+            tween(0.8, (k) => {
+              const e = ease(k);
+              b.position.lerpVectors(over, home, e);
+              b.position.y += Math.sin(Math.PI * k) * 0.15;
+              b.rotation.set(0, homeRy * e, 0);
+              shadowsDirty = true;
+            });
+          });
+        }, 650);
+        later(() => {
+          fr.state = "stir";
+          fr.stir = 1; // start well stirred
+          if (!view.mode) addPick(S.degchi.obj);
+        }, 1100);
+      });
+    });
+  }
+
+  // ---- stove view input
+  function stovePress(click) {
+    if (fr.state === "pour") fr.pouring = true;
+    else if (fr.state === "stir" && click) autoStir();
+  }
+  function stoveRelease() { fr.pouring = false; }
+  function stoveTap() { if (fr.state === "stir") autoStir(); }
+  function stoveMove(dx, dy, sens) {
+    if (fr.state !== "stir" || fr.kBlend < 0.98 || fr.auto) return;
+    // the camera faces the pot from the front, so screen right is +x and down is +z
+    moveSpoon(dx * sens * 0.9, dy * sens * 0.9);
+  }
+  function moveSpoon(mx, mz) {
+    let nx = fr.sx + mx, nz = fr.sz + mz;
+    const d = Math.hypot(nx, nz);
+    if (d > SPOON_R) { nx *= SPOON_R / d; nz *= SPOON_R / d; }
+    const dx = nx - fr.sx, dz = nz - fr.sz, amt = Math.hypot(dx, dz);
+    S.fry.stir(fr.sx, fr.sz, dx, dz);
+    fr.sx = nx; fr.sz = nz;
+    fr.stir = Math.min(1, fr.stir + amt * 4); // about 25 cm of stirring fills it
+    fr.stirSeen += amt;
+    if (fr.stirSeen > 0.15) seen.stir = true;
+    if (amt > 0.003 && time > fr.scrapeAt) { fr.scrapeAt = time + 0.12; Sound.scrape(); }
+  }
+  // one turn round the pot, done for you
+  function autoStir() {
+    if (fr.state !== "stir" || fr.kBlend < 0.98 || fr.auto) return;
+    fr.auto = { a: Math.atan2(fr.sz, fr.sx), t: 0 };
+  }
+
+  function fryDone() {
+    fr.done = true;
+    fr.state = "done";
+    Sound.stepDone();
+    setStep("fry", "got");
+    dropPick(S.degchi.obj);
+    later(exitStove, 1500);
+  }
+
+  // ---- every frame during the frying step
+  const bP = new THREE.Vector3(), bQ = new THREE.Quaternion(), bE = new THREE.Euler();
+  const kP = new THREE.Vector3(), kQ = new THREE.Quaternion(), kE = new THREE.Euler();
+  const mouth = new THREE.Vector3();
+  function updateFry(dt) {
+    const P = S.potHome, f = S.fry;
+    // the bottle comes over the pot while pouring, tipping further while you hold
+    fr.bBlend = clamp(fr.bBlend + ((fr.state === "pour" && view.mode === "stove" ? 1 : -1) * dt) / 0.6, 0, 1);
+    fr.tilt = clamp(fr.tilt + (fr.pouring && fr.bBlend >= 1 ? 4 : -4) * dt, 0, 1);
+    const b = S.bottle, be = ease(fr.bBlend);
+    if (b && (be > 0 || b.moved)) {
+      const o = b.obj;
+      bP.set(P.x + 0.226, P.y + 0.295, P.z + 0.02);  // its mouth ends up just over the pot
+      bQ.setFromEuler(bE.set(0, 0, 1.2 + 0.7 * fr.tilt));
+      o.position.lerpVectors(b.home, bP, be);
+      o.position.y += Math.sin(Math.PI * be) * 0.25;
+      o.quaternion.copy(b.homeQ).slerp(bQ, be);
+      if (o.userData.cap) o.userData.cap.visible = be < 0.5;
+      if (o.userData.liquid) o.userData.liquid.scale.y = 1 - 0.3 * (fr.oil / OIL_TARGET);
+      b.moved = be > 0;
+      shadowsDirty = true;
+    }
+    let streaming = false;
+    if (fr.state === "pour" && fr.tilt > 0.6) {
+      fr.oil = Math.min(OIL_TARGET, fr.oil + POUR_RATE * dt * ((fr.tilt - 0.6) / 0.4));
+      f.setOil(fr.oil);
+      streaming = true;
+      seen.pour = true;
+      if (time > fr.glugAt) { fr.glugAt = time + 0.11 + Math.random() * 0.06; Sound.glug(); }
+      if (fr.oil >= OIL_TARGET) { fr.state = "heat"; fr.pouring = false; later(exitStove, 900); }
+    }
+    if (streaming) {
+      b.obj.updateMatrixWorld();
+      f.setStream(b.obj.localToWorld(mouth.set(0, b.obj.userData.mouth || 0.26, 0)), P.y + f.surface);
+    } else f.setStream(null);
+    // the oil heats up
+    if (fr.state === "heat") {
+      fr.heat = Math.min(1, fr.heat + dt / HEAT_S);
+      if (fr.heat >= 1) { fr.state = "add"; addPick(S.K.board); }
+    }
+    // frying: browns over time; unstirred, the onions catch and smoke
+    if (fr.state === "stir" && !fr.done) {
+      if (fr.auto) {
+        fr.auto.t += dt;
+        const a = fr.auto.a + fr.auto.t * Math.PI * 2;
+        moveSpoon(Math.cos(a) * 0.07 - fr.sx, Math.sin(a) * 0.07 - fr.sz);
+        if (fr.auto.t >= 1) fr.auto = null;
+      }
+      fr.stir = Math.max(0, fr.stir - dt * 0.3);
+      fr.p = Math.min(1, fr.p + dt / FRY_S);
+      f.setBrown(fr.p);
+      if (fr.stir < 0.2 && fr.p > 0.15) {
+        fr.scorchT += dt;
+        if (fr.scorchT > 0.6) { fr.scorchT = 0; fr.burnt = f.scorch(2); }
+      }
+      if (fr.p >= 1) fryDone();
+    }
+    const smoky = fr.state === "stir" && fr.stir < 0.2 && fr.p > 0.3 ? 1 : 0;
+    fr.smoke += (smoky - fr.smoke) * (1 - Math.exp(-dt * 2));
+    // the kafgir: on the counter, or in your hand in the pot
+    fr.kBlend = clamp(fr.kBlend + ((fr.state === "stir" && view.mode === "stove" ? 1 : -1) * dt) / 0.5, 0, 1);
+    const k = S.kafgir, ke = ease(fr.kBlend);
+    if (ke > 0 || k.moved) {
+      kP.set(P.x + fr.sx, P.y + f.surface + 0.012, P.z + fr.sz);
+      // head nearly flat in the oil, handle towards you and a little right
+      // (horizontal direction U); the neck rises just steeply enough to clear
+      // the rim from wherever the head is
+      kQ.setFromEuler(kE.set(0, KAFGIR_YAW, 0.15, "YXZ"));
+      const su = fr.sx * KAFGIR_U[0] + fr.sz * KAFGIR_U[1], ss = fr.sx * fr.sx + fr.sz * fr.sz;
+      const toRim = -su + Math.sqrt(Math.max(0, su * su - ss + POT_RIM_R * POT_RIM_R)); // along U to the rim
+      const rise = POT_RIM_Y + 0.035 - (f.surface + 0.012);
+      const neck = clamp(Math.atan2(rise, Math.max(0.01, toRim - 0.044)) - 0.15, 0.7, 1.4);
+      k.neck.rotation.z = k.restNeck + (neck - k.restNeck) * ke;
+      k.obj.position.lerpVectors(k.home, kP, ke);
+      k.obj.position.y += Math.sin(Math.PI * ke) * 0.1;
+      k.obj.quaternion.copy(k.homeQ).slerp(kQ, ke);
+      k.moved = ke > 0;
+      shadowsDirty = true;
+    }
+    // sound: the sizzle fades as the onions give up their water
+    const frying = f.count > 0 && !fr.done;
+    const sizzle = frying ? 0.05 * (1 - 0.55 * fr.p) : fr.state === "heat" || fr.state === "add" ? 0.012 * fr.heat : fr.done ? 0.008 : 0;
+    if (Math.abs(sizzle - fr.sizzle) > 0.002) { fr.sizzle = sizzle; Sound.sizzleSet(sizzle); }
+    if (frying) {
+      fr.popAcc += dt * 6 * (1 - 0.6 * fr.p);
+      while (fr.popAcc > 1) { fr.popAcc -= 1; if (Math.random() < 0.7) Sound.pop(); }
+    }
+    const bubbling = frying ? 1 - 0.6 * fr.p : fr.done ? 0.1 : fr.state === "heat" || fr.state === "add" ? 0.15 * fr.heat : 0;
+    if (f.update(dt, bubbling, fr.smoke) > 0 && !fr.splashed) { fr.splashed = true; Sound.splash(); }
+    if (f.falling) shadowsDirty = true;
   }
 
   // ?step=slice: the stove is already burning steady
@@ -1534,6 +1869,20 @@ export function initFoodLab(root) {
     enterSlice();
   }
 
+  // ?step=fry: the onions are already sliced on the board
+  function skipSlice() {
+    for (const o of S.onionsLeft) o.visible = false;
+    S.onionsLeft = [];
+    const blob = S.onions.obj.userData.blob;
+    if (blob) blob.visible = false;
+    dropPick(S.onions.obj);
+    dropPick(S.knife.obj);
+    S.station.fillPile(30);
+    ob.started = true; ob.done = true; ob.state = "done";
+    setStep("slice", "got");
+    enterFry();
+  }
+
   // Mirror state onto data-* attributes for the test kit (never displayed).
   function syncDebug() {
     const d = root.dataset;
@@ -1544,17 +1893,22 @@ export function initFoodLab(root) {
     if (d.gas !== gas) d.gas = gas;
     if (d.hold !== hold) d.hold = hold;
     const cutSt = ob.done ? "done" : ob.state;
-    const sl = String(S.station.landed), view = board.on ? "board" : "stand";
+    const sl = String(S.station.landed), vm = view.mode || "stand";
     if (d.cut !== cutSt) d.cut = cutSt;
     if (d.slices !== sl) d.slices = sl;
-    if (d.view !== view) d.view = view;
+    if (d.view !== vm) d.view = vm;
+    const fs = fr.state, oil = fr.oil.toFixed(3), brown = fr.p.toFixed(2), burnt = String(fr.burnt);
+    if (d.fry !== fs) d.fry = fs;
+    if (d.oil !== oil) d.oil = oil;
+    if (d.brown !== brown) d.brown = brown;
+    if (d.burnt !== burnt) d.burnt = burnt;
   }
 
   // ---------------------------------------------------------------- input
   function setPlaying(v) {
     playing = v;
     ui.start.classList.toggle("hide", v);
-    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); if (dial.on) endDial(true); board.drag = null; }
+    if (!v) { keys.clear(); joy.id = null; joy.x = joy.y = 0; look.id = null; ui.joy.classList.remove("on"); setHover(null); if (dial.on) endDial(true); view.drag = null; viewRelease(); }
   }
   function lockFailed() { if (!lockedOnce) { dragLook = true; setPlaying(true); } }
   function begin() {
@@ -1586,7 +1940,7 @@ export function initFoodLab(root) {
     on(document, "pointerlockerror", lockFailed);
     on(document, "mousemove", (e) => {
       if (document.pointerLockElement !== canvas) return;
-      if (board.on) { knifeMove(e.movementX || 0, e.movementY || 0, KNIFE_PX.lock); return; }
+      if (view.mode) { viewMove(e.movementX || 0, e.movementY || 0, KNIFE_PX.lock); return; }
       if (dial.on && dial.lock) { dialMove(e.movementX || 0); return; }
       yaw -= e.movementX * 0.0022;
       pitch -= e.movementY * 0.0022;
@@ -1598,15 +1952,17 @@ export function initFoodLab(root) {
       if (e.pointerType === "touch") markTouch();
       if (!playing) return;
       if (document.pointerLockElement === canvas) {
-        if (board.on) { if (e.button === 0) autoStroke(); return; }
+        if (view.mode) { if (e.button === 0) viewPress(true); return; }
         if (e.button === 0) { if (!(isKnob(pickAt(0, 0)) && startDial(e.pointerId, true, 0))) interactAt(0, 0); }
         return;
       }
-      // board view: any press and drag moves the knife (a quick tap does a stroke)
-      if (board.on) {
-        if (!board.drag) {
-          board.drag = { id: e.pointerId, lx: e.clientX, ly: e.clientY, moved: 0, t: performance.now(), sens: e.pointerType === "touch" ? KNIFE_PX.touch : KNIFE_PX.mouse };
+      // close views: press and drag moves the knife or spoon (a quick tap
+      // does one stroke for you); pressing also pours, while held
+      if (view.mode) {
+        if (!view.drag) {
+          view.drag = { id: e.pointerId, lx: e.clientX, ly: e.clientY, moved: 0, t: performance.now(), sens: e.pointerType === "touch" ? KNIFE_PX.touch : KNIFE_PX.mouse };
           try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+          viewPress(false);
         }
         return;
       }
@@ -1629,12 +1985,12 @@ export function initFoodLab(root) {
       try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     });
     on(canvas, "pointermove", (e) => {
-      const bd = board.drag;
+      const bd = view.drag;
       if (bd && e.pointerId === bd.id) {
         const dx = e.clientX - bd.lx, dy = e.clientY - bd.ly;
         bd.lx = e.clientX; bd.ly = e.clientY;
         bd.moved += Math.abs(dx) + Math.abs(dy);
-        knifeMove(dx, dy, bd.sens);
+        viewMove(dx, dy, bd.sens);
       } else if (dial.on && !dial.lock && e.pointerId === dial.id) {
         dialMove(e.clientX - dial.lx);
         dial.lx = e.clientX;
@@ -1652,10 +2008,12 @@ export function initFoodLab(root) {
       }
     });
     const endPointer = (e) => {
-      const bd = board.drag;
+      if (view.mode && document.pointerLockElement === canvas) { viewRelease(); return; }
+      const bd = view.drag;
       if (bd && e.pointerId === bd.id) {
-        board.drag = null;
-        if (e.type !== "pointercancel" && bd.moved < 8 && performance.now() - bd.t < 350) autoStroke();
+        view.drag = null;
+        viewRelease();
+        if (e.type !== "pointercancel" && bd.moved < 8 && performance.now() - bd.t < 350) viewTap();
       } else if (dial.on && e.pointerId === dial.id) {
         endDial(e.type === "pointercancel");
       } else if (e.pointerId === joy.id) {
@@ -1675,18 +2033,19 @@ export function initFoodLab(root) {
     const WALK = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
     on(window, "keydown", (e) => {
       if (!playing) return;
-      if (board.on) {
-        // walking away puts the knife down; E or Space does one stroke
-        if (WALK.has(e.code)) { e.preventDefault(); exitBoard(); }
-        else if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); autoStroke(); }
+      if (view.mode) {
+        // walking away puts the tool down; E or Space does one stroke (or
+        // pours, while held)
+        if (WALK.has(e.code)) { e.preventDefault(); exitView(); }
+        else if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); if (!e.repeat) viewPress(true); }
         return;
       }
       if (MOVE.has(e.code)) { keys.add(e.code); e.preventDefault(); }
       if (e.code === "KeyE" || e.code === "Space") { e.preventDefault(); interactAt(0, 0); }
     });
-    on(window, "keyup", (e) => keys.delete(e.code));
-    on(window, "blur", () => { keys.clear(); if (dial.on) endDial(true); board.drag = null; });
-    if (ui.back) on(ui.back, "click", (e) => { e.stopPropagation(); exitBoard(); });
+    on(window, "keyup", (e) => { keys.delete(e.code); if (e.code === "KeyE" || e.code === "Space") viewRelease(); });
+    on(window, "blur", () => { keys.clear(); if (dial.on) endDial(true); view.drag = null; viewRelease(); });
+    if (ui.back) on(ui.back, "click", (e) => { e.stopPropagation(); exitView(); });
   }
 
   function resize() {
@@ -1705,11 +2064,13 @@ export function initFoodLab(root) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     last = now; time += dt;
-    if (playing && !board.on) move(dt);
+    if (playing && !view.mode) move(dt);
     if (phase === "slice") updateBoard(dt);
+    if (phase === "fry") updateFry(dt);
+    updateView(dt);
     syncView();
     runTweens(dt);
-    if (playing && !touchMode && !board.on) setHover(pickAt(0, 0));
+    if (playing && !touchMode && !view.mode) setHover(pickAt(0, 0));
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));
     if (tableReady && !unloading) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
     if (phase !== "gather") {
@@ -1730,8 +2091,9 @@ export function initFoodLab(root) {
     try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
     let step = null;
     try { step = new URLSearchParams(window.location.search).get("step"); } catch (e) {}
-    if (jump === "2" || step === "slice") skipGather();
-    if (step === "slice") skipLight();
+    if (jump === "2" || step === "slice" || step === "fry") skipGather();
+    if (step === "slice" || step === "fry") skipLight();
+    if (step === "fry") skipSlice();
     ui.loading.classList.add("hide");
     ui.start.classList.remove("hide");
     last = performance.now();

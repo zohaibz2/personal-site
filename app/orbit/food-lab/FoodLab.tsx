@@ -86,6 +86,14 @@ export default function FoodLab() {
           <svg className="g-peel" viewBox="0 0 48 48" {...icon}>
             <path d="M6 24h36M13 17l-7 7 7 7M35 17l7 7-7 7" />
           </svg>
+          <svg className="g-hold" viewBox="0 0 48 48" {...icon}>
+            <circle cx="24" cy="24" r="6" />
+            <circle cx="24" cy="24" r="15" strokeDasharray="3 4" />
+          </svg>
+          <svg className="g-stir" viewBox="0 0 48 48" {...icon}>
+            <path d="M38 24A14 14 0 1 1 33.9 14.1" />
+            <path d="M35 6.5v8.5h-8.5" />
+          </svg>
         </div>
       </div>
 

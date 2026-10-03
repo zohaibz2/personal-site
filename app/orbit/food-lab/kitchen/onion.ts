@@ -98,8 +98,12 @@ function layersGeometry(bands, arc, h) {
   g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
   return g;
 }
-const LAYER_H = 0.003;
+export const LAYER_H = 0.003;
 const SLICE_BANDS = [[0.16, 0.27], [0.285, 0.41], [0.425, 0.55], [0.565, 0.69], [0.705, 0.83], [0.845, 0.955], [0.965, 1.0]];
+// A whole ring slice and a loose, broken outer ring (unit radius, LAYER_H thick).
+export function ringGeometries() {
+  return { slice: layersGeometry(SLICE_BANDS, TAU, LAYER_H), loose: layersGeometry([[0.88, 1.0]], TAU * 0.62, LAYER_H) };
+}
 
 // A lathe of part of the onion's outline (a0..a1), for the trimmed-off ends.
 function endGeometry(a0, a1, sq) {
@@ -158,13 +162,15 @@ export function buildOnionStation(M) {
 
   // ---- things that fall or fly: trimmed ends, peeled skin, slices
   const movers = [];
+  const debris = []; // trimmed ends and peeled skin left on the board
   const move = (obj, to, rot, dur, arc = 0.03, scale = null) => movers.push({
     obj, from: obj.position.clone(), to, r0: obj.rotation.clone(), r1: rot, t: 0, dur, arc,
     s0: obj.scale.clone(), s1: scale,
   });
 
-  const slices = new THREE.InstancedMesh(layersGeometry(SLICE_BANDS, TAU, LAYER_H), layerMat, MAX);
-  const loose = new THREE.InstancedMesh(layersGeometry([[0.88, 1.0]], TAU * 0.62, LAYER_H), layerMat, MAX * 2);
+  const geos = ringGeometries();
+  const slices = new THREE.InstancedMesh(geos.slice, layerMat, MAX);
+  const loose = new THREE.InstancedMesh(geos.loose, layerMat, MAX * 2);
   for (const m of [slices, loose]) { m.count = 0; m.frustumCulled = false; m.receiveShadow = true; root.add(m); }
   const falling = [];
   const dummy = new THREE.Object3D();
@@ -222,6 +228,7 @@ export function buildOnionStation(M) {
     piece.position.set(CUT.x, onion.position.y, zAt(mid));
     piece.rotation.copy(onion.rotation);
     root.add(piece);
+    debris.push(piece);
     // the tip tips forward onto its side; the root end rocks back onto its
     // round bottom with the cut face up
     const to = new THREE.Vector3(CUT.x + (tip ? 0.01 : -0.012), tip ? 0.005 : 0.007, zAt(mid) + (tip ? 0.03 : -0.022));
@@ -247,6 +254,7 @@ export function buildOnionStation(M) {
     const scrap = new THREE.Mesh(s.geometry, M.onionSkin);
     scrap.castShadow = true; scrap.receiveShadow = true;
     root.add(scrap);
+    debris.push(scrap);
     scrap.position.set(CUT.x + (half === 0 ? 0.01 : -0.01), onion.position.y + 0.004, zAt(0));
     scrap.rotation.set(onion.rotation.x, 0, 0, "ZYX");
     s.visible = false;
@@ -310,8 +318,31 @@ export function buildOnionStation(M) {
     return thuds;
   }
 
+  // A finished pile straight away (the ?step=fry shortcut).
+  function fillPile(n) {
+    for (let j = 0; j < n && slices.count < MAX; j++) {
+      const r = Math.max(0.012, radiusAt(TRIM_ROOT + (j + 0.5) * SLICE_T, 1) * FLESH);
+      const q = new THREE.Vector3(PILE.x + (Math.random() * 2 - 1) * PILE.sx, pileY() + SLICE_T * 0.4, PILE.z + (Math.random() * 2 - 1) * PILE.sz);
+      place(slices, slices.count++, q, Math.PI, Math.random() * TAU, r, SLICE_T * 0.8);
+      landed++;
+      if (Math.random() < 0.5 && loose.count < MAX * 2) {
+        const p2 = new THREE.Vector3(q.x + (Math.random() - 0.5) * 0.05, pileY() + 0.002, q.z + (Math.random() - 0.5) * 0.04);
+        place(loose, loose.count++, p2, Math.PI, Math.random() * TAU, r * 0.9, SLICE_T * 0.7);
+      }
+    }
+  }
+  // The pile leaves the board (tipped into the pot): returns how many of each.
+  function takeRings() {
+    const n = { slices: slices.count, loose: loose.count };
+    slices.count = 0;
+    loose.count = 0;
+    return n;
+  }
+  // Scraps go in the bin before the board is carried to the stove.
+  function clearDebris() { for (const d of debris) d.visible = false; }
+
   return {
-    root, onion, newOnion, trim, peelProgress, peelOff, slice, update,
+    root, onion, newOnion, trim, peelProgress, peelOff, slice, update, fillPile, takeRings, clearDebris,
     get aF() { return aF; },
     get sq() { return sq; },
     get landed() { return landed; },

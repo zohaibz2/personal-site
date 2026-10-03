@@ -501,8 +501,13 @@ export function buildOil(M) {
   const pet = mesh(lathe(shell, 32), M.pet);
   pet.renderOrder = 3;
   g.add(pet);
-  g.add(mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.022, 24), M.capRed, 0, h + 0.008, 0));
+  const cap = mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.022, 24), M.capRed, 0, h + 0.008, 0);
+  g.add(cap);
   g.add(mesh(new THREE.CylinderGeometry(r * 1.012, r * 1.012, 0.09, 32, 1, true), M.labelOil, 0, 0.1, 0));
+  // the frying step takes the cap off and lowers the oil inside
+  g.userData.cap = cap;
+  g.userData.liquid = g.children[0];
+  g.userData.mouth = h;
   return shadowed(g);
 }
 
@@ -511,11 +516,18 @@ export function buildOil(M) {
 export function buildDegchi(M) {
   const g = new THREE.Group();
   const body = [[0.0001, 0], [0.13, 0], [0.152, 0.01], [0.16, 0.05], [0.158, 0.13], [0.15, 0.148], [0.155, 0.152], [0.148, 0.154]];
-  const pot = mesh(lathe(body, 48), M.aluminium);
+  // double sided, so the inside shows once the lid is off
+  const potMat = M.aluminium.clone();
+  potMat.side = THREE.DoubleSide;
+  const pot = mesh(lathe(body, 48), potMat);
   g.add(pot);
-  const lid = mesh(lathe([[0.156, 0], [0.152, 0.004], [0.11, 0.018], [0.04, 0.03], [0.0001, 0.034]], 48), M.aluminium, 0, 0.152, 0);
-  g.add(lid);
-  g.add(mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.018, 16), M.knob, 0, 0.152 + 0.042, 0));
+  // the lid and its knob come off together
+  const lidG = new THREE.Group();
+  lidG.position.y = 0.152;
+  lidG.add(mesh(lathe([[0.156, 0], [0.152, 0.004], [0.11, 0.018], [0.04, 0.03], [0.0001, 0.034]], 48), M.aluminium));
+  lidG.add(mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.018, 16), M.knob, 0, 0.042, 0));
+  g.add(lidG);
+  g.userData.lid = lidG;
   for (const s of [-1, 1]) {
     const hnd = mesh(new THREE.TorusGeometry(0.024, 0.0045, 8, 16, Math.PI), M.aluminium, s * 0.168, 0.118, 0);
     hnd.rotation.set(Math.PI / 2, 0, s > 0 ? -Math.PI / 2 : Math.PI / 2);
@@ -634,5 +646,44 @@ export function buildLighter(M) {
   tip.rotation.z = -Math.PI / 2; // wide end outwards
   g.add(tip);
   g.userData.trigger = trigger;
+  return shadowed(g);
+}
+
+// Kafgir: the flat, perforated steel spoon for frying. Origin is the centre
+// of the round head (lying flat); the handle rises gently towards +x.
+export function buildKafgir(M) {
+  const g = new THREE.Group();
+  // the head: a disc with real holes (an alpha map with alpha test)
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const x = c.getContext("2d");
+  x.fillStyle = "#000"; x.fillRect(0, 0, 128, 128);
+  x.fillStyle = "#fff"; x.beginPath(); x.arc(64, 64, 63, 0, Math.PI * 2); x.fill();
+  x.fillStyle = "#000";
+  const hole = (hx, hy) => { x.beginPath(); x.arc(hx, hy, 5.5, 0, Math.PI * 2); x.fill(); };
+  hole(64, 64);
+  for (let i = 0; i < 6; i++) hole(64 + Math.cos((i / 6) * Math.PI * 2) * 22, 64 + Math.sin((i / 6) * Math.PI * 2) * 22);
+  for (let i = 0; i < 12; i++) hole(64 + Math.cos(((i + 0.5) / 12) * Math.PI * 2) * 43, 64 + Math.sin(((i + 0.5) / 12) * Math.PI * 2) * 43);
+  const holes = new THREE.CanvasTexture(c);
+  const headMat = M.knife.clone();
+  headMat.alphaMap = holes;
+  headMat.alphaTest = 0.5;
+  headMat.side = THREE.DoubleSide;
+  const head = mesh(new THREE.CircleGeometry(0.045, 40), headMat, 0, 0.001, 0);
+  head.rotation.x = -Math.PI / 2;
+  g.add(head);
+  const rim = mesh(new THREE.TorusGeometry(0.045, 0.0018, 6, 40), M.knife, 0, 0.001, 0);
+  rim.rotation.x = Math.PI / 2;
+  g.add(rim);
+  // the handle, from the edge of the head, rising slightly
+  const neck = new THREE.Group();
+  neck.position.set(0.044, 0.002, 0);
+  neck.rotation.z = 0.12;
+  const handle = mesh(new THREE.CylinderGeometry(0.0042, 0.0048, 0.3, 10), M.knife, 0.15, 0, 0);
+  handle.rotation.z = -Math.PI / 2;
+  neck.add(handle);
+  const end = mesh(new THREE.SphereGeometry(0.0062, 10, 8), M.knife, 0.3, 0, 0);
+  neck.add(end);
+  g.add(neck);
   return shadowed(g);
 }
