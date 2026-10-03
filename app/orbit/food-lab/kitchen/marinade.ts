@@ -94,29 +94,68 @@ export function buildMarinade(M) {
   const sizeLump = (l) => {
     const k = l.grow * (1 - mix);
     l.m.visible = k > 0.02;
-    l.m.scale.set(l.r * k, l.h * k, l.r * k);
+    l.m.scale.set(l.r * k, l.h * k, (l.rz || l.r) * k);
   };
-  const dahiMat = M.dahi, gingerMat = new THREE.MeshStandardMaterial({ color: 0xd9b56e, roughness: 0.7 }), garlicMat = new THREE.MeshStandardMaterial({ color: 0xf0e6cc, roughness: 0.6 });
+  const dahiMat = M.dahi, garlicMat = new THREE.MeshStandardMaterial({ color: 0xf0e6cc, roughness: 0.6 }); // peeled garlic
   const POWDER = { redChilli: M.powderRed, haldi: M.powderHaldi, salt: M.powderSalt, masala: M.powderGaram };
-  // hidden stand-ins, so the engine's warm-up compiles the paste materials at
-  // load instead of stalling a frame the first time one goes in
-  for (const mat of [gingerMat, garlicMat]) { const w = new THREE.Mesh(sphere, mat); w.visible = false; root.add(w); }
+  // hidden stand-in, so the engine's warm-up compiles the peeled-garlic
+  // material at load instead of stalling a frame the first time it goes in
+  { const w = new THREE.Mesh(sphere, garlicMat); w.visible = false; root.add(w); }
 
-  // ---- powder stream while a jar is tipped over the bowl
+  // ---- ginger and garlic, chopped: pieces that drop in from `from` and stay
+  // on top (as lumps, so they blend away while mixing)
+  function addChopped(kind, from) {
+    const ginger = kind === "adrak", n = ginger ? 9 : 7;
+    const a = Math.random() * TAU, d = Math.random() * 0.025;
+    const cx = Math.cos(a) * d, cz = Math.sin(a) * d;
+    for (let i = 0; i < n; i++) {
+      const m = new THREE.Mesh(sphere, ginger ? M.ginger : garlicMat);
+      m.userData.lump = true;
+      m.receiveShadow = true;
+      m.rotation.set(Math.random() * TAU, Math.random() * TAU, Math.random() * TAU);
+      root.add(m);
+      const to = new THREE.Vector3(cx + (Math.random() - 0.5) * 0.045, FLOOR + 0.036 + Math.random() * 0.01, cz + (Math.random() - 0.5) * 0.045);
+      const l = ginger
+        ? { m, r: 0.008 + Math.random() * 0.004, h: 0.006 + Math.random() * 0.002, rz: 0.009 + Math.random() * 0.004 }
+        : { m, r: 0.0055, h: 0.005, rz: 0.0105 }; // a peeled clove: small and longer than it's wide
+      l.grow = 1;
+      l.fall = { from: from.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.02, 0, (Math.random() - 0.5) * 0.02)), to, t: -i * 0.035, dur: 0.35 };
+      m.position.copy(l.fall.from);
+      lumps.push(l);
+      sizeLump(l);
+    }
+  }
+
+  // ---- the powder grains thrown out by a shaken jar
   const dotMats = {};
   const dotTex = dotTexture();
   const COLORS = { redChilli: 0xa8250f, haldi: 0xe3a01b, salt: 0xf4f2ec, masala: 0x6b3a1c };
   for (const k in COLORS) dotMats[k] = new THREE.SpriteMaterial({ map: dotTex, color: COLORS[k], transparent: true, depthWrite: false });
   const grains = [];
   for (let i = 0; i < 60; i++) { const s = new THREE.Sprite(dotMats.salt); s.visible = false; root.add(s); grains.push({ s, v: new THREE.Vector3(), life: 0 }); }
-  let pouring = null, grainAcc = 0;
-  // from: where the powder leaves the jar, in the bowl's space
-  function pourPowder(kind, from) { pouring = from ? { kind, from: from.clone() } : null; }
 
   // ---- adding things
   function addDahi() { const l = addLump(dahiMat, 0.038, 0.022); setPool(0.006); return l; }
-  function addPaste(kind) { return addLump(kind === "adrak" ? gingerMat : garlicMat, 0.016, 0.009); }
-  function addMound(kind) { return addLump(POWDER[kind], 0.018, 0.013, true); }
+  // a spice mound builds up over the shaking (about a second)
+  function addMound(kind) { const l = addLump(POWDER[kind], 0.018, 0.013, true); l.rate = 0.9; return l; }
+  // One flick of a shaken jar: a puff of grains thrown out of the mouth that
+  // scatter as they fall; the first puff of each spice starts its mound.
+  const mounds = {};
+  let bursts = 0;
+  function sprinkle(kind, from) {
+    bursts++;
+    if (!mounds[kind]) mounds[kind] = addMound(kind);
+    for (let n = 0; n < 12; n++) {
+      const g = grains.find((q) => q.life <= 0);
+      if (!g) break;
+      g.s.material = dotMats[kind];
+      g.s.position.copy(from).add(new THREE.Vector3((Math.random() - 0.5) * 0.012, 0, (Math.random() - 0.5) * 0.012));
+      g.v.set((Math.random() - 0.5) * 0.3, -0.05 + Math.random() * 0.1, (Math.random() - 0.5) * 0.3);
+      g.life = 0.7;
+      g.s.scale.setScalar(0.004 + Math.random() * 0.003);
+      g.s.visible = true;
+    }
+  }
 
   // ---- mixing
   // The spoon moved from (sx, sz) by (dx, dz): pieces near it are pushed and
@@ -137,6 +176,7 @@ export function buildMarinade(M) {
       placePiece(p);
     }
     for (const l of lumps) {
+      if (l.fall) continue;
       const x = l.m.position.x, z = l.m.position.z;
       l.m.position.x = x * c - z * s; l.m.position.z = x * s + z * c;
     }
@@ -156,19 +196,15 @@ export function buildMarinade(M) {
   // pieces settle into place; lumps grow in as they land; powder falls
   function update(dt) {
     for (const p of pieces) placePiece(p);
-    for (const l of lumps) if (l.grow < 1) { l.grow = Math.min(1, l.grow + dt * 3); sizeLump(l); }
-    if (pouring) {
-      grainAcc += dt * 70;
-      while (grainAcc >= 1) {
-        grainAcc -= 1;
-        const g = grains.find((q) => q.life <= 0);
-        if (!g) break;
-        g.s.material = dotMats[pouring.kind];
-        g.s.position.copy(pouring.from).add(new THREE.Vector3((Math.random() - 0.5) * 0.01, 0, (Math.random() - 0.5) * 0.01));
-        g.v.set((Math.random() - 0.5) * 0.04, -0.05, (Math.random() - 0.5) * 0.04);
-        g.life = 0.6;
-        g.s.scale.setScalar(0.003 + Math.random() * 0.003);
-        g.s.visible = true;
+    for (const l of lumps) {
+      if (l.grow < 1) { l.grow = Math.min(1, l.grow + dt * (l.rate || 3)); sizeLump(l); }
+      if (l.fall) {
+        const f = l.fall;
+        f.t += dt;
+        if (f.t < 0) continue;
+        const k = Math.min(1, f.t / f.dur);
+        l.m.position.set(f.from.x + (f.to.x - f.from.x) * k, f.from.y + (f.to.y - f.from.y) * k * k, f.from.z + (f.to.z - f.from.z) * k);
+        if (k >= 1) l.fall = null;
       }
     }
     for (const g of grains) {
@@ -181,7 +217,8 @@ export function buildMarinade(M) {
   }
 
   return {
-    root, planPiece, addPiece, addDahi, addPaste, addMound, pourPowder, stir, setMix, update,
+    root, planPiece, addPiece, addDahi, addChopped, addMound, sprinkle, stir, setMix, update,
+    get bursts() { return bursts; },
     get pieces() { return pieces.length; },
     get lumps() { return lumps.length; },
   };

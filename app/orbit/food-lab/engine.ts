@@ -18,7 +18,7 @@
 // ?step=fry also has the onions sliced on the board; ?step=marinate also has
 // the birista fried.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt, pot, mar, added, mix) mirrors the game state
+// brown, burnt, pot, mar, added, mix, sprinkles) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -413,7 +413,7 @@ export function initFoodLab(root) {
     },
     // marinating
     plop() { this.tone(170, 0.09, 0.07, "sine", 0, -60); this.noise(0.06, 500, 1, 0.05, "lowpass"); },
-    powder() { this.noise(0.7, 6500, 0.6, 0.03, "highpass"); },
+    shake() { this.noise(0.05, 5600, 1, 0.05, "highpass"); this.noise(0.035, 2600, 1.5, 0.025, "bandpass", 0.01); },
     squelch() { this.noise(0.09, 450 + Math.random() * 300, 1.4, 0.06, "lowpass"); this.noise(0.04, 1500, 2, 0.015, "bandpass", 0.03); },
     thud() { this.noise(0.02, 1500 + Math.random() * 500, 1.5, 0.025, "bandpass"); },
     // One looping noise source feeds two voices: the hiss of raw gas and the
@@ -645,7 +645,8 @@ export function initFoodLab(root) {
     // the marinating step: the big bowl comes from the side counter to the table
     const bowl = K.mixBowl;
     bowl.userData.interact = { type: "bowl" };
-    S.bowl = { obj: bowl, mats: glowMats(bowl.children[0]), spot: new THREE.Vector3(-0.02, COUNTER_TOP, 0.42) }; // 8 mm from the board, 18 mm from the potatoes
+    S.bowl = { obj: bowl, mats: glowMats(bowl.children[0]), spot: new THREE.Vector3(-0.02, COUNTER_TOP + 0.002, 0.42) }; // 8 mm from the board, 18 mm from the potatoes;
+    // 2 mm up, so its flat bottom isn't in the same plane as the tabletop (they flicker through each other)
     S.marinade = buildMarinade(M);
     bowl.add(S.marinade.root);
     S.spoon = { obj: K.spoon, homeP: K.spoon.position.clone(), homeQ: K.spoon.quaternion.clone(), moved: false };
@@ -2031,7 +2032,7 @@ export function initFoodLab(root) {
       if (mr.added.size === MAR.length) { mr.state = "mix"; addPick(S.bowl.obj); }
     };
     if (id === "chicken") addChicken(o, done);
-    else if (id === "adrak" || id === "lassan") addPaste(id, o, done);
+    else if (id === "adrak" || id === "lassan") addChoppedRoot(id, o, done);
     else pourOver(id, o, done);
   }
 
@@ -2058,34 +2059,49 @@ export function initFoodLab(root) {
     }, i * 160));
   }
 
-  // Ginger and garlic go in as paste: the whole root flies over and shrinks into it.
-  function addPaste(id, o, done) {
-    const p0 = o.position.clone(), s0 = o.scale.x, to = overBowl(0, 0.05, 0);
+  // Ginger and garlic: the whole root (or bulb) comes over the bowl at full
+  // size, then drops in as chopped pieces (or peeled cloves) that stay on top
+  // until they're mixed in.
+  function addChoppedRoot(id, o, done) {
+    const p0 = o.position.clone(), to = overBowl(0, 0.17, 0);
     const blob = o.userData.blob;
     if (blob) blob.visible = false;
     tween(0.55, (k) => {
       o.position.lerpVectors(p0, to, ease(k));
-      o.position.y += Math.sin(Math.PI * k) * 0.15;
-      o.scale.setScalar(s0 * (1 - 0.8 * ease(k)));
+      o.position.y += Math.sin(Math.PI * k) * 0.12;
       shadowsDirty = true;
     }, () => {
       o.visible = false;
-      S.marinade.addPaste(id);
+      S.marinade.addChopped(id, S.bowl.obj.worldToLocal(to.clone()));
       Sound.plop();
-      done();
+      later(() => Sound.plop(), 140);
+      later(done, 450);
     });
   }
 
-  // Dahi and the spices: the pot or jar comes over the bowl (a jar's lid comes
-  // off), tips, pours for a moment, then goes back.
+  // Dahi is tipped and drops in as a dollop. A spice jar (or the masala box)
+  // is held just past level over the bowl and shaken: each flick throws out a
+  // puff of powder, and a little mound builds up.
   function pourOver(id, o, done) {
     const home = o.position.clone(), homeQ = o.quaternion.clone();
     const size = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
     const isJar = id !== "dahi" && id !== "masala";
     const lid = isJar ? o.children[2] : null;
-    const over = overBowl(0.1, id === "dahi" ? 0.24 : 0.23, 0); // tipped from well above the deeper bowl's rim
-    const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, id === "dahi" ? 2.0 : 2.1));
+    const tilt = id === "dahi" ? 2.0 : 1.75;
+    const over = overBowl(0.1, id === "dahi" ? 0.24 : 0.23, 0); // well above the deeper bowl's rim
+    const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, tilt));
     const upQ = new THREE.Quaternion();
+    const back = () => {
+      tween(0.3, (k) => { o.quaternion.copy(tiltQ).slerp(upQ, ease(k)); }, () => {
+        if (lid) lid.visible = true;
+        tween(0.5, (k) => {
+          o.position.lerpVectors(over, home, ease(k));
+          o.position.y += Math.sin(Math.PI * k) * 0.08;
+          o.quaternion.copy(upQ).slerp(homeQ, ease(k));
+          shadowsDirty = true;
+        }, () => { Sound.place(); done(); });
+      });
+    };
     tween(0.5, (k) => {
       o.position.lerpVectors(home, over, ease(k));
       o.position.y += Math.sin(Math.PI * k) * 0.08;
@@ -2099,26 +2115,24 @@ export function initFoodLab(root) {
           Sound.plop();
           const top = o.children[1];
           if (top) top.position.y -= 0.02; // less left in the pot
-        } else {
-          // powder pours from the mouth, which is now over the bowl
-          o.updateMatrixWorld(true);
-          const mouth = S.bowl.obj.worldToLocal(o.localToWorld(new THREE.Vector3(0, size.y, 0)));
-          S.marinade.pourPowder(id, mouth);
-          S.marinade.addMound(id);
-          Sound.powder();
+          later(back, 450);
+          return;
         }
-        later(() => {
-          S.marinade.pourPowder(null);
-          tween(0.3, (k) => { o.quaternion.copy(tiltQ).slerp(upQ, ease(k)); }, () => {
-            if (lid) lid.visible = true;
-            tween(0.5, (k) => {
-              o.position.lerpVectors(over, home, ease(k));
-              o.position.y += Math.sin(Math.PI * k) * 0.08;
-              o.quaternion.copy(upQ).slerp(homeQ, ease(k));
-              shadowsDirty = true;
-            }, () => { Sound.place(); done(); });
-          });
-        }, id === "dahi" ? 450 : 800);
+        // five shakes along the jar's length; powder flies out on each flick
+        const axis = new THREE.Vector3(-Math.sin(tilt), Math.cos(tilt), 0); // towards its mouth
+        let prev = 0;
+        tween(1.2, (k) => {
+          const s = Math.sin(k * Math.PI * 2 * 5);
+          o.position.copy(over).addScaledVector(axis, s * 0.014);
+          if (prev >= 0 && s < 0) {
+            // pulled back while the powder keeps going: a puff leaves the mouth
+            o.updateMatrixWorld(true);
+            S.marinade.sprinkle(id, S.bowl.obj.worldToLocal(o.localToWorld(new THREE.Vector3(0, size.y, 0))));
+            Sound.shake();
+          }
+          prev = s;
+          shadowsDirty = true;
+        }, () => { o.position.copy(over); back(); });
       });
     });
   }
@@ -2273,6 +2287,8 @@ export function initFoodLab(root) {
     if (d.mar !== mar) d.mar = mar;
     if (d.added !== added) d.added = added;
     if (d.mix !== mixv) d.mix = mixv;
+    const sp = String(S.marinade.bursts);
+    if (d.sprinkles !== sp) d.sprinkles = sp;
   }
 
   // ---------------------------------------------------------------- input

@@ -424,7 +424,8 @@ export function buildKitchen(M, T) {
   place(P.buildThaal(M), -1.99, CT, 0.19);
   blob(-1.99, CT, 0.19, 0.3);
   // the big mixing bowl for the marinade, with a serving spoon resting in it
-  const mixBowl = place(P.buildMixingBowl(M), -1.98, CT, -0.22, 0);
+  // 2 mm up: a flat bottom exactly level with the counter flickers through it
+  const mixBowl = place(P.buildMixingBowl(M), -1.98, CT + 0.002, -0.22, 0);
   // (12.2 cm radius: fits on the table between the chopping board and the potatoes)
   const spoon = P.buildSpoon(M);
   spoon.position.set(-0.03, 0.03, 0.0);
