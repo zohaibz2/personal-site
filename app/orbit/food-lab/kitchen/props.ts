@@ -795,3 +795,14 @@ export function buildSpoon(M) {
   g.add(mesh(new THREE.SphereGeometry(0.006, 10, 8), M.knife, 0.234, 0, 0));
   return shadowed(g);
 }
+
+// Steel plate (thaali) for the birista to drain on. Origin at the centre of
+// its base.
+export function buildPlate(M) {
+  const g = new THREE.Group();
+  const mat = M.knife.clone();
+  mat.side = THREE.DoubleSide;
+  mat.shadowSide = THREE.FrontSide;
+  g.add(mesh(lathe([[0.0001, 0], [0.09, 0], [0.104, 0.007], [0.114, 0.015], [0.118, 0.017], [0.116, 0.019]], 48), mat));
+  return shadowed(g);
+}

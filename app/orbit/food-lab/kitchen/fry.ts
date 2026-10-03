@@ -171,7 +171,7 @@ export function buildFry(M) {
     if (Math.hypot(sx, sz) < 0.015) da = 0;
     const swirl = da * 0.3, c = Math.cos(swirl), s = Math.sin(swirl);
     for (const r of rings) {
-      if (r.fall) continue;
+      if (r.fall || r.taken) continue;
       const near = Math.max(0, 1 - Math.hypot(r.x - sx, r.z - sz) / 0.06);
       let x = r.x * c - r.z * s + dx * 0.8 * near, z = r.x * s + r.z * c + dz * 0.8 * near;
       const d = Math.hypot(x, z), w = wallFor(r);
@@ -193,8 +193,10 @@ export function buildFry(M) {
   // Unstirred onions catch on the bottom: darken `k` rings a bit more.
   function scorch(k) {
     let burnt = 0;
-    for (let j = 0; j < k && rings.length; j++) {
-      const r = rings[Math.floor(Math.random() * rings.length)];
+    // the ones that catch are those lying lowest, on the hot bottom of the pot
+    const bottom = rings.filter((r) => !r.fall && !r.taken).sort((a, b) => a.y - b.y).slice(0, 10);
+    for (let j = 0; j < k && bottom.length; j++) {
+      const r = bottom[Math.floor(Math.random() * bottom.length)];
       r.burnt = Math.min(1, r.burnt + 0.35);
       paint(r);
     }
@@ -207,7 +209,7 @@ export function buildFry(M) {
   // little, as real fried onions do.
   function spread(dt) {
     const k = Math.min(1, dt * 5);
-    const settled = rings.filter((r) => !r.fall);
+    const settled = rings.filter((r) => !r.fall && !r.taken);
     for (let a = 0; a < settled.length; a++) {
       const p = settled[a];
       for (let b = a + 1; b < settled.length; b++) {
@@ -306,6 +308,32 @@ export function buildFry(M) {
     return landed;
   }
 
+  // Lifting the birista out: take up to `n` rings nearest (x, z) out of the
+  // pot (they're hidden here; the caller shows them on the kafgir).
+  function takeNear(x, z, n) {
+    const left = rings.filter((r) => !r.taken && !r.fall);
+    left.sort((a, b) => Math.hypot(a.x - x, a.z - z) - Math.hypot(b.x - x, b.z - z));
+    const out = left.slice(0, n);
+    for (const r of out) {
+      r.taken = true;
+      dummy.position.set(0, 0, 0); dummy.rotation.set(0, 0, 0); dummy.scale.set(0, 0, 0);
+      dummy.updateMatrix();
+      r.mesh.setMatrixAt(r.i, dummy.matrix);
+      r.mesh.instanceMatrix.needsUpdate = true;
+    }
+    return out.map((r) => ({ r: r.r * shrink, thick: r.thick, yaw: r.yaw, loose: r.mesh === meshes[1] }));
+  }
+  // where the most birista still is (a ring near the middle of what's left)
+  function biristaSpot() {
+    const left = rings.filter((r) => !r.taken && !r.fall);
+    if (!left.length) return null;
+    let cx = 0, cz = 0;
+    for (const r of left) { cx += r.x; cz += r.z; }
+    cx /= left.length; cz /= left.length;
+    left.sort((a, b) => Math.hypot(a.x - cx, a.z - cz) - Math.hypot(b.x - cx, b.z - cz));
+    return { x: left[0].x, z: left[0].z };
+  }
+
   // A pot of birista straight away (the ?step=marinate shortcut).
   function fillRings(n) {
     for (let j = 0; j < n && meshes[0].count < MAX_RINGS; j++) {
@@ -320,7 +348,8 @@ export function buildFry(M) {
   }
 
   return {
-    root, stream, setOil, addRings, fillRings, stir, setBrown, scorch, setStream, update,
+    root, stream, setOil, addRings, fillRings, stir, setBrown, scorch, setStream, update, takeNear, biristaSpot, ringMat,
+    get remaining() { return rings.filter((r) => !r.taken).length; },
     get surface() { return surface(); },
     get count() { return rings.length; },
     get falling() { return rings.some((r) => r.fall); },

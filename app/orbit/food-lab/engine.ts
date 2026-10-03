@@ -9,16 +9,17 @@
 // trim the tip and the root, swipe sideways to peel, then slice it into
 // rings. Then fry them: move the degchi onto the flame, hold to pour the
 // oil, tip the onions in off the board, and stir until golden brown. Last,
-// marinate the chicken: bring the bowl, add eight ingredients, and mix. No
-// text anywhere: the HUD is pictures, and guidance is a soft glow
+// marinate the chicken: bring the bowl, add eight ingredients, and mix.
+// Stage 3 (cook) starts by lifting the birista out of the oil onto a plate.
+// No text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
 // Testing shortcuts: /orbit/food-lab?stage=2 starts with everything already
 // unloaded on the prep table; ?step=slice also has the stove already lit;
 // ?step=fry also has the onions sliced on the board; ?step=marinate also has
-// the birista fried.
+// the birista fried; ?step=lift starts Stage 3 with the chicken marinated.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt, pot, mar, added, mix, sprinkles) mirrors the game state
+// brown, burnt, pot, mar, added, mix, sprinkles, lift) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -28,6 +29,7 @@ import { buildBurnerFlame } from "./kitchen/flame";
 import { buildOnionStation, CUT, TRIM_TIP, TRIM_ROOT, SLICE_T, radiusAt, zAt } from "./kitchen/onion";
 import { buildFry, OIL_TARGET, SPOON_R } from "./kitchen/fry";
 import { buildMarinade } from "./kitchen/marinade";
+import { buildBirista } from "./kitchen/birista";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -38,7 +40,8 @@ const LOC_ICONS = {
 };
 
 // Stage 2 steps, shown as pictograms at the top once the ingredients are out.
-const STEPS = ["light", "slice", "fry", "marinate"];
+// The steps of each stage, shown as pictograms at the top.
+const STAGE_STEPS = { 2: ["light", "slice", "fry", "marinate"], 3: ["lift", "korma", "rice", "layer"] };
 const STEP_ICONS = {
   // a flame over a burner
   light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c2.2 2.6 4 4.7 4 7.3a4 4 0 0 1-8 0c0-1.4.6-2.6 1.5-3.4.2 1.3.9 2.2 1.8 2.5-.4-2.3.1-4.5.7-6.4z"/><path d="M4.5 17.5h15M7 21h10"/></svg>',
@@ -46,6 +49,14 @@ const STEP_ICONS = {
   slice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="15" r="5.5"/><path d="M9 9.5c-1.7 1.5-2.4 3.3-2.4 5.5s.7 4 2.4 5.5M9 9.5c1.7 1.5 2.4 3.3 2.4 5.5s-.7 4-2.4 5.5M9 9.5V8"/><path d="M13.5 11.5L20.5 3.5c.8 2.9-.3 5.9-3.3 8.1l-1.4 1.1z"/></svg>',
   // a degchi with heat rising
   fry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h15v4a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M2.5 13h2M19.5 13h2"/><path d="M8.5 9c-.9-1-.9-2 0-3M12 9c-.9-1-.9-2 0-3s.9-2 0-3M15.5 9c-.9-1-.9-2 0-3"/></svg>',
+  // Stage 3: the kafgir lifting fried onions onto a plate
+  lift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5h12"/><path d="M5 19.5c.5 1.2 1.6 1.8 4 1.8s3.5-.6 4-1.8"/><path d="M6.5 9.5a3.2 1.6 0 1 0 6.4 0 3.2 1.6 0 1 0-6.4 0z"/><path d="M12.9 9.4L21 4.5"/><path d="M8 14.5v2M10.5 13.5v3"/></svg>',
+  // a degchi with a drumstick in it
+  korma: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h15v4a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M2.5 13h2M19.5 13h2"/><path d="M10 12l3.2-5.6"/><circle cx="14.6" cy="5.2" r="2.1"/><path d="M8 15.5h2M13 16.5h2"/></svg>',
+  // a pot of rice with steam
+  rice: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h15v4a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M8 15l1 .6M11.5 15.8l1-.4M15 15l1 .7M9.5 17.5l1 .2M13.5 17.6l1-.3"/><path d="M9 9c-.9-1-.9-2 0-3M15 9c-.9-1-.9-2 0-3"/></svg>',
+  // layers in a pot
+  layer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 8.5h15v8a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M4.5 12c2.5 1 5 1 7.5 0s5-1 7.5 0M4.5 15.5c2.5 1 5 1 7.5 0s5-1 7.5 0"/><path d="M2.5 9.5h2M19.5 9.5h2"/></svg>',
   // a mixing bowl and spoon
   marinate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12.5h17a8.5 8 0 0 1-17 0z"/><path d="M14.5 12.5l5-9"/><path d="M8 16c1.2.7 2.5 1 4 1"/></svg>',
 };
@@ -636,8 +647,13 @@ export function initFoodLab(root) {
     S.lidSpot = new THREE.Vector3(K.burners[1].x, deg.position.y, deg.position.z);
     S.fry = buildFry(M);
     deg.add(S.fry.root);
+    // the birista once it's lifted out: a heap on the kafgir's head, a pile on the plate
+    S.birista = buildBirista(S.fry.ringMat);
+    K.kafgir.add(S.birista.carry);
+    K.plate.add(S.birista.pile);
     scene.add(S.fry.stream);
     S.kafgir = { obj: K.kafgir, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
+    S.plate = K.plate;
     K.board.userData.interact = { type: "board" };
     S.boardMats = glowMats(K.board.children[0]);
     S.hintSpots.pot = [deg.position.x, COUNTER_TOP + 0.0125, deg.position.z, 0.5];
@@ -1122,10 +1138,11 @@ export function initFoodLab(root) {
   }
 
   const stepEls = {};
-  function buildSteps() {
+  function buildSteps(stage) {
     if (!ui.steps) return;
     ui.steps.innerHTML = "";
-    for (const s of STEPS) {
+    for (const k in stepEls) delete stepEls[k];
+    for (const s of STAGE_STEPS[stage]) {
       const el = document.createElement("span");
       el.className = "fl-step";
       el.innerHTML = STEP_ICONS[s];
@@ -1148,7 +1165,7 @@ export function initFoodLab(root) {
 
   function enterLight() {
     phase = "light";
-    buildSteps();
+    buildSteps(2);
     setStep("light", "now");
     addPick(S.lighter.obj);
     addPick(S.knob.pivot);
@@ -1157,6 +1174,7 @@ export function initFoodLab(root) {
   // What should glow next: the lighter, then the knob, then the burner; once
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
+    if (phase === "lift") return lf.done || view.mode ? null : "potLit";
     if (phase === "marinate") {
       if (mr.done || view.mode || mr.busy) return null;
       if (mr.state === "bowl") return "bowlHome";
@@ -1189,6 +1207,7 @@ export function initFoodLab(root) {
     set(S.knob.mats, hovered(S.knob.pivot) ? hk + 0.2 : target === "knob" ? 0.15 + 0.35 * pulse : 0);
     set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "lift") set(S.degchi.mats, hovered(S.degchi.obj) ? 0.22 + 0.14 * Math.sin(time * 6) : target === "potLit" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "marinate") {
       const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
       set(S.bowl.mats, hovered(S.bowl.obj) ? hk : glow(target === "bowlHome" || target === "bowl"));
@@ -1401,7 +1420,7 @@ export function initFoodLab(root) {
   // In station space the knife's heel sits on the -x side (towards you on the
   // board) and the blade runs along +x across the onion.
   const KX = CUT.x - 0.085;
-  const seen = { cut: false, peel: false, pour: false, stir: false, mix: false };
+  const seen = { cut: false, peel: false, pour: false, stir: false, mix: false, lift: false };
   const cutting = () => ob.state === "tip" || ob.state === "root" || ob.state === "slice";
   const topAt = (a) => S.station.onion.position.y + radiusAt(a, S.station.sq);
   const maxTop = (a0, a1) => { let m = 0; for (let i = 0; i <= 6; i++) m = Math.max(m, topAt(a0 + ((a1 - a0) * i) / 6)); return m; };
@@ -1669,6 +1688,7 @@ export function initFoodLab(root) {
     if (view.mode === "board" && board.kBlend >= 1) g = ob.state === "peel" ? (seen.peel ? "" : "peel") : cutting() && !seen.cut ? "cut" : "";
     else if (view.mode === "stove" && view.blend >= 1) g = fr.state === "pour" && !seen.pour ? "hold" : fr.state === "stir" && !seen.stir && fr.kBlend >= 1 ? "stir" : "";
     else if (view.mode === "bowl" && view.blend >= 1 && mr.sBlend >= 1 && !seen.mix && !mr.done) g = "stir";
+    if (phase === "lift") g = view.mode === "stove" && view.blend >= 1 && lf.blend >= 1 && !lf.done && !seen.lift ? "cut" : "";
     if (g !== gestureCls && ui.gesture) { gestureCls = g; ui.gesture.className = "fl-gesture" + (g ? " show " + g : ""); }
   }
 
@@ -1717,16 +1737,19 @@ export function initFoodLab(root) {
 
   function exitStove() {
     if (view.mode !== "stove") return;
+    if (phase === "lift" && lf.carry) return; // let the heap reach the plate first
     fr.pouring = false;
     fr.auto = null;
     closeView();
     if (fr.state === "pour") { fr.state = "oil"; addPick(S.items.oil.obj); }
     if (fr.state === "stir") addPick(S.degchi.obj); // come back to keep stirring
+    if (phase === "lift" && !lf.done) { lf.auto = null; lf.state = "pot"; addPick(S.degchi.obj); }
   }
 
   // Click the degchi: first it moves onto the flame, later it's how you come
   // back to stir.
   function potClick() {
+    if (phase === "lift") { liftPotClick(); return; }
     if (fr.state === "pot") moveDegchi();
     else if (fr.state === "stir" && !view.mode) { dropPick(S.degchi.obj); openStove(); }
   }
@@ -1822,12 +1845,14 @@ export function initFoodLab(root) {
 
   // ---- stove view input
   function stovePress(click) {
+    if (phase === "lift") { liftPress(click); return; }
     if (fr.state === "pour") fr.pouring = true;
     else if (fr.state === "stir" && click) autoStir();
   }
   function stoveRelease() { fr.pouring = false; }
-  function stoveTap() { if (fr.state === "stir") autoStir(); }
+  function stoveTap() { if (phase === "lift") autoScoop(); else if (fr.state === "stir") autoStir(); }
   function stoveMove(dx, dy, sens) {
+    if (phase === "lift") { liftMove(dx, dy, sens); return; }
     if (fr.state !== "stir" || fr.kBlend < 0.98 || fr.auto) return;
     // the camera faces the pot from the front, so screen right is +x and down is +z
     moveSpoon(dx * sens * 0.9, dy * sens * 0.9);
@@ -2189,6 +2214,7 @@ export function initFoodLab(root) {
       if (ui.done) ui.done.classList.add("show");
       later(() => ui.done && ui.done.classList.remove("show"), 3500);
     }, 1600);
+    later(enterStage3, 5300);
   }
 
   // every frame during the marinating step
@@ -2213,6 +2239,154 @@ export function initFoodLab(root) {
       shadowsDirty = true;
     }
     S.marinade.update(dt);
+  }
+
+  // ================================================================ STAGE 3, STEP 1: LIFT OUT THE BIRISTA
+  // The golden onions come out of the oil onto the plate by the stove, so the
+  // korma can be cooked in that same oil. In the stove view the kafgir follows
+  // your mouse or finger: push it down into the onions, lift it out, and it
+  // swings over to the plate and tips the heap off. Repeat until the oil is
+  // (nearly) clear. A click, tap or Space does one scoop for you.
+  const LIFT_UP = 0.17;   // how high the kafgir's head goes above the oil (clear of the rim)
+  const SCOOP = 8;        // rings per scoop
+  const lf = { state: "none", ky: LIFT_UP, sx: 0.0, sz: 0.0, blend: 0, loaded: false, carry: null, auto: null, done: false, armed: true };
+
+  function enterStage3() {
+    if (phase === "lift") return;
+    phase = "lift";
+    buildSteps(3);
+    setStep("lift", "now");
+    lf.state = "pot";
+    S.birista.matchColor(S.fry.ringMat.color);
+    addPick(S.degchi.obj);
+  }
+
+  function liftPotClick() {
+    if (lf.done || view.mode) return;
+    dropPick(S.degchi.obj);
+    lf.state = "scoop";
+    lf.ky = LIFT_UP;
+    const spot = S.fry.biristaSpot();
+    if (spot) { lf.sx = spot.x; lf.sz = spot.z; }
+    openStove();
+  }
+
+  function liftMove(dx, dy, sens) {
+    if (lf.state !== "scoop" || lf.blend < 0.98 || lf.carry || lf.auto) return;
+    // up and down dips the kafgir; sideways moves it over the onions
+    setLiftY(clamp(lf.ky - dy * sens * 0.8, 0, LIFT_UP));
+    let nx = lf.sx + dx * sens * 0.6, nz = lf.sz;
+    const d = Math.hypot(nx, nz);
+    if (d > SPOON_R) { nx *= SPOON_R / d; nz *= SPOON_R / d; }
+    lf.sx = nx; lf.sz = nz;
+  }
+
+  function setLiftY(ky) {
+    lf.ky = ky;
+    if (ky > 0.03) lf.armed = true;
+    // down in the onions: the kafgir comes up with a heap on it
+    if (ky <= 0.006 && lf.armed && !lf.loaded) {
+      lf.armed = false;
+      const got = S.fry.takeNear(lf.sx, lf.sz, SCOOP);
+      if (got.length) { S.birista.load(got); lf.loaded = true; seen.lift = true; Sound.scrape(); }
+    }
+    // lifted clear of the rim with a heap: over to the plate
+    if (lf.loaded && ky >= LIFT_UP - 0.003 && !lf.carry) { lf.carry = { t: 0, tipped: false }; Sound.pick(); }
+  }
+
+  function liftPress(click) { if (click) autoScoop(); }
+  function autoScoop() {
+    if (lf.state !== "scoop" || lf.blend < 0.98 || lf.carry || lf.auto) return;
+    lf.auto = { down: true };
+  }
+
+  function liftDone() {
+    lf.done = true;
+    lf.state = "done";
+    Sound.stepDone();
+    setStep("lift", "got");
+    later(exitStove, 1200);
+  }
+
+  // every frame of this step: the kafgir's pose (dipping, or carrying a heap
+  // over to the plate and back), the plate pile, a quiet sizzle
+  const lP = new THREE.Vector3(), lQ = new THREE.Quaternion(), lE = new THREE.Euler(), lA = new THREE.Vector3(), lB = new THREE.Vector3();
+  function updateLift(dt) {
+    const P = S.potHome, f = S.fry, k = S.kafgir;
+    if (lf.auto) {
+      if (lf.auto.down) { setLiftY(Math.max(0, lf.ky - 0.5 * dt)); if (lf.ky <= 0) lf.auto.down = false; }
+      else { setLiftY(Math.min(LIFT_UP, lf.ky + 0.45 * dt)); if (lf.ky >= LIFT_UP || lf.carry) lf.auto = null; }
+    }
+    lf.blend = clamp(lf.blend + ((lf.state === "scoop" && view.mode === "stove" ? 1 : -1) * dt) / 0.5, 0, 1);
+    const e = ease(lf.blend);
+    // the head over the pot, at height ky above the oil
+    const tilt = kafgirTilt(lf.sx, lf.sz);
+    lA.set(P.x + lf.sx, P.y + f.surface - 0.008 + 0.045 * Math.sin(tilt) + lf.ky, P.z + lf.sz);
+    let q = lE.set(0, KAFGIR_YAW, tilt, "YXZ");
+    if (lf.carry) {
+      // over to the plate (0.55 s), tip it off (0.3 s), back (0.5 s)
+      const c = lf.carry;
+      c.t += dt;
+      const potUp = lA.clone();
+      const plateUp = lB.copy(S.plate.position).add(new THREE.Vector3(0, 0.13, 0));
+      if (c.t < 0.55) {
+        lA.lerpVectors(potUp, plateUp, ease(c.t / 0.55));
+        lA.y += Math.sin(Math.PI * (c.t / 0.55)) * 0.05;
+      } else if (c.t < 0.85) {
+        lA.copy(plateUp);
+        q = lE.set(-0.9 * Math.sin(Math.PI * ((c.t - 0.55) / 0.3)), KAFGIR_YAW, 0.5, "YXZ"); // tipped to one side
+        if (!c.tipped && c.t > 0.65) {
+          c.tipped = true;
+          k.obj.updateMatrixWorld(true);
+          S.birista.tipOnto(S.plate.worldToLocal(k.obj.localToWorld(new THREE.Vector3(0, 0.01, 0))));
+          lf.loaded = false;
+          Sound.plop();
+        }
+      } else if (c.t < 1.35) {
+        lA.lerpVectors(plateUp, potUp, ease((c.t - 0.85) / 0.5));
+      } else {
+        lf.carry = null;
+        // the next scoop goes where the most birista is
+        const spot = f.biristaSpot();
+        if (spot) { lf.sx = spot.x; lf.sz = spot.z; }
+        if (f.remaining <= 3) liftDone();
+      }
+    }
+    lQ.setFromEuler(q);
+    if (e > 0 || k.moved) {
+      k.obj.position.lerpVectors(k.home, lA, e);
+      k.obj.position.y += Math.sin(Math.PI * e) * 0.1;
+      k.obj.quaternion.copy(k.homeQ).slerp(lQ, e);
+      k.moved = e > 0;
+      shadowsDirty = true;
+    }
+    S.birista.update(dt);
+    f.update(dt, 0.12, 0);
+    const sizzle = 0.008;
+    if (Math.abs(sizzle - fr.sizzle) > 0.002) { fr.sizzle = sizzle; Sound.sizzleSet(sizzle); }
+  }
+
+  // ?step=lift: Stage 2 is already done (the chicken marinated in its bowl)
+  function skipMarinate() {
+    enterMarinate();
+    const b = S.bowl.obj;
+    b.position.copy(S.bowl.spot);
+    if (b.userData.blob) { b.userData.blob.position.set(S.bowl.spot.x, S.bowl.spot.y + 0.0015, S.bowl.spot.z); b.userData.blob.visible = true; }
+    const ch = S.items.chicken.obj, film = ch.children[ch.children.length - 1];
+    if (film) film.visible = false;
+    for (const pc of ch.children.slice(1, 7)) S.marinade.addPiece(pc);
+    S.marinade.addDahi();
+    for (const id of ["adrak", "lassan"]) { S.items[id].obj.visible = false; if (S.items[id].obj.userData.blob) S.items[id].obj.userData.blob.visible = false; }
+    for (const id of MAR) { mr.added.add(id); dropPick(S.items[id].obj); }
+    mr.mix = 1;
+    S.marinade.setMix(1);
+    mr.done = true;
+    mr.state = "done";
+    dropPick(S.bowl.obj);
+    setStep("marinate", "got");
+    if (ui.mix) ui.mix.classList.remove("show");
+    shadowsDirty = true;
+    enterStage3();
   }
 
   // ?step=slice: the stove is already burning steady
@@ -2289,6 +2463,10 @@ export function initFoodLab(root) {
     if (d.mix !== mixv) d.mix = mixv;
     const sp = String(S.marinade.bursts);
     if (d.sprinkles !== sp) d.sprinkles = sp;
+    const lft = lf.state, rem = String(S.fry.remaining), onPlate = String(S.birista.onPlate);
+    if (d.lift !== lft) d.lift = lft;
+    if (d.potRings !== rem) d.potRings = rem;
+    if (d.onPlate !== onPlate) d.onPlate = onPlate;
   }
 
   // ---------------------------------------------------------------- input
@@ -2455,6 +2633,7 @@ export function initFoodLab(root) {
     if (phase === "slice") updateBoard(dt);
     if (phase === "fry") updateFry(dt);
     if (phase === "marinate") updateMarinate(dt);
+    if (phase === "lift") updateLift(dt);
     updateView(dt);
     syncView();
     settleAll();
@@ -2480,10 +2659,12 @@ export function initFoodLab(root) {
     try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
     let step = null;
     try { step = new URLSearchParams(window.location.search).get("step"); } catch (e) {}
-    if (jump === "2" || step === "slice" || step === "fry" || step === "marinate") skipGather();
-    if (step === "slice" || step === "fry" || step === "marinate") skipLight();
-    if (step === "fry" || step === "marinate") skipSlice();
-    if (step === "marinate") skipFry();
+    const later2 = ["slice", "fry", "marinate", "lift"];
+    if (jump === "2" || later2.includes(step)) skipGather();
+    if (later2.includes(step)) skipLight();
+    if (step === "fry" || step === "marinate" || step === "lift") skipSlice();
+    if (step === "marinate" || step === "lift") skipFry();
+    if (step === "lift") skipMarinate();
     // Compile every material's shader now, while the loader is up, so nothing
     // stalls a frame the first time it appears mid-game.
     try { renderer.compile(S.scene, S.camera); renderer.compile(S.vm, S.camera); } catch (e) { console.error("[food-lab] warm-up", e); }
