@@ -127,7 +127,7 @@ export function floorCanvases(size = 1024) {
 // ---------------------------------------------------------------- plaster
 export function plasterCanvas(size = 512) {
   const n = makeNoise(5);
-  const A = hex(0xefe9de);
+  const A = hex(0xeee4d3);
   return paint(size, size, (x, y, o) => {
     const f = fbm(n, (x / size) * 16, (y / size) * 16, 16, 16, 4);
     const k = 0.965 + (f - 0.5) * 0.07;
@@ -199,10 +199,11 @@ export function woodCanvas(size = 512, light = 0xa3703f, dark = 0x6e4426, seed =
   const L = hex(light), D = hex(dark);
   return paint(size, size, (x, y, o) => {
     const u = x / size, v = y / size;
-    const warp = fbm(n, u * 4, v * 2, 4, 2, 4);
-    const rings = 0.5 + 0.5 * Math.sin((u * 14 + warp * 2.4) * Math.PI * 2);
-    const fine = n(u * 160, v * 6, 160, 6);
-    const k = clamp01(0.35 + rings * 0.45 + (fine - 0.5) * 0.35);
+    const warp = fbm(n, u * 3, v * 2, 3, 2, 4);
+    const rings = 0.5 + 0.5 * Math.sin((u * 24 + warp * 0.9) * Math.PI * 2);
+    const fine = fbm(n, u * 220, v * 4, 220, 4, 2);
+    const pores = n(u * 512, v * 48, 512, 48);
+    const k = clamp01(0.42 + rings * 0.22 + (fine - 0.5) * 0.55 + (pores - 0.5) * 0.12);
     for (let c = 0; c < 3; c++) o[c] = mix(D[c], L[c], k);
   });
 }
@@ -454,6 +455,36 @@ export function clockCanvas(size = 256) {
   return c;
 }
 
+// Soft darkening where walls meet the floor, ceiling and each other.
+// Canvas bottom = bottom of each wall face.
+export function wallAOCanvas(size = 256) {
+  const c = makeCanvas(size);
+  const x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(0, 0, size, size);
+  const g = (x0, y0, x1, y1, a) => {
+    const gr = x.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, `rgba(0,0,0,${a})`); gr.addColorStop(1, "rgba(0,0,0,0)");
+    return gr;
+  };
+  x.fillStyle = g(0, size, 0, size * 0.86, 0.5); x.fillRect(0, size * 0.86, size, size * 0.14);
+  x.fillStyle = g(0, 0, 0, size * 0.07, 0.32); x.fillRect(0, 0, size, size * 0.07);
+  x.fillStyle = g(0, 0, size * 0.06, 0, 0.38); x.fillRect(0, 0, size * 0.06, size);
+  x.fillStyle = g(size, 0, size * 0.94, 0, 0.38); x.fillRect(size * 0.94, 0, size * 0.06, size);
+  return c;
+}
+
+// Radial contact shadow that sits under objects so they don't float.
+export function blobCanvas(size = 128) {
+  const c = makeCanvas(size);
+  const x = c.getContext("2d");
+  const g = x.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(0,0,0,0.62)");
+  g.addColorStop(0.45, "rgba(0,0,0,0.32)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  return c;
+}
+
 // Build every shared texture once.
 export function makeTextures() {
   const floor = floorCanvases();
@@ -465,8 +496,10 @@ export function makeTextures() {
     subway: toTexture(sub.color),
     subwayBump: toTexture(sub.bump, { srgb: false }),
     granite: toTexture(graniteCanvas()),
-    oak: toTexture(woodCanvas(512, 0xb98a55, 0x7c5331, 17)),
-    teak: toTexture(woodCanvas(512, 0x9a6234, 0x5c341b, 19)),
+    oak: toTexture(woodCanvas(512, 0xc49c6b, 0x9f774a, 17)),
+    teak: toTexture(woodCanvas(512, 0x8a5b38, 0x603d25, 19)),
+    wallAO: toTexture(wallAOCanvas(), { srgb: false }),
+    blob: toTexture(blobCanvas(), { srgb: false }),
     brushed: toTexture(brushedCanvas()),
     burlap: toTexture(burlapCanvas()),
     wicker: toTexture(wickerCanvas()),

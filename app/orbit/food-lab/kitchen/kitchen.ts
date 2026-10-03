@@ -75,6 +75,39 @@ export const TABLE = {
   rice: [0.98, 0.0, 0.3, 0.4],
 };
 
+// Soft floor shading where furniture meets the floor (used as an aoMap).
+function floorAO() {
+  const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0;
+  const cw = 512, ch = Math.round((512 * D) / W);
+  const c = makeCanvas(cw, ch);
+  const x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(0, 0, cw, ch);
+  const px = (v) => ((v - ROOM.x0) / W) * cw, pz = (v) => ((v - ROOM.z0) / D) * ch;
+  const lin = (x0, y0, x1, y1, a) => {
+    const g = x.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, "rgba(0,0,0,0)");
+    return g;
+  };
+  const e = (0.3 / W) * cw;
+  x.fillStyle = lin(0, 0, e, 0, 0.35); x.fillRect(0, 0, e, ch);
+  x.fillStyle = lin(cw, 0, cw - e, 0, 0.35); x.fillRect(cw - e, 0, e, ch);
+  x.fillStyle = lin(0, 0, 0, e, 0.35); x.fillRect(0, 0, cw, e);
+  x.fillStyle = lin(0, ch, 0, ch - e, 0.35); x.fillRect(0, ch - e, cw, e);
+  const soft = (x0, x1, z0, z1, a, blur) => {
+    x.save();
+    x.shadowColor = `rgba(0,0,0,${a})`; x.shadowBlur = blur; x.fillStyle = `rgba(0,0,0,${a})`;
+    x.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));
+    x.restore();
+  };
+  soft(ROOM.x0, 0.95, ROOM.z0, -1.42, 0.6, 16);   // north counter toe-kick
+  soft(ROOM.x0, -1.72, -1.42, 0.85, 0.6, 16);     // west counter toe-kick
+  soft(1.07, 1.83, ROOM.z0, -1.34, 0.6, 14);      // fridge
+  soft(1.9, 2.26, -0.88, 0.18, 0.3, 18);          // pantry rack
+  soft(-0.5, 0.6, -0.02, 0.52, 0.28, 30);         // under the prep table
+  for (const [lx, lz] of [[-0.54, -0.05], [0.64, -0.05], [-0.54, 0.55], [0.64, 0.55]]) soft(lx - 0.025, lx + 0.025, lz - 0.025, lz + 0.025, 0.5, 10);
+  return toTexture(c, { srgb: false });
+}
+
 export function buildKitchen(M, T) {
   const root = new THREE.Group();
   const colliders = [];
@@ -94,13 +127,26 @@ export function buildKitchen(M, T) {
     return add(m, parent);
   };
   const place = (o, x, y, z, ry = 0) => { o.position.set(x, y, z); o.rotation.y = ry; return add(o); };
+  const blobMat = new THREE.MeshBasicMaterial({ map: T.blob, color: 0x000000, transparent: true, depthWrite: false });
+  const blob = (x, y, z, sx, sz = sx, strength = 1) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), strength === 1 ? blobMat : blobMat.clone());
+    if (strength !== 1) m.material.opacity = strength;
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y + 0.0015, z);
+    m.scale.set(sx, sz, 1);
+    m.renderOrder = 1;
+    return add(m);
+  };
 
   // ============================================================ ROOM SHELL
   const W = ROOM.x1 - ROOM.x0, D = ROOM.z1 - ROOM.z0, H = ROOM.h;
   const floorMat = M.floor.clone();
   floorMat.map = repeated(T.floor, W / 1.2, D / 1.2);
   floorMat.bumpMap = repeated(T.floorBump, W / 1.2, D / 1.2);
+  floorMat.aoMap = floorAO();
+  floorMat.aoMapIntensity = 1;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
+  floor.geometry.setAttribute("uv2", floor.geometry.attributes.uv);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   add(floor);
@@ -346,17 +392,22 @@ export function buildKitchen(M, T) {
   const wdz = (wz1 - wz0) / 3;
   for (let i = 0; i < 3; i++) {
     const z = wz0 + wdz * (i + 0.5);
-    rbox(0.02, 0.72, wdz - 0.006, 0.004, M.cabinetDoor, wx1 - 0.04 + 0.011, 0.48, z);
+    rbox(wdz - 0.006, 0.72, 0.02, 0.004, M.cabinetDoor, wx1 - 0.04 + 0.011, 0.48, z).rotation.y = Math.PI / 2;
     rbox(0.014, 0.012, 0.16, 0.005, M.chrome, wx1 - 0.04 + 0.033, 0.78, z);
   }
   rbox(0.64, 0.04, wz1 - wz0 + 0.01, 0.004, M.granite, wx0 + 0.32, CT - 0.02, (wz0 + wz1 + 0.01) / 2);
   place(P.buildTokri(M), -1.98, CT, -0.62);
+  blob(-1.98, CT, -0.62, 0.44);
   place(P.buildThaal(M), -1.99, CT, 0.19);
+  blob(-1.99, CT, 0.19, 0.3);
   colliders.push([ROOM.x0, wx1 + 0.02, wz0, wz1 + 0.02]);
 
   // steel plates and bowls on a wall shelf above
   box(0.25, 0.025, 1.6, M.teakShelf, ROOM.x0 + 0.125, 1.62, -0.3);
-  for (let i = 0; i < 4; i++) place(P.buildPlateOnEdge(M, 0.12), ROOM.x0 + 0.06, 1.6325, -0.95 + i * 0.07, Math.PI / 2);
+  place(P.buildPlateStack(M, 5, 0.11), ROOM.x0 + 0.13, 1.6325, -0.85);
+  blob(ROOM.x0 + 0.13, 1.6325, -0.85, 0.27);
+  place(P.buildTumbler(M), ROOM.x0 + 0.12, 1.6325, 0.32);
+  place(P.buildTumbler(M), ROOM.x0 + 0.13, 1.6325, 0.41);
   place(P.buildSteelBowl(M, 0.07), ROOM.x0 + 0.13, 1.6325, -0.3);
   place(P.buildSteelBowl(M, 0.06), ROOM.x0 + 0.13, 1.6325, -0.1);
   place(P.buildSteelBowl(M, 0.065), ROOM.x0 + 0.13, 1.6325, 0.12);
@@ -364,14 +415,16 @@ export function buildKitchen(M, T) {
   // ============================================================ PANTRY RACK (east wall)
   const rx0 = 1.88, rx1 = 2.28, rz0 = -0.9, rz1 = 0.2;
   for (const [x, z] of [[rx0 + 0.015, rz0 + 0.015], [rx1 - 0.015, rz0 + 0.015], [rx0 + 0.015, rz1 - 0.015], [rx1 - 0.015, rz1 - 0.015]]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.42, 12), M.steel);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.42, 12), M.steelBrushed);
     post.position.set(x, 0.71, z); post.castShadow = true; add(post);
   }
-  for (const y of [0.04, 0.45, 0.86, 1.27]) box(rx1 - rx0, 0.012, rz1 - rz0, M.steel, (rx0 + rx1) / 2, y, (rz0 + rz1) / 2);
+  for (const y of [0.04, 0.45, 0.86, 1.27]) box(rx1 - rx0, 0.012, rz1 - rz0, M.steelBrushed, (rx0 + rx1) / 2, y, (rz0 + rz1) / 2);
   place(P.buildGheeTin(M), 2.08, 0.866, -0.3, 0.4);
+  blob(2.08, 0.866, -0.3, 0.2);
   place(P.buildLentilJar(M, M.daalYellow), 2.08, 1.276, -0.72);
   place(P.buildLentilJar(M, M.daalRed), 2.08, 1.276, -0.46);
   place(P.buildLentilJar(M, M.daalGreen), 2.08, 1.276, -0.2);
+  for (const z of [-0.72, -0.46, -0.2]) blob(2.08, 1.276, z, 0.15);
   place(P.buildSteelBowl(M, 0.09), 2.08, 0.456, -0.55);
   place(P.buildSteelBowl(M, 0.07), 2.08, 0.456, -0.2);
   colliders.push([rx0 - 0.02, ROOM.x1, rz0 - 0.02, rz1 + 0.02]);
@@ -379,7 +432,8 @@ export function buildKitchen(M, T) {
 
   // ============================================================ PREP TABLE
   const tx0 = -0.6, tx1 = 0.7, tz0 = -0.11, tz1 = 0.61;
-  const tableTop = new THREE.Mesh(P.roundedBox(tx1 - tx0, 0.04, tz1 - tz0, 0.012), M.tableWood);
+  const tableTop = new THREE.Mesh(P.roundedBox(tz1 - tz0, 0.04, tx1 - tx0, 0.012), M.tableWood);
+  tableTop.rotation.y = Math.PI / 2;
   tableTop.position.set((tx0 + tx1) / 2, CT - 0.02, (tz0 + tz1) / 2);
   tableTop.castShadow = true; tableTop.receiveShadow = true;
   add(tableTop);
@@ -389,6 +443,8 @@ export function buildKitchen(M, T) {
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz0 + 0.06);
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz1 - 0.06);
   place(P.buildBoard(M), -0.36, CT, 0.43, 0.08);
+  blob(-0.36, CT, 0.43, 0.5, 0.34, 0.6);
+  blob(0.05, 0, 0.25, 1.5, 0.95, 0.35);
   colliders.push([tx0, tx1, tz0, tz1]);
 
   // ============================================================ SOUTH WALL: door and clock
@@ -428,8 +484,14 @@ export function buildKitchen(M, T) {
     obj.rotation.y = ry;
     obj.userData.interact = { type: "item", id: def.id };
     add(obj);
+    const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+    obj.userData.blob = blob(x, y, z, Math.max(size.x, size.z) * 1.35);
     items[def.id] = obj;
   }
+
+  root.traverse((m) => {
+    if (m.isMesh && (m.material === M.wall || m.material === M.ceiling)) m.geometry.setAttribute("uv2", m.geometry.attributes.uv);
+  });
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,

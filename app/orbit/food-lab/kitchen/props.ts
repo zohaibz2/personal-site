@@ -271,16 +271,16 @@ function herbBunch(M, kind) {
   const g = new THREE.Group();
   const isMint = kind === "mint";
   const r = rng(isMint ? 81 : 83);
-  const stems = isMint ? 9 : 13;
-  const leafGeometry = isMint ? leafGeo(0.026, 0.011, 0.25, 0.25, 0.25) : corianderGeo(0.009);
-  const count = isMint ? 72 : 120;
+  const stems = isMint ? 11 : 15;
+  const leafGeometry = isMint ? leafGeo(0.036, 0.016, 0.25, 0.25, 0.25) : corianderGeo(0.013);
+  const count = isMint ? 110 : 170;
   const leaves = new THREE.InstancedMesh(leafGeometry, isMint ? M.mint : M.coriander, count);
   const dummy = new THREE.Object3D();
   let n = 0;
   for (let s = 0; s < stems; s++) {
     const spread = (s / (stems - 1) - 0.5);
-    const end = new THREE.Vector3(0.15 + r() * 0.03, 0.012 + r() * 0.022, spread * 0.075 + (r() - 0.5) * 0.01);
-    const mid = new THREE.Vector3(0.07, 0.008 + r() * 0.008, spread * 0.03);
+    const end = new THREE.Vector3(0.18 + r() * 0.04, 0.016 + r() * 0.03, spread * 0.1 + (r() - 0.5) * 0.012);
+    const mid = new THREE.Vector3(0.08, 0.01 + r() * 0.01, spread * 0.04);
     const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.01, 0.006, spread * 0.008), mid, end]);
     g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.0013, 4, false), M.stem));
     const per = Math.floor(count / stems);
@@ -571,11 +571,17 @@ export function buildSteelBowl(M, r = 0.07) {
   return shadowed(g);
 }
 
-export function buildPlateOnEdge(M, r = 0.13) {
+export function buildPlateStack(M, n = 5, r = 0.12) {
   const g = new THREE.Group();
-  const p = mesh(lathe([[0.0001, 0], [r * 0.7, 0], [r, r * 0.12], [r * 0.98, r * 0.13], [r * 0.68, r * 0.03], [0.0001, r * 0.03]], 44), M.steel, 0, r, 0);
-  p.rotation.x = Math.PI / 2 - 0.12;
-  g.add(p);
+  const geo = lathe([[0.0001, 0], [r * 0.62, 0], [r * 0.7, 0.004], [r, r * 0.12], [r * 0.985, r * 0.13], [r * 0.68, r * 0.03 + 0.002], [0.0001, r * 0.03 + 0.002]], 48);
+  const rr = rng(97);
+  for (let i = 0; i < n; i++) g.add(mesh(geo, M.steel, (rr() - 0.5) * 0.006, i * 0.006, (rr() - 0.5) * 0.006));
+  return shadowed(g);
+}
+
+export function buildTumbler(M) {
+  const g = new THREE.Group();
+  g.add(mesh(lathe([[0.0001, 0], [0.03, 0], [0.032, 0.004], [0.036, 0.11], [0.034, 0.11], [0.03, 0.006], [0.0001, 0.006]], 36), M.steel));
   return shadowed(g);
 }
 

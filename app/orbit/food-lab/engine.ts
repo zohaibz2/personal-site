@@ -19,6 +19,7 @@ const LOC_ICONS = {
 const EYE = 1.62;
 const REACH = 2.3;
 const SLOT_R = 0.03;
+const BASKET_S = 0.88;
 const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -66,11 +67,40 @@ function roomEnvironment() {
   return scene;
 }
 
+// Soft environment shaped like this kitchen: the warm window to the north,
+// the tube light above and a gentle bounce elsewhere. It drives ambient light
+// and reflections, so it deliberately has no studio hot-spots.
+function kitchenEnvironment() {
+  const scene = new THREE.Scene();
+  const g = new THREE.BoxGeometry();
+  const room = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0xc9bca8, side: THREE.BackSide, roughness: 1 }));
+  room.scale.set(9, 5.5, 8); room.position.set(0, 2.75, 0);
+  scene.add(room);
+  const floor = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x8a7f70, roughness: 1 }));
+  floor.scale.set(9, 0.1, 8); floor.position.set(0, 0.05, 0);
+  scene.add(floor);
+  const fill = new THREE.PointLight(0xfff0dc, 1.4, 30, 2);
+  fill.position.set(0, 3.8, 0.5);
+  scene.add(fill);
+  const panel = (w, h, d, x, y, z, k, hex) => {
+    const m = new THREE.MeshBasicMaterial({ color: hex });
+    m.color.multiplyScalar(k);
+    const b = new THREE.Mesh(g, m);
+    b.scale.set(w, h, d); b.position.set(x, y, z);
+    scene.add(b);
+  };
+  panel(2.6, 2.2, 0.05, -1.6, 2.4, -3.95, 7, 0xffe2bd); // window
+  panel(2.4, 0.06, 0.25, 0, 5.4, -0.3, 5, 0xfff4e4);    // ceiling tube
+  panel(3, 2.2, 0.05, 1.3, 1.6, 3.95, 0.9, 0xf3e6d2);   // bounce off the south wall
+  return scene;
+}
+
 function makeMaterials(T) {
   const std = (o) => new THREE.MeshStandardMaterial(o);
   const phys = (o) => new THREE.MeshPhysicalMaterial(o);
   const clear = (o) => phys(Object.assign({ transparent: true, depthWrite: false, metalness: 0 }, o));
   T.plaster.repeat.set(3, 2);
+  T.brushed.repeat.set(3, 3);
   T.wicker.repeat.set(4, 1.5);
   T.burlap.repeat.set(2, 1);
   T.onion.repeat.set(2, 1);
@@ -78,8 +108,8 @@ function makeMaterials(T) {
   T.terracotta.repeat.set(3, 1);
   return {
     floor: std({ map: T.floor, bumpMap: T.floorBump, bumpScale: 0.0015, roughness: 0.3 }),
-    wall: std({ map: T.plaster, roughness: 0.92, envMapIntensity: 0.8 }),
-    ceiling: std({ color: 0xf3f0e9, roughness: 0.95, envMapIntensity: 0.7 }),
+    wall: std({ map: T.plaster, roughness: 0.92, envMapIntensity: 0.8, aoMap: T.wallAO, aoMapIntensity: 0.9 }),
+    ceiling: std({ color: 0xf3f0e9, roughness: 0.95, envMapIntensity: 0.7, aoMap: T.wallAO, aoMapIntensity: 0.7 }),
     skirting: std({ color: 0xd9d0c1, roughness: 0.6 }),
     frame: std({ color: 0xf1f0ec, roughness: 0.45 }),
     windowGlass: clear({ color: 0xffffff, roughness: 0.02, opacity: 0.07 }),
@@ -94,13 +124,14 @@ function makeMaterials(T) {
     boardWood: std({ map: T.oak, color: 0xf2e2c8, roughness: 0.6 }),
     doorWood: std({ map: T.teak, color: 0xd9c6b2, roughness: 0.55 }),
     chrome: std({ color: 0xffffff, metalness: 1, roughness: 0.12 }),
-    steel: std({ map: T.brushed, color: 0xdadcde, metalness: 1, roughness: 0.3 }),
+    steel: std({ color: 0xd9dbdd, metalness: 1, roughness: 0.22 }),
+    steelBrushed: std({ map: T.brushed, color: 0xd6d8da, metalness: 1, roughness: 0.34 }),
     aluminium: std({ color: 0xcfd1d3, metalness: 1, roughness: 0.38 }),
     tin: std({ color: 0xd4d6d8, metalness: 1, roughness: 0.3 }),
     brass: std({ color: 0xb48a3e, metalness: 1, roughness: 0.3 }),
     castIron: std({ color: 0x1b1b1b, metalness: 0.5, roughness: 0.6 }),
     knob: std({ color: 0x151515, roughness: 0.35 }),
-    granite: phys({ map: T.granite, roughness: 0.18, clearcoat: 0.6, clearcoatRoughness: 0.08 }),
+    granite: phys({ map: T.granite, roughness: 0.24, clearcoat: 0.3, clearcoatRoughness: 0.14 }),
     subway: std({ map: T.subway, bumpMap: T.subwayBump, bumpScale: 0.0012, roughness: 0.16 }),
     blackGlass: phys({ color: 0x050505, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.03 }),
     enamel: phys({ color: 0xf3f3f0, roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.1 }),
@@ -319,7 +350,7 @@ export function initFoodLab(root) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 0.92;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
@@ -346,18 +377,19 @@ export function initFoodLab(root) {
     S.K = K;
 
     // late-afternoon sun through the window
-    const sun = new THREE.DirectionalLight(0xffdcae, 2.4);
-    sun.position.set(-3.2, 4.4, -5.6);
-    sun.target.position.set(-0.4, 0.4, 0.2);
+    // a low sun, so the window throws a long warm streak across the prep table
+    const sun = new THREE.DirectionalLight(0xffd7a3, 3.0);
+    sun.position.set(-3.9, 2.65, -5.3);
+    sun.target.position.set(0.0, 0.9, 0.2);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
-    sc.left = -4; sc.right = 4; sc.top = 4; sc.bottom = -4; sc.near = 1; sc.far = 16;
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.02;
+    sc.left = -4; sc.right = 4; sc.top = 4; sc.bottom = -4; sc.near = 0.5; sc.far = 16;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.025;
     scene.add(sun, sun.target);
-    scene.add(new THREE.HemisphereLight(0xfff4e6, 0xb8a58c, 0.28));
-    const lamp = new THREE.PointLight(0xfff1df, 0.55, 7, 2);
+    scene.add(new THREE.HemisphereLight(0xfff4e6, 0xb8a58c, 0.15));
+    const lamp = new THREE.PointLight(0xfff1df, 0.45, 7, 2);
     lamp.position.set(0, 2.5, -0.3);
     scene.add(lamp);
 
@@ -372,16 +404,17 @@ export function initFoodLab(root) {
 
     // first-person basket, drawn in its own pass so it never clips into counters
     const vm = new THREE.Scene();
-    vm.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 0.55));
-    const vmKey = new THREE.DirectionalLight(0xffe6c4, 1.1);
+    vm.add(new THREE.HemisphereLight(0xfff4e6, 0x8a7a66, 0.35));
+    const vmKey = new THREE.DirectionalLight(0xffe6c4, 0.75);
     vmKey.position.set(-1, 2, 1);
     vm.add(vmKey);
     const vmRoot = new THREE.Group();
     vmRoot.matrixAutoUpdate = false;
     vm.add(vmRoot);
     const basket = buildHandBasket(M);
-    basket.position.set(0.25, -0.34, -0.58);
+    basket.position.set(0.27, -0.35, -0.6);
     basket.rotation.set(0.42, -0.25, 0.05);
+    basket.scale.setScalar(BASKET_S);
     vmRoot.add(basket);
     S.vm = vm; S.vmRoot = vmRoot; S.basket = basket;
 
@@ -404,7 +437,7 @@ export function initFoodLab(root) {
 
   function setupEnvAndThumbs() {
     const pmrem = new THREE.PMREMGenerator(renderer);
-    envRT = pmrem.fromScene(roomEnvironment(), 0.04);
+    envRT = pmrem.fromScene(kitchenEnvironment(), 0.04);
     pmrem.dispose();
     S.scene.environment = envRT.texture;
     S.vm.environment = envRT.texture;
@@ -434,13 +467,13 @@ export function initFoodLab(root) {
     tr.setSize(128, 128, false);
     tr.outputEncoding = THREE.sRGBEncoding;
     tr.toneMapping = THREE.ACESFilmicToneMapping;
-    tr.toneMappingExposure = 1.05;
+    tr.toneMappingExposure = 1.15;
     tr.setClearColor(0x000000, 0);
     const pm = new THREE.PMREMGenerator(tr);
     const env = pm.fromScene(roomEnvironment(), 0.04);
     const ts = new THREE.Scene();
     ts.environment = env.texture;
-    const key = new THREE.DirectionalLight(0xffffff, 1.3);
+    const key = new THREE.DirectionalLight(0xffffff, 1.5);
     key.position.set(1, 2, 1.5);
     ts.add(key);
     ts.add(new THREE.HemisphereLight(0xffffff, 0x6f665c, 0.35));
@@ -635,9 +668,9 @@ export function initFoodLab(root) {
     swayPitch += (pitch - lastPitch - swayPitch) * 0.2;
     lastYaw = yaw; lastPitch = pitch;
     basket.position.set(
-      0.25 + Math.sin(bobPhase * 0.5) * 0.006 + clamp(swayYaw, -0.05, 0.05) * 0.4,
-      -0.34 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3,
-      -0.58
+      0.27 + Math.sin(bobPhase * 0.5) * 0.006 + clamp(swayYaw, -0.05, 0.05) * 0.4,
+      -0.35 + Math.abs(Math.cos(bobPhase * 0.5)) * 0.006 - clamp(swayPitch, -0.05, 0.05) * 0.3,
+      -0.6
     );
     S.vm.updateMatrixWorld();
   }
@@ -720,6 +753,7 @@ export function initFoodLab(root) {
     const id = o.userData.interact.id, st = S.items[id];
     if (!st || st.collected || st.flying) return;
     st.flying = true;
+    if (o.userData.blob) o.userData.blob.visible = false;
     glowItem(o, 0);
     setHover(null);
     S.pickables.splice(S.pickables.indexOf(o), 1);
@@ -737,7 +771,7 @@ export function initFoodLab(root) {
       o.position.lerpVectors(startP, tp, e);
       o.position.y += Math.sin(Math.PI * k) * 0.12;
       o.quaternion.copy(startQ).slerp(tq, e);
-      o.scale.setScalar(1 + (scaleTo - 1) * e);
+      o.scale.setScalar(1 + (scaleTo * BASKET_S - 1) * e);
       shadowsDirty = true;
     }, () => {
       S.basket.attach(o);
@@ -784,6 +818,8 @@ export function initFoodLab(root) {
       o.scale.setScalar(s0 + (1 - s0) * e);
       shadowsDirty = true;
     }, () => {
+      const b = o.userData.blob;
+      if (b) { b.position.set(x, y + 0.0015, z); b.visible = true; }
       Sound.place();
       if (++placed === ITEMS.length) finish();
     });
