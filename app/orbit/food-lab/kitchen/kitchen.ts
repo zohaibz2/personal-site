@@ -461,7 +461,11 @@ export function buildKitchen(M, T) {
   }
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz0 + 0.06);
   box(tx1 - tx0 - 0.12, 0.08, 0.02, M.tableWood, (tx0 + tx1) / 2, CT - 0.08, tz1 - 0.06);
-  place(P.buildBoard(M), -0.36, CT, 0.43, 0.08);
+  const board = place(P.buildBoard(M), -0.36, CT, 0.43, 0.08);
+  // the knife rests along the back of the board (board top is 0.024 up)
+  const knife = P.buildKnife(M);
+  knife.position.set(-0.08, 0.024, -0.09);
+  board.add(knife);
   blob(-0.36, CT, 0.43, 0.5, 0.34, 0.6);
   blob(0.05, 0, 0.25, 1.5, 0.95, 0.35);
   colliders.push([tx0, tx1, tz0, tz1]);
@@ -514,7 +518,7 @@ export function buildKitchen(M, T) {
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,
-    knobs, burners, lighter,
+    knobs, burners, lighter, board, knife,
     card: { mesh: card, canvas: cardCanvas, texture: cardTex },
     window: { x0: WX0, x1: WX1, y0: WY0, y1: WY1 },
   };

@@ -70,6 +70,10 @@ export default function FoodLab() {
             <path d="M18.5 9.5A7.5 7.5 0 0 0 6.2 6.6" />
             <path d="M6 3.5v3.3h3.3" />
           </svg>
+          <svg className="i-cut" viewBox="0 0 24 24" {...icon}>
+            <path d="M4 20l9.6-9.6 2.6 2.6-3.4 3.4C10.3 18.9 7.2 20 4 20z" />
+            <path d="M13.6 10.4l4.6-4.6a1.6 1.6 0 0 1 2.3 2.3L15.9 12.7" />
+          </svg>
           <svg className="i-spark" viewBox="0 0 24 24" {...icon}>
             <path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.8 2.8M15.2 15.2L18 18M18 6l-2.8 2.8M8.8 15.2L6 18" />
           </svg>

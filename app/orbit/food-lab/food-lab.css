@@ -99,7 +99,7 @@
 }
 .food-lab .fl-reticle svg { position: absolute; left: 9px; top: 9px; width: 20px; height: 20px; color: #fff; opacity: 0; transition: opacity 0.15s; }
 .food-lab .fl-reticle.grab .i-grab, .food-lab .fl-reticle.door .i-door, .food-lab .fl-reticle.place .i-place,
-.food-lab .fl-reticle.turn .i-turn, .food-lab .fl-reticle.spark .i-spark { opacity: 1; }
+.food-lab .fl-reticle.turn .i-turn, .food-lab .fl-reticle.spark .i-spark, .food-lab .fl-reticle.cut .i-cut { opacity: 1; }
 .food-lab.touch .fl-reticle { display: none; }
 
 /* ---------- touch joystick ---------- */

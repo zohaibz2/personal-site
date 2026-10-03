@@ -526,13 +526,20 @@ export function buildDegchi(M) {
 export function buildBoard(M) {
   const g = new THREE.Group();
   g.add(mesh(roundedBox(0.42, 0.024, 0.27, 0.01), M.boardWood, 0, 0.012, 0));
+  return shadowed(g);
+}
+
+// Kitchen knife lying flat. Origin is where the blade meets the handle, on
+// the surface; the blade runs along +x with its edge at z = 0 and the spine
+// at z = -0.04, and the handle runs along -x.
+export function buildKnife(M) {
+  const g = new THREE.Group();
   const blade = new THREE.Shape();
   blade.moveTo(0, 0); blade.lineTo(0.17, 0); blade.quadraticCurveTo(0.2, 0.002, 0.205, 0.035); blade.lineTo(0, 0.04); blade.lineTo(0, 0);
-  const b = mesh(new THREE.ExtrudeGeometry(blade, { depth: 0.0018, bevelEnabled: false }), M.knife, -0.04, 0.0262, 0.06);
+  const b = mesh(new THREE.ExtrudeGeometry(blade, { depth: 0.0018, bevelEnabled: false }), M.knife, 0, 0.0022, 0);
   b.rotation.x = -Math.PI / 2;
   g.add(b);
-  const handle = mesh(roundedBox(0.11, 0.016, 0.024, 0.006), M.knifeHandle, -0.096, 0.032, 0.04);
-  g.add(handle);
+  g.add(mesh(roundedBox(0.11, 0.016, 0.024, 0.006), M.knifeHandle, -0.056, 0.008, -0.02));
   return shadowed(g);
 }
 
