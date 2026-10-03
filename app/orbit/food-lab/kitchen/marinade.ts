@@ -95,6 +95,9 @@ export function buildMarinade(M) {
   };
   const dahiMat = M.dahi, gingerMat = new THREE.MeshStandardMaterial({ color: 0xd9b56e, roughness: 0.7 }), garlicMat = new THREE.MeshStandardMaterial({ color: 0xf0e6cc, roughness: 0.6 });
   const POWDER = { redChilli: M.powderRed, haldi: M.powderHaldi, salt: M.powderSalt, masala: M.powderGaram };
+  // hidden stand-ins, so the engine's warm-up compiles the paste materials at
+  // load instead of stalling a frame the first time one goes in
+  for (const mat of [gingerMat, garlicMat]) { const w = new THREE.Mesh(sphere, mat); w.visible = false; root.add(w); }
 
   // ---- powder stream while a jar is tipped over the bowl
   const dotMats = {};

@@ -2453,6 +2453,9 @@ export function initFoodLab(root) {
     if (step === "slice" || step === "fry" || step === "marinate") skipLight();
     if (step === "fry" || step === "marinate") skipSlice();
     if (step === "marinate") skipFry();
+    // Compile every material's shader now, while the loader is up, so nothing
+    // stalls a frame the first time it appears mid-game.
+    try { renderer.compile(S.scene, S.camera); renderer.compile(S.vm, S.camera); } catch (e) { console.error("[food-lab] warm-up", e); }
     ui.loading.classList.add("hide");
     ui.start.classList.remove("hide");
     last = performance.now();

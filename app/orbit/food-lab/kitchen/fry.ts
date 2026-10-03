@@ -79,6 +79,11 @@ export function buildFry(M) {
   const ringMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.4, clearcoat: 0.5, clearcoatRoughness: 0.3, side: THREE.DoubleSide });
   const meshes = [geos.slice, geos.loose].map((g) => {
     const m = new THREE.InstancedMesh(g, ringMat, MAX_RINGS);
+    // Both groups share ringMat, and three.js compiles that material with
+    // per-instance colours as soon as one of them has them; a group without
+    // its own colour list then crashes the whole frame mid-draw. So each
+    // group gets a full, white colour list from the start.
+    m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_RINGS * 3).fill(1), 3);
     m.count = 0; m.frustumCulled = false; m.receiveShadow = true;
     root.add(m);
     return m;
