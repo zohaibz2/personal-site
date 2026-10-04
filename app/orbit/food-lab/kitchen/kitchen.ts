@@ -280,6 +280,10 @@ export function buildKitchen(M, T) {
   // a steel plate on the counter between the sink and the hob, for the birista
   // (2 mm up so its flat bottom doesn't flicker through the counter)
   const plate = place(P.buildPlate(M), -1.08, CT + 0.002, -1.72, 0);
+  // the rice pot waits at the far right of the counter; the colander on the
+  // counter left of the sink (both 2 mm up, off the granite)
+  const pateela = place(P.buildPateela(M), 0.72, CT + 0.002, -1.72, 0);
+  const colander = place(P.buildColander(M), -2.06, CT + 0.002, -1.68, 0);
   // the kafgir rests on the counter between the hob and the spice cupboard
   const kafgir = place(P.buildKafgir(M), -0.13, CT + 0.003, -1.86, 0); // lies flat; the handle's underside just touches
 
@@ -535,7 +539,7 @@ export function buildKitchen(M, T) {
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,
-    knobs, burners, lighter, board, knife, degchi, kafgir, mixBowl, spoon, plate,
+    knobs, burners, lighter, board, knife, degchi, kafgir, mixBowl, spoon, plate, pateela, colander,
     card: { mesh: card, canvas: cardCanvas, texture: cardTex },
     window: { x0: WX0, x1: WX1, y0: WY0, y1: WY1 },
   };

@@ -12,7 +12,8 @@
 // marinate the chicken: bring the bowl, add eight ingredients, and mix.
 // Stage 3 (cook) starts by lifting the birista out of the oil onto a plate,
 // then the korma: whole spices, vegetables and the marinated chicken go into
-// the oil, and it's stirred until the masala darkens and the oil separates.
+// the oil, and it's stirred until the masala darkens and the oil separates;
+// then the rice is parboiled in a second pot and drained into a colander.
 // No text anywhere: the HUD is pictures, and guidance is a soft glow
 // on the next thing to use.
 //
@@ -20,9 +21,11 @@
 // unloaded on the prep table; ?step=slice also has the stove already lit;
 // ?step=fry also has the onions sliced on the board; ?step=marinate also has
 // the birista fried; ?step=lift starts Stage 3 with the chicken marinated;
-// ?step=korma also has the birista on its plate.
+// ?step=korma also has the birista on its plate; ?step=rice also has the
+// korma cooked.
 // root.dataset (phase, stove, gas, hold, cut, slices, view, fry, oil,
-// brown, burnt, pot, mar, added, mix, sprinkles, lift, korma, kadded, cook) mirrors the game state
+// brown, burnt, pot, mar, added, mix, sprinkles, lift, korma, kadded, cook,
+// rice, riceCook) mirrors the game state
 // for the test kit; it is never shown on screen.
 import * as THREE from "three";
 import { makeTextures } from "./kitchen/textures";
@@ -34,6 +37,7 @@ import { buildFry, OIL_TARGET, SPOON_R } from "./kitchen/fry";
 import { buildMarinade } from "./kitchen/marinade";
 import { buildBirista } from "./kitchen/birista";
 import { buildKorma } from "./kitchen/korma";
+import { buildRice } from "./kitchen/rice";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -430,6 +434,10 @@ export function initFoodLab(root) {
     plop() { this.tone(170, 0.09, 0.07, "sine", 0, -60); this.noise(0.06, 500, 1, 0.05, "lowpass"); },
     shake() { this.noise(0.05, 5600, 1, 0.05, "highpass"); this.noise(0.035, 2600, 1.5, 0.025, "bandpass", 0.01); },
     squelch() { this.noise(0.09, 450 + Math.random() * 300, 1.4, 0.06, "lowpass"); this.noise(0.04, 1500, 2, 0.015, "bandpass", 0.03); },
+    // the rice
+    tap() { this.noise(2.0, 1400, 0.5, 0.05, "bandpass"); this.noise(2.0, 500, 0.7, 0.03, "lowpass"); },
+    pourRice() { this.noise(1.2, 5200, 0.6, 0.05, "highpass"); this.noise(1.2, 2200, 0.8, 0.025, "bandpass"); },
+    drain() { this.noise(1.1, 900, 0.6, 0.09, "bandpass"); this.noise(1.1, 300, 0.7, 0.05, "lowpass"); },
     thud() { this.noise(0.02, 1500 + Math.random() * 500, 1.5, 0.025, "bandpass"); },
     // One looping noise source feeds two voices: the hiss of raw gas and the
     // low roar of a burning flame. Levels are set with gasSet(hiss, roar).
@@ -658,6 +666,23 @@ export function initFoodLab(root) {
     // the korma, cooked in the same degchi
     S.korma = buildKorma(M);
     deg.add(S.korma.root);
+    // the rice: its pot, the colander, the second burner's flame, a water stream
+    S.rice = buildRice(M);
+    K.pateela.add(S.rice.pot);
+    K.colander.add(S.rice.col);
+    K.pateela.userData.interact = { type: "ricepot" };
+    S.pateela = { obj: K.pateela, mats: glowMats(K.pateela.children[0]), home: K.pateela.position.clone() };
+    S.colander = { obj: K.colander, home: K.colander.position.clone() };
+    S.flame2 = buildBurnerFlame(K.burners[1]); // its light is created now, at zero, like the first
+    scene.add(S.flame2.root);
+    const streamGeo = new THREE.CylinderGeometry(0.0045, 0.006, 1, 8, 1, true);
+    streamGeo.translate(0, -0.5, 0);
+    const waterTint = M.liquidOil.clone();
+    waterTint.color.setRGB(0.85, 0.92, 1.0);
+    S.waterStream = new THREE.Mesh(streamGeo, waterTint);
+    S.waterStream.add(new THREE.Mesh(streamGeo, M.oilGloss));
+    S.waterStream.visible = false;
+    scene.add(S.waterStream);
     scene.add(S.fry.stream);
     S.kafgir = { obj: K.kafgir, home: K.kafgir.position.clone(), homeQ: K.kafgir.quaternion.clone(), moved: false };
     S.plate = K.plate;
@@ -962,7 +987,7 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
-  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", bowl: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
+  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", bowl: "grab", ricepot: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
@@ -985,12 +1010,14 @@ export function initFoodLab(root) {
     else if (it.type === "item" && phase === "fry") { if (it.id === "oil") startPourView(); }
     else if (it.type === "item" && phase === "marinate") { if (MAR.includes(it.id)) addIngredient(it.id); }
     else if (it.type === "item" && phase === "korma") addKorma(it.id);
+    else if (it.type === "item" && phase === "rice") { if (it.id === "salt") saltRice(); else if (it.id === "rice") pourRiceSack(); }
     else if (it.type === "item") collect(o);
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
     else if (it.type === "lighter") takeTool("lighter");
     else if (it.type === "knife") { if (phase === "fry") startTip(); else enterBoard(); }
     else if (it.type === "pot") potClick();
+    else if (it.type === "ricepot") ricePotClick();
     else if (it.type === "board") startTip();
     else if (it.type === "bowl") { if (phase === "korma") addKorma("chicken"); else if (mr.state === "bowl") bringBowl(); else openBowl(); }
     else if (it.type === "knob") knobClick();
@@ -1183,6 +1210,10 @@ export function initFoodLab(root) {
   // lit, the knob again until the flame is turned down to a steady burn.
   function guideTarget() {
     if (phase === "lift") return lf.done || view.mode ? null : "potLit";
+    if (phase === "rice") {
+      if (rc.done || rc.busy || view.mode) return null;
+      return { pot: "pateela", salt: "r_salt", rice: "r_rice", ready: "riceOn" }[rc.state] || null;
+    }
     if (phase === "korma") {
       if (km.done || view.mode || km.busy) return null;
       if (km.state === "cook") return "potLit";
@@ -1222,6 +1253,11 @@ export function initFoodLab(root) {
     set(S.knife.mats, board.on ? 0 : hovered(S.knife.obj) ? hk : target === "knife" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "slice" && !ob.started) set(S.onions.mats, hovered(S.onions.obj) ? hk : target === "onions" ? 0.08 + 0.14 * pulse : 0);
     if (phase === "lift") set(S.degchi.mats, hovered(S.degchi.obj) ? 0.22 + 0.14 * Math.sin(time * 6) : target === "potLit" ? 0.08 + 0.14 * pulse : 0);
+    if (phase === "rice") {
+      const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
+      set(S.pateela.mats, hovered(S.pateela.obj) ? hk : glow(target === "pateela" || target === "riceOn"));
+      for (const id of ["salt", "rice"]) set(S.items[id].mats, hovered(S.items[id].obj) ? hk : glow(target === "r_" + id));
+    }
     if (phase === "korma") {
       const glow = (on) => (on ? 0.08 + 0.14 * pulse : 0);
       set(S.degchi.mats, hovered(S.degchi.obj) ? hk : glow(target === "potLit"));
@@ -2622,6 +2658,7 @@ export function initFoodLab(root) {
     if (ui.mix) ui.mix.classList.remove("show");
     dropPick(S.degchi.obj);
     later(exitStove, 1500);
+    later(enterRice, 2200);
   }
 
   const kmP = new THREE.Vector3(), kmQ = new THREE.Quaternion(), kmE = new THREE.Euler();
@@ -2673,6 +2710,274 @@ export function initFoodLab(root) {
     dropPick(S.degchi.obj);
     setStep("lift", "got");
     enterKorma();
+  }
+
+  // ================================================================ STAGE 3, STEP 3: PARBOIL THE RICE
+  // The pateela is filled at the tap and put on the second burner, which is
+  // lit for you. Salt goes into the boiling water, then the rice is poured in
+  // from the sack. It boils, the grains turning white and swelling; at about
+  // 70% the pot glows: take it off and drain it into the colander in the sink.
+  // Left longer it still works, but goes soft.
+  const RICE_BOIL_S = 16, RICE_READY = 0.7, WATER = 0.11;
+  const rc = { state: "none", heat: 0, cook: 0, lit: false, potOn: false, done: false, busy: false, soft: false };
+  const SINK_SPOT = new THREE.Vector3(-1.55, 0.723, -1.70);   // in the sink, under the spout
+  const COLANDER_SPOT = new THREE.Vector3(-1.55, 0.723, -1.68);
+  const LID_ASIDE = new THREE.Vector3(0.3, COUNTER_TOP + 0.002, -1.66);
+  const riceBurner = () => new THREE.Vector3(S.K.burners[1].x, S.potHome.y, S.K.burners[1].z);
+
+  function enterRice() {
+    if (phase === "rice") return;
+    phase = "rice";
+    setStep("rice", "now");
+    rc.state = "pot";
+    const hp = S.pateela.obj.position, b = riceBurner();
+    S.hintSpots.pateela = [hp.x, COUNTER_TOP + 0.003, hp.z, 0.4];
+    S.hintSpots.riceOn = [b.x, COUNTER_TOP + 0.0125, b.z, 0.45];
+    for (const id of ["salt", "rice"]) { const o = S.items[id].obj; S.hintSpots["r_" + id] = [o.position.x, o.position.y + 0.002, o.position.z, id === "rice" ? 0.5 : 0.22]; }
+    addPick(S.pateela.obj);
+  }
+
+  // move an object along an arc to a point (world), then call `then`
+  const carry = (o, to, dur, lift, then) => {
+    const from = o.position.clone();
+    tween(dur, (k) => { o.position.lerpVectors(from, to, ease(k)); o.position.y += Math.sin(Math.PI * k) * lift; shadowsDirty = true; }, then);
+  };
+
+  // Click the pot: to the tap, filled, onto the burner, which is lit.
+  function fillAndLight() {
+    rc.state = "filling";
+    dropPick(S.pateela.obj);
+    const pot = S.pateela.obj, lid = S.degchi.obj.userData.lid;
+    Sound.pick();
+    carry(pot, SINK_SPOT, 1.2, 0.5, () => { // high enough to pass over the degchi (checked)
+      // the tap runs and the pot fills
+      const spout = new THREE.Vector3(-1.55, COUNTER_TOP + 0.23, -1.73);
+      Sound.tap();
+      tween(2.0, (k) => {
+        S.rice.setLevel(WATER * k);
+        setStreamBetween(spout, pot.position.y + 0.002 + WATER * k);
+      }, () => {
+        setStreamBetween(null);
+        // the degchi's lid makes way, the pot goes onto the burner
+        carry(lid, LID_ASIDE, 0.6, 0.15, () => Sound.clank());
+        later(() => carry(pot, riceBurner(), 1.3, 0.45, () => {
+          Sound.place();
+          rc.potOn = true;
+          lightRiceBurner();
+        }), 400);
+      });
+    });
+  }
+
+  // The second knob turns and the lighter comes over and lights it.
+  function lightRiceBurner() {
+    const knob = S.K.knobs[1].pivot, L = S.lighter.obj, b = S.K.burners[1];
+    tween(0.4, (k) => { knob.rotation.y = KNOB_MAX * 0.62 * ease(k); }, () => {
+      Sound.gasSet(0.03, 0);
+      S.scene.attach(L);
+      const p0 = L.position.clone(), q0 = L.quaternion.clone();
+      // reached in from the side, under the pot's edge: the nozzle tip ends
+      // up just outside the pot (radius 0.156), below its base (checked)
+      const ol = Math.hypot(0.96, 0.27), out = { x: 0.96 / ol, y: 0.27 / ol };
+      const at = new THREE.Vector3(b.x + out.x * 0.29, COUNTER_TOP + 0.013, b.z + out.y * 0.29);
+      const aim = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(out.y, -out.x), 0)); // nozzle pointing at the burner
+      tween(0.6, (k) => { L.position.lerpVectors(p0, at, ease(k)); L.position.y += Math.sin(Math.PI * k) * 0.1; L.quaternion.copy(q0).slerp(aim, ease(k)); shadowsDirty = true; }, () => {
+        Sound.click();
+        later(() => {
+          S.flame2.spark();
+          Sound.spark();
+          S.flame2.ignite(0.3);
+          Sound.whoomph(0.3);
+          rc.lit = true;
+          rc.state = "heat";
+          // and the lighter goes back where it was
+          tween(0.6, (k) => { L.position.lerpVectors(at, p0, ease(k)); L.position.y += Math.sin(Math.PI * k) * 0.1; L.quaternion.copy(aim).slerp(q0, ease(k)); shadowsDirty = true; }, () => {
+            S.lighter.parent.attach(L);
+            L.position.copy(S.lighter.home);
+            L.rotation.set(0, S.lighter.homeRy, 0);
+          });
+        }, 120);
+      });
+    });
+  }
+
+  // salt is shaken over the boiling water
+  function saltRice() {
+    if (rc.state !== "salt" || rc.busy) return;
+    rc.busy = true;
+    const o = S.items.salt.obj;
+    dropPick(o);
+    for (const m of S.items.salt.mats) m.emissiveIntensity = 0;
+    const b = riceBurner();
+    shakeOver(o, new THREE.Vector3(b.x + 0.1, b.y + 0.36, b.z), 1.75, (mouth) => {}, () => {
+      rc.busy = false;
+      rc.state = "rice";
+      addPick(S.items.rice.obj);
+    });
+  }
+
+  // The rice sack comes over from the front, tips, and pours the rice in.
+  function pourRiceSack() {
+    if (rc.state !== "rice" || rc.busy) return;
+    rc.busy = true;
+    const o = S.items.rice.obj;
+    dropPick(o);
+    for (const m of S.items.rice.mats) m.emissiveIntensity = 0;
+    const blob = o.userData.blob;
+    if (blob) blob.visible = false;
+    const home = o.position.clone(), homeQ = o.quaternion.clone(), b = riceBurner();
+    // held in front of the stove; tipped back over the pot (its mouth, 0.5 m
+    // up the sack, ends up 0.36 m over the middle of the pot)
+    const over = new THREE.Vector3(b.x, b.y + 0.52, b.z + 0.47);
+    // lifted straight up first, clear of the table, then carried over (checked)
+    const up = new THREE.Vector3(home.x, 1.25, home.z);
+    const tipQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.9, 0, 0));
+    tween(0.4, (k) => { o.position.lerpVectors(home, up, ease(k)); shadowsDirty = true; }, () => tween(0.8, (k) => { o.position.lerpVectors(up, over, ease(k)); o.position.y += Math.sin(Math.PI * k) * 0.1; o.quaternion.copy(homeQ).slerp(new THREE.Quaternion(), ease(k)); shadowsDirty = true; }, () => {
+      tween(0.5, (k) => { o.quaternion.copy(new THREE.Quaternion()).slerp(tipQ, ease(k)); shadowsDirty = true; }, () => {
+        o.updateMatrixWorld(true);
+        const mouth = o.localToWorld(new THREE.Vector3(0, 0.5, 0)).sub(S.pateela.obj.position);
+        S.rice.pourIn(mouth);
+        Sound.pourRice();
+        later(() => {
+          tween(0.5, (k) => { o.quaternion.copy(tipQ).slerp(homeQ, ease(k)); shadowsDirty = true; }, () => {
+            tween(0.8, (k) => { o.position.lerpVectors(over, up, ease(k)); o.position.y += Math.sin(Math.PI * k) * 0.1; o.quaternion.copy(new THREE.Quaternion()).slerp(homeQ, ease(k)); shadowsDirty = true; }, () => tween(0.4, (k) => { o.position.lerpVectors(up, home, ease(k)); shadowsDirty = true; }, () => {
+              if (blob) blob.visible = true;
+              Sound.place();
+              rc.busy = false;
+              rc.state = "boil";
+            }));
+          });
+        }, 1300);
+      });
+    }));
+  }
+
+  // Off the heat and into the colander in the sink: the water pours away and
+  // the rice stays behind.
+  function drainRice() {
+    if (rc.state !== "ready" || rc.busy) return;
+    rc.busy = true;
+    rc.state = "drain";
+    dropPick(S.pateela.obj);
+    const pot = S.pateela.obj, colander = S.colander.obj, knob = S.K.knobs[1].pivot;
+    // gas off first
+    tween(0.4, (k) => { knob.rotation.y = KNOB_MAX * 0.62 * (1 - ease(k)); }, () => { rc.lit = false; Sound.puff(); Sound.gasSet(0, 0); });
+    carry(colander, COLANDER_SPOT, 0.8, 0.25, () => {
+      Sound.place();
+      rc.potOn = false;
+      // the pot is held beside the colander and tipped towards it: its rim
+      // (0.178 up) ends up over the colander's middle
+      const over = new THREE.Vector3(COLANDER_SPOT.x + 0.168, COLANDER_SPOT.y + 0.28, COLANDER_SPOT.z); // tipped, its rim stays above the colander (checked)
+      carry(pot, over, 1.2, 0.4, () => {
+        const tipQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 1.9));
+        tween(0.5, (k) => { pot.quaternion.copy(new THREE.Quaternion()).slerp(tipQ, ease(k)); shadowsDirty = true; }, () => {
+          pot.updateMatrixWorld(true);
+          const mouthW = pot.localToWorld(new THREE.Vector3(0, 0.178, 0));
+          S.rice.drainTo(colander.worldToLocal(mouthW.clone()));
+          Sound.drain();
+          tween(1.0, (k) => {
+            S.rice.setLevel(WATER * (1 - k));
+            setStreamBetween(k < 0.95 ? mouthW : null, COLANDER_SPOT.y + 0.03);
+          }, () => {
+            setStreamBetween(null);
+            tween(0.5, (k) => { pot.quaternion.copy(tipQ).slerp(new THREE.Quaternion(), ease(k)); shadowsDirty = true; }, () => {
+              carry(pot, S.pateela.home, 1.2, 0.3, () => {
+                Sound.place();
+                rc.busy = false;
+                riceDone();
+              });
+            });
+          });
+        });
+      });
+    });
+  }
+
+  function riceDone() {
+    rc.done = true;
+    rc.state = "done";
+    Sound.stepDone();
+    setStep("rice", "got");
+  }
+
+  // A jar held over a point and shaken a few times (like the spices).
+  function shakeOver(o, overW, tilt, onPuff, done) {
+    const home = o.position.clone(), homeQ = o.quaternion.clone();
+    const lid = o.children[2];
+    const tiltQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, tilt)), upQ = new THREE.Quaternion();
+    const axis = new THREE.Vector3(-Math.sin(tilt), Math.cos(tilt), 0);
+    tween(0.7, (k) => { o.position.lerpVectors(home, overW, ease(k)); o.position.y += Math.sin(Math.PI * k) * 0.15; o.quaternion.copy(homeQ).slerp(upQ, ease(k)); shadowsDirty = true; }, () => {
+      if (lid) lid.visible = false;
+      tween(0.35, (k) => { o.quaternion.copy(upQ).slerp(tiltQ, ease(k)); }, () => {
+        let prev = 0;
+        tween(1.0, (k) => {
+          const s = Math.sin(k * Math.PI * 2 * 4);
+          o.position.copy(overW).addScaledVector(axis, s * 0.014);
+          if (prev >= 0 && s < 0) { Sound.shake(); onPuff(); }
+          prev = s;
+          shadowsDirty = true;
+        }, () => {
+          tween(0.3, (k) => { o.quaternion.copy(tiltQ).slerp(upQ, ease(k)); }, () => {
+            if (lid) lid.visible = true;
+            tween(0.7, (k) => { o.position.lerpVectors(overW, home, ease(k)); o.position.y += Math.sin(Math.PI * k) * 0.15; o.quaternion.copy(upQ).slerp(homeQ, ease(k)); shadowsDirty = true; }, () => { Sound.place(); done(); });
+          });
+        });
+      });
+    });
+  }
+
+  // a thin stream of water from `top` straight down to height `bottomY`
+  function setStreamBetween(top, bottomY) {
+    const st = S.waterStream;
+    if (!top) { st.visible = false; return; }
+    st.visible = true;
+    st.position.copy(top);
+    st.scale.set(1, Math.max(0.01, top.y - bottomY), 1);
+  }
+
+  function ricePotClick() {
+    if (rc.state === "pot") fillAndLight();
+    else if (rc.state === "ready") drainRice();
+  }
+
+  function updateRice(dt) {
+    if (rc.state === "heat") {
+      rc.heat = Math.min(1, rc.heat + dt / 3);
+      if (rc.heat >= 1) { rc.state = "salt"; addPick(S.items.salt.obj); }
+    }
+    if (rc.state === "boil" || rc.state === "ready") {
+      if (!S.rice.falling) rc.cook = Math.min(1.3, rc.cook + dt / RICE_BOIL_S);
+      S.rice.setCook(rc.cook);
+      if (rc.state === "boil" && rc.cook >= RICE_READY) { rc.state = "ready"; addPick(S.pateela.obj); Sound.stepDone(); }
+      if (rc.cook > 1) rc.soft = true;
+    }
+    const boiling = rc.lit ? (rc.state === "heat" ? 0.3 * rc.heat : 1) : 0;
+    S.rice.setBoil(boiling);
+    S.rice.update(dt, time);
+    S.flame2.update(dt, time, 0.62, rc.lit, rc.potOn);
+    const snd = rc.lit ? 0.02 * boiling : 0;
+    if (Math.abs(snd - fr.sizzle) > 0.002) { fr.sizzle = snd; Sound.sizzleSet(snd); }
+    if (S.rice.falling) shadowsDirty = true;
+  }
+
+  // ?step=rice: the korma is already cooked
+  function skipKorma() {
+    const P = S.potHome, from = new THREE.Vector3(0, 0.1, 0);
+    S.korma.addSpices(from);
+    for (const v of VEG) { S.korma.addVeg(v, from); S.items[v].obj.visible = false; if (S.items[v].obj.userData.blob) S.items[v].obj.userData.blob.visible = false; }
+    for (const pc of S.marinade.takePieces()) S.korma.addChicken(pc, from);
+    S.marinade.empty();
+    S.fry.setOil(0);
+    S.korma.setLevel(0.032);
+    km.cook = 1;
+    S.korma.setCook(1);
+    for (const id of KORMA) km.added.add(id);
+    km.done = true;
+    km.state = "done";
+    dropPick(S.items.garam.obj);
+    setStep("korma", "got");
+    if (ui.mix) ui.mix.classList.remove("show");
+    enterRice();
   }
 
   // ?step=slice: the stove is already burning steady
@@ -2757,6 +3062,14 @@ export function initFoodLab(root) {
     if (d.korma !== kst) d.korma = kst;
     if (d.kadded !== kad) d.kadded = kad;
     if (d.cook !== kc) d.cook = kc;
+    const rs = rc.state, rcook = rc.cook.toFixed(2);
+    if (d.rice !== rs) d.rice = rs;
+    if (d.riceCook !== rcook) d.riceCook = rcook;
+    const rw = S.rice.level.toFixed(3), rg = S.rice.inPot + "/" + S.rice.inColander, rl = rc.lit ? "1" : "", rso = rc.soft ? "1" : "";
+    if (d.water !== rw) d.water = rw;
+    if (d.grains !== rg) d.grains = rg;
+    if (d.riceLit !== rl) d.riceLit = rl;
+    if (d.riceSoft !== rso) d.riceSoft = rso;
   }
 
   // ---------------------------------------------------------------- input
@@ -2936,6 +3249,7 @@ export function initFoodLab(root) {
       updateStove(dt);
       updateGuide(time);
       S.flame.update(dt, time, stove.flow, stove.lit, S.potOnFlame);
+      if (phase === "rice") updateRice(dt);
     }
     syncDebug();
     if (shadowsDirty) { renderer.shadowMap.needsUpdate = true; shadowsDirty = false; }
@@ -2950,13 +3264,14 @@ export function initFoodLab(root) {
     try { jump = new URLSearchParams(window.location.search).get("stage"); } catch (e) {}
     let step = null;
     try { step = new URLSearchParams(window.location.search).get("step"); } catch (e) {}
-    const later2 = ["slice", "fry", "marinate", "lift", "korma"];
+    const later2 = ["slice", "fry", "marinate", "lift", "korma", "rice"];
     if (jump === "2" || later2.includes(step)) skipGather();
     if (later2.includes(step)) skipLight();
-    if (step === "fry" || step === "marinate" || step === "lift" || step === "korma") skipSlice();
-    if (step === "marinate" || step === "lift" || step === "korma") skipFry();
-    if (step === "lift" || step === "korma") skipMarinate();
-    if (step === "korma") skipLift();
+    if (step === "fry" || step === "marinate" || step === "lift" || step === "korma" || step === "rice") skipSlice();
+    if (step === "marinate" || step === "lift" || step === "korma" || step === "rice") skipFry();
+    if (step === "lift" || step === "korma" || step === "rice") skipMarinate();
+    if (step === "korma" || step === "rice") skipLift();
+    if (step === "rice") skipKorma();
     // Compile every material's shader now, while the loader is up, so nothing
     // stalls a frame the first time it appears mid-game.
     try { renderer.compile(S.scene, S.camera); renderer.compile(S.vm, S.camera); } catch (e) { console.error("[food-lab] warm-up", e); }

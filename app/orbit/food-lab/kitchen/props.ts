@@ -806,3 +806,52 @@ export function buildPlate(M) {
   g.add(mesh(lathe([[0.0001, 0], [0.09, 0], [0.104, 0.007], [0.114, 0.015], [0.118, 0.017], [0.116, 0.019]], 48), mat));
   return shadowed(g);
 }
+
+// Pateela: a tall steel pot for boiling the rice. Origin at the centre of its
+// base; double sided so its inside shows.
+export const PATEELA = [[0.0001, 0], [0.12, 0], [0.133, 0.008], [0.138, 0.03], [0.138, 0.17], [0.142, 0.174], [0.139, 0.178]];
+export function buildPateela(M) {
+  const g = new THREE.Group();
+  const mat = M.aluminium.clone();
+  mat.side = THREE.DoubleSide;
+  mat.shadowSide = THREE.FrontSide;
+  g.add(mesh(lathe(PATEELA, 48), mat));
+  for (const s of [-1, 1]) {
+    const h = mesh(new THREE.TorusGeometry(0.022, 0.004, 8, 16, Math.PI), M.aluminium, s * 0.148, 0.15, 0);
+    h.rotation.set(0, s > 0 ? 0 : Math.PI, Math.PI / 2);
+    g.add(h);
+  }
+  return shadowed(g);
+}
+
+// Colander: a steel bowl full of holes (an alpha map), with two handles.
+export function buildColander(M) {
+  const g = new THREE.Group();
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(0, 0, 64, 64);
+  x.fillStyle = "#000";
+  for (const [hx, hy] of [[16, 16], [48, 16], [32, 48], [0, 48], [64, 48]]) { x.beginPath(); x.arc(hx, hy, 6, 0, Math.PI * 2); x.fill(); }
+  const holes = new THREE.CanvasTexture(c);
+  holes.wrapS = holes.wrapT = THREE.RepeatWrapping;
+  holes.repeat.set(18, 4);
+  const mat = M.knife.clone();
+  mat.alphaMap = holes;
+  mat.alphaTest = 0.5;
+  mat.side = THREE.DoubleSide;
+  mat.shadowSide = THREE.FrontSide;
+  g.add(mesh(lathe([[0.0001, 0.006], [0.05, 0.006], [0.075, 0.016], [0.092, 0.035], [0.1, 0.06], [0.102, 0.075]], 40), mat));
+  const rim = mesh(new THREE.TorusGeometry(0.102, 0.0025, 6, 40), M.knife, 0, 0.075, 0);
+  rim.rotation.x = Math.PI / 2;
+  g.add(rim);
+  const foot = mesh(new THREE.TorusGeometry(0.045, 0.003, 6, 28), M.knife, 0, 0.003, 0);
+  foot.rotation.x = Math.PI / 2;
+  g.add(foot);
+  for (const s of [-1, 1]) {
+    const h = mesh(new THREE.TorusGeometry(0.02, 0.003, 6, 14, Math.PI), M.knife, s * 0.11, 0.07, 0);
+    h.rotation.set(0, s > 0 ? 0 : Math.PI, Math.PI / 2);
+    g.add(h);
+  }
+  return shadowed(g);
+}
