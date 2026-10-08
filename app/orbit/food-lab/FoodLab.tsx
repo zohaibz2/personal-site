@@ -60,6 +60,23 @@ export default function FoodLab() {
 
       <div className="fl-hud" aria-hidden="true">
         <div className="fl-strip" />
+        {/* the basket is full: unload it at the table */}
+        <div className="fl-full">
+          <svg viewBox="0 0 24 24" {...icon}>
+            <path d="M3.5 10h17l-1.8 8.2a2 2 0 0 1-2 1.6H7.3a2 2 0 0 1-2-1.6z" />
+            <path d="M7.5 10a4.5 4.5 0 0 1 9 0" />
+            <path d="M9 13.5v3M12 13.5v3M15 13.5v3" />
+          </svg>
+          <svg viewBox="0 0 24 24" {...icon} className="fl-full-arrow">
+            <path d="M4 12h15" />
+            <path d="M14 7l5 5-5 5" />
+          </svg>
+          <svg viewBox="0 0 24 24" {...icon}>
+            <path d="M2.5 9.5h19" />
+            <path d="M4 9.5v10M20 9.5v10" />
+            <path d="M8 6.5h3v3H8zM13 5h3v4.5h-3z" />
+          </svg>
+        </div>
         <div className="fl-steps" />
         <div className="fl-mix" />
         <div className="fl-reticle">

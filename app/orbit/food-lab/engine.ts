@@ -309,7 +309,7 @@ export function initFoodLab(root) {
   };
   const $ = (s) => root.querySelector(s);
   const ui = {
-    stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"),
+    stage: $(".fl-stage"), strip: $(".fl-strip"), reticle: $(".fl-reticle"), full: $(".fl-full"),
     start: $(".fl-start"), loading: $(".fl-loading"), done: $(".fl-done"),
     joy: $(".fl-joy"), joyKnob: $(".fl-joy i"), fallback: $(".fl-fallback"),
     steps: $(".fl-steps"), back: $(".fl-back"), gesture: $(".fl-gesture"), mix: $(".fl-mix"),
@@ -589,7 +589,9 @@ export function initFoodLab(root) {
       const box = new THREE.Box3().setFromObject(obj), sz = box.getSize(new THREE.Vector3());
       obj.rotation.y = ry0;
       obj.updateMatrixWorld(true);
-      S.items[def.id] = { def, obj, mats, fp: Math.max(0.02, Math.hypot(sz.x, sz.z) * 0.42), h: Math.max(0.01, sz.y), base: box.min.y - obj.position.y, collected: false, flying: false };
+      // footprint as the disc of the same area (a long bunch of herbs isn't a
+      // disc as wide as it is long; other things sit round it)
+      S.items[def.id] = { def, obj, mats, fp: Math.max(0.02, Math.sqrt(sz.x * sz.z) / 2), h: Math.max(0.01, sz.y), base: box.min.y - obj.position.y, collected: false, flying: false };
     }
     S.items.rice.obj.visible = false;
     if (S.items.rice.obj.userData.blob) S.items.rice.obj.userData.blob.visible = false;
@@ -1060,8 +1062,13 @@ export function initFoodLab(root) {
   // things may pile a little above the rim. When the next thing won't fit it
   // stays where it is, the basket bumps, and the table glows: unload there
   // (any time, in fact) and come back for the rest.
-  const HEAP = 0.14;   // how far above the rim a pile may reach
-  const NESTLE = 0.65; // things settle into each other's gaps (1 would be solid discs)
+  // With these, a basketful is about 15 things heaped a little above the rim,
+  // and gathering takes two trips in whatever order (checked with the real
+  // sizes: nothing is refused while the basket visibly has room).
+  const HEAP = 0.08;     // how far above the rim a pile may reach
+  const NESTLE = 0.65;   // things settle into each other's gaps (1 would be solid discs)
+  const OVERHANG = 0.6;  // a pile may lean out over the sloping sides
+  const NEVER_FULL = 5;  // and it never refuses anything while it holds fewer than this
   const packed = []; // { id, x, z, r, top } in basket space
   let unloading = false, placed = 0, basketFull = false, landing = 0;
 
@@ -1072,13 +1079,13 @@ export function initFoodLab(root) {
   // trips to the table, in whatever order things are gathered: checked.)
   function findSpot(r, h) {
     let best = null;
-    const room = Math.max(0, BASKET.inner - r), tall = h > BASKET.rim;
+    const room = Math.max(0, BASKET.inner - r * OVERHANG), tall = h > BASKET.rim;
     for (let t = 0; t < 140; t++) {
       const a = t * 2.39996, d = room * Math.sqrt(((t * 0.618034) % 1));
       const x = t === 0 ? 0 : Math.cos(a) * d, z = t === 0 ? 0 : Math.sin(a) * d;
       let base = 0.012;
       for (const p of packed) if (Math.hypot(x - p.x, z - p.z) < (r + p.r) * NESTLE) base = Math.max(base, p.top);
-      const fits = base + h <= BASKET.rim + HEAP || (tall && base <= 0.013);
+      const fits = base + h <= BASKET.rim + HEAP || (tall && base <= 0.013) || packed.length < NEVER_FULL;
       const score = tall ? base - d * 0.05 : base + d * 0.03;
       if (fits && (!best || score < best.score)) best = { x, z, base, score };
     }
@@ -1089,7 +1096,7 @@ export function initFoodLab(root) {
     const id = o.userData.interact.id, st = S.items[id];
     if (!st || st.collected || st.flying) return;
     const spot = findSpot(st.fp, st.h);
-    if (!spot) { bumpBasket(); return false; }
+    if (!spot) { bumpBasket(o); return false; }
     st.flying = true;
     if (o.userData.blob) o.userData.blob.visible = false;
     glowItem(o, 0);
@@ -1128,13 +1135,22 @@ export function initFoodLab(root) {
     return true;
   }
 
-  // the basket is too full for it: a little bump, and the table glows
+  // The basket is too full for it: the item comes up a little as if you'd
+  // tried to lift it, and settles back where it was; a picture at the top
+  // (basket, arrow, table) stays up until you've unloaded at the table, which
+  // glows.
   let bumpT = 0;
-  function bumpBasket() {
+  function bumpBasket(o) {
     basketFull = true;
-    bumpT = 0.35;
+    bumpT = 0.25;
     Sound.thud();
     tableOn();
+    if (ui.full) { ui.full.classList.add("show"); ui.full.classList.remove("nudge"); void ui.full.offsetWidth; ui.full.classList.add("nudge"); }
+    if (o && !o.userData.trying) {
+      o.userData.trying = true;
+      const y0 = o.position.y;
+      tween(0.4, (k) => { o.position.y = y0 + Math.sin(Math.PI * k) * 0.025; shadowsDirty = true; }, () => { o.position.y = y0; o.userData.trying = false; });
+    }
   }
 
   // the table takes whatever's in the basket, whenever there's something in it
@@ -1154,6 +1170,7 @@ export function initFoodLab(root) {
     if (unloading || !ids.length) return;
     unloading = true;
     tableOff();
+    if (ui.full) ui.full.classList.remove("show");
     setHover(null);
     landing = ids.length;
     ids.forEach((id, i) => later(() => flyToTable(id), i * 90));
@@ -1167,7 +1184,7 @@ export function initFoodLab(root) {
     else if (placed < ITEMS.length) S.glow.material.opacity = 0;
     if (bumpT > 0) {
       bumpT = Math.max(0, bumpT - 1 / 60);
-      S.basket.position.y = -0.56 + Math.sin(bumpT * 40) * 0.01 * (bumpT / 0.35);
+      S.basket.position.y = -0.56 + Math.sin(bumpT * 40) * 0.006 * (bumpT / 0.25);
     }
   }
 
@@ -1179,7 +1196,15 @@ export function initFoodLab(root) {
     o.position.set(2.03, 0.5, 0.55);
     o.rotation.set(0, 0.5, 0);
     Sound.pourRice();
-    if (collect(o) === false) { o.visible = false; return; }
+    if (collect(o) === false) {
+      o.visible = false;
+      // no room: the sack gives the little nudge instead
+      if (!S.sack.userData.trying) {
+        S.sack.userData.trying = true;
+        tween(0.4, (k) => { S.sack.rotation.z = Math.sin(Math.PI * k * 2) * 0.03; shadowsDirty = true; }, () => { S.sack.rotation.z = 0; S.sack.userData.trying = false; });
+      }
+      return;
+    }
     const i = S.pickables.indexOf(S.sack);
     if (i >= 0) S.pickables.splice(i, 1);
     S.sack.userData.interact = null;
