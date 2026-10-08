@@ -1,10 +1,10 @@
 /* The Food Lab: Biryani Kitchen. Everything scoped under .food-lab. */
+/* the whole window, over the site header (z-index above its 50) */
 .food-lab {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
   isolation: isolate;
-  height: calc(100vh - var(--fl-top, 84px));
-  height: calc(100dvh - var(--fl-top, 84px));
-  min-height: 480px;
   overflow: hidden;
   background: #e9e2d6;
   color: #1f1b16;
@@ -115,6 +115,20 @@
 .food-lab.board .fl-reticle { display: none; }
 .food-lab.touch .fl-reticle { display: none; }
 
+/* ---------- the way out, top left: back to Orbit ---------- */
+.food-lab .fl-exit {
+  position: absolute; z-index: 8; /* above everything, the start, loading and fallback screens too */
+  top: max(16px, env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255, 252, 246, 0.9); color: #3d3024;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  transition: transform 0.2s, background 0.2s;
+}
+.food-lab .fl-exit:hover { transform: translateX(-2px); background: #fff; }
+.food-lab .fl-exit:focus-visible { outline: 2px solid #c2410c; outline-offset: 3px; }
+.food-lab .fl-exit svg { width: 22px; height: 22px; }
+
 /* ---------- board view: gesture hint and the way back ---------- */
 .food-lab .fl-gesture {
   position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 140px;
@@ -214,7 +228,7 @@
   .food-lab .fl-slot { width: 27px; height: 27px; border-radius: 7px; }
   .food-lab .fl-steps { top: 10px; gap: 10px; padding: 5px 9px; border-radius: 14px; }
   .food-lab .fl-gesture { width: 64px; height: 64px; margin: -32px 0 0 64px; }
-  .food-lab .fl-mix { top: 56px; gap: 4px; padding: 4px 7px; border-radius: 12px; }
+  .food-lab .fl-mix { top: 70px; gap: 4px; padding: 4px 7px; border-radius: 12px; } /* clear of the back arrow */
   .food-lab .fl-gesture svg { width: 36px; height: 36px; }
   .food-lab .fl-step { width: 34px; height: 34px; border-radius: 10px; }
   .food-lab .fl-step + .fl-step::before { left: -8px; width: 6px; }

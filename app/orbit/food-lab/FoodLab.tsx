@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import "./food-lab.css";
 
@@ -18,15 +19,16 @@ export default function FoodLab() {
     const root = rootRef.current;
     if (!root) return;
 
-    // Fit the kitchen into the viewport below the site header.
+    // The kitchen fills the whole window, over the site header. While it's
+    // open the header underneath is switched off (so Tab can't reach its
+    // hidden links) and the page doesn't scroll; both come back on leaving.
     const siteHeader = Array.from(document.querySelectorAll("header")).find(
       (h) => !root.contains(h)
     );
-    const syncTop = () =>
-      root.style.setProperty("--fl-top", `${siteHeader ? siteHeader.offsetHeight : 0}px`);
-    syncTop();
-    const headerObserver = siteHeader ? new ResizeObserver(syncTop) : null;
-    if (headerObserver && siteHeader) headerObserver.observe(siteHeader);
+    const headerWasInert = siteHeader ? siteHeader.inert : false;
+    if (siteHeader) siteHeader.inert = true;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     // Load the 3D engine only in the browser, then boot it on this markup.
     let dispose: (() => void) | undefined;
@@ -37,7 +39,8 @@ export default function FoodLab() {
 
     return () => {
       cancelled = true;
-      headerObserver?.disconnect();
+      if (siteHeader) siteHeader.inert = headerWasInert;
+      document.body.style.overflow = prevOverflow;
       dispose?.();
     };
   }, []);
@@ -45,6 +48,14 @@ export default function FoodLab() {
   return (
     <main ref={rootRef} className="food-lab" aria-label="Biryani kitchen">
       <div className="fl-stage" />
+
+      {/* the way out: back to the Orbit page */}
+      <Link href="/orbit" className="fl-exit" aria-label="Back to Orbit">
+        <svg viewBox="0 0 24 24" {...icon}>
+          <path d="M19 12H5" />
+          <path d="M11 6l-6 6 6 6" />
+        </svg>
+      </Link>
       <div className="fl-vignette" />
 
       <div className="fl-hud" aria-hidden="true">
