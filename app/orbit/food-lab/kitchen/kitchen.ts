@@ -55,8 +55,10 @@ const HOME = {
   kewra: [0.61, 1.838, -1.83, 0.5],
   zarda: [0.82, 1.838, -1.82, 0],
   // sabzi: wicker tokri and steel thaal on the west counter
-  onions: [-2.03, 0.914, -0.68, 0],
-  potatoes: [-1.93, 0.914, -0.55, 0.6],
+  // both resting on the tokri's floor, one to each side: every onion and
+  // potato sits at least 1 cm inside its wall (checked against their shapes)
+  onions: [-1.97, 0.915, -0.581, 0],
+  potatoes: [-1.99, 0.9165, -0.659, 0.6],
   adrak: [-1.99, 0.906, 0.13, 0.3],
   lassan: [-1.99, 0.906, 0.25, -0.4],
   // pantry: rack shelf and the floor
@@ -426,8 +428,9 @@ export function buildKitchen(M, T) {
     rbox(0.014, 0.012, 0.16, 0.005, M.chrome, wx1 - 0.04 + 0.033, 0.78, z);
   }
   rbox(0.64, 0.04, wz1 - wz0 + 0.01, 0.004, M.granite, wx0 + 0.32, CT - 0.02, (wz0 + wz1 + 0.01) / 2);
-  place(P.buildTokri(M), -1.98, CT, -0.62);
-  blob(-1.98, CT, -0.62, 0.44);
+  // 36 cm across: big enough for three onions and three potatoes side by side
+  place(P.buildTokri(M), -1.98, CT, -0.62).scale.setScalar(1.1);
+  blob(-1.98, CT, -0.62, 0.48);
   place(P.buildThaal(M), -1.99, CT, 0.19);
   blob(-1.99, CT, 0.19, 0.3);
   // the big mixing bowl for the marinade, with a serving spoon resting in it
