@@ -38,6 +38,7 @@ import { buildMarinade } from "./kitchen/marinade";
 import { buildBirista } from "./kitchen/birista";
 import { buildKorma } from "./kitchen/korma";
 import { buildRice } from "./kitchen/rice";
+import { BASKET } from "./kitchen/props";
 
 const LOCS = ["fridge", "cupboard", "sabzi", "pantry"];
 const LOC_ICONS = {
@@ -86,8 +87,7 @@ const LIFT = 0.105;    // knife height above the board when raised (just clears 
 
 const EYE = 1.62;
 const REACH = 1.6; // about one step: you walk up to things to use them
-const SLOT_R = 0.03;
-const BASKET_S = 0.88;
+// (the basket and everything in it are at real size: see "collecting")
 const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -563,9 +563,10 @@ export function initFoodLab(root) {
     vmRoot.matrixAutoUpdate = false;
     vm.add(vmRoot);
     const basket = buildHandBasket(M);
-    basket.position.set(0.27, -0.35, -0.6);
-    basket.rotation.set(0.42, -0.25, 0.05);
-    basket.scale.setScalar(BASKET_S);
+    // held low at your right side, at full size: you see its rim and what's
+    // piled in it at the bottom of the view
+    basket.position.set(0.3, -0.56, -0.72);
+    basket.rotation.set(0.5, -0.3, 0.05);
     vmRoot.add(basket);
     S.vm = vm; S.vmRoot = vmRoot; S.basket = basket;
 
@@ -580,10 +581,20 @@ export function initFoodLab(root) {
         (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => { if (x.emissive) mats.push(x); });
         m.userData.cast = m.castShadow;
       });
-      const sph = new THREE.Box3().setFromObject(obj).getBoundingSphere(new THREE.Sphere());
-      S.items[def.id] = { def, obj, mats, radius: Math.max(0.02, sph.radius), collected: false, flying: false };
+      // its real size, for packing it into the basket: footprint (as a disc)
+      // and height, measured upright
+      const ry0 = obj.rotation.y;
+      obj.rotation.y = 0;
+      obj.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(obj), sz = box.getSize(new THREE.Vector3());
+      obj.rotation.y = ry0;
+      obj.updateMatrixWorld(true);
+      S.items[def.id] = { def, obj, mats, fp: Math.max(0.02, Math.hypot(sz.x, sz.z) * 0.42), h: Math.max(0.01, sz.y), base: box.min.y - obj.position.y, collected: false, flying: false };
     }
-    S.pickables = [...K.blockers, ...K.doors.map((d) => d.pivot), ...ITEMS.map((d) => S.items[d.id].obj)];
+    S.items.rice.obj.visible = false;
+    if (S.items.rice.obj.userData.blob) S.items.rice.obj.userData.blob.visible = false;
+    S.sack = K.sack;
+    S.pickables = [...K.blockers, ...K.doors.map((d) => d.pivot), ...ITEMS.filter((d) => d.id !== "rice").map((d) => S.items[d.id].obj), K.sack];
 
     // ---- stage 2: the stove. These only become interactive once prep starts.
     const glowMats = (o) => {
@@ -987,7 +998,7 @@ export function initFoodLab(root) {
   }
 
   let hover = null;
-  const RETICLE = { item: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", bowl: "grab", ricepot: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
+  const RETICLE = { item: "grab", sack: "grab", lighter: "grab", knife: "grab", pot: "grab", board: "grab", bowl: "grab", ricepot: "grab", knob: "turn", burner: "spark", door: "door", place: "place" };
   function setHover(o) {
     if (o === hover) return;
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0);
@@ -1010,8 +1021,9 @@ export function initFoodLab(root) {
     else if (it.type === "item" && phase === "fry") { if (it.id === "oil") startPourView(); }
     else if (it.type === "item" && phase === "marinate") { if (MAR.includes(it.id)) addIngredient(it.id); }
     else if (it.type === "item" && phase === "korma") addKorma(it.id);
-    else if (it.type === "item" && phase === "rice") { if (it.id === "salt") saltRice(); else if (it.id === "rice") pourRiceSack(); }
+    else if (it.type === "item" && phase === "rice") { if (it.id === "salt") saltRice(); else if (it.id === "rice") pourRiceBowl(); }
     else if (it.type === "item") collect(o);
+    else if (it.type === "sack") scoopRice();
     else if (it.type === "door") toggleDoor(it.door);
     else if (it.type === "place") unload();
     else if (it.type === "lighter") takeTool("lighter");
@@ -1043,70 +1055,134 @@ export function initFoodLab(root) {
   }
 
   // ---------------------------------------------------------------- collecting
-  const slots = (() => {
-    const s = [];
-    const ring = (n, r, y, a0) => {
-      for (let i = 0; i < n; i++) {
-        const a = a0 + (i / n) * Math.PI * 2;
-        s.push({ pos: new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r), ry: -a + Math.PI / 2 });
-      }
-    };
-    ring(1, 0, 0.016, 0); ring(6, 0.05, 0.016, 0.3); ring(8, 0.092, 0.03, 0.1); ring(6, 0.045, 0.052, 0.6);
-    return s;
-  })();
-  let basketCount = 0, tableReady = false, unloading = false, placed = 0;
+  // Everything keeps its real size. The basket (38 cm across, 12 cm deep) is
+  // packed like a real one: each thing goes into the lowest free space, and
+  // things may pile a little above the rim. When the next thing won't fit it
+  // stays where it is, the basket bumps, and the table glows: unload there
+  // (any time, in fact) and come back for the rest.
+  const HEAP = 0.14;   // how far above the rim a pile may reach
+  const NESTLE = 0.65; // things settle into each other's gaps (1 would be solid discs)
+  const packed = []; // { id, x, z, r, top } in basket space
+  let unloading = false, placed = 0, basketFull = false, landing = 0;
+
+  // The lowest spot (basket space) where something of footprint r and height
+  // h fits, or null if the basket is too full for it. Something taller than
+  // the basket (the oil bottle) stands up on the bottom against the side and
+  // pokes out of the top, as it would. (With the real sizes this makes three
+  // trips to the table, in whatever order things are gathered: checked.)
+  function findSpot(r, h) {
+    let best = null;
+    const room = Math.max(0, BASKET.inner - r), tall = h > BASKET.rim;
+    for (let t = 0; t < 140; t++) {
+      const a = t * 2.39996, d = room * Math.sqrt(((t * 0.618034) % 1));
+      const x = t === 0 ? 0 : Math.cos(a) * d, z = t === 0 ? 0 : Math.sin(a) * d;
+      let base = 0.012;
+      for (const p of packed) if (Math.hypot(x - p.x, z - p.z) < (r + p.r) * NESTLE) base = Math.max(base, p.top);
+      const fits = base + h <= BASKET.rim + HEAP || (tall && base <= 0.013);
+      const score = tall ? base - d * 0.05 : base + d * 0.03;
+      if (fits && (!best || score < best.score)) best = { x, z, base, score };
+    }
+    return best;
+  }
 
   function collect(o) {
     const id = o.userData.interact.id, st = S.items[id];
     if (!st || st.collected || st.flying) return;
+    const spot = findSpot(st.fp, st.h);
+    if (!spot) { bumpBasket(); return false; }
     st.flying = true;
     if (o.userData.blob) o.userData.blob.visible = false;
     glowItem(o, 0);
     setHover(null);
-    S.pickables.splice(S.pickables.indexOf(o), 1);
+    const pi = S.pickables.indexOf(o);
+    if (pi >= 0) S.pickables.splice(pi, 1);
     Sound.pick();
     S.scene.attach(o);
+    const rec = { id, x: spot.x, z: spot.z, r: st.fp, top: spot.base + st.h };
+    packed.push(rec); // claimed now, so the next pick doesn't take the same space
     const startP = o.position.clone(), startQ = o.quaternion.clone();
-    const slot = slots[basketCount++];
-    const scaleTo = SLOT_R / st.radius;
-    const slotQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, slot.ry, 0));
+    const local = new THREE.Vector3(spot.x, spot.base - st.base, spot.z);
+    const localQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.random() * Math.PI * 2, 0));
+    const lifted = startP.clone().add(new THREE.Vector3(0, 0.06, 0));
     const tp = new THREE.Vector3(), tq = new THREE.Quaternion(), bq = new THREE.Quaternion();
-    tween(0.62, (k) => {
+    // lifted off its spot first, as a hand would, then down into the basket
+    tween(0.18, (k) => { o.position.lerpVectors(startP, lifted, ease(k)); shadowsDirty = true; }, () => tween(0.55, (k) => {
       const e = ease(k);
-      tp.copy(slot.pos); S.basket.localToWorld(tp);
-      S.basket.getWorldQuaternion(bq); tq.copy(bq).multiply(slotQ);
-      o.position.lerpVectors(startP, tp, e);
-      o.position.y += Math.sin(Math.PI * k) * 0.12;
+      tp.copy(local); S.basket.localToWorld(tp);
+      S.basket.getWorldQuaternion(bq); tq.copy(bq).multiply(localQ);
+      o.position.lerpVectors(lifted, tp, e);
+      o.position.y += Math.sin(Math.PI * k) * 0.06;
       o.quaternion.copy(startQ).slerp(tq, e);
-      o.scale.setScalar(1 + (scaleTo * BASKET_S - 1) * e);
       shadowsDirty = true;
     }, () => {
       S.basket.attach(o);
-      o.position.copy(slot.pos);
-      o.quaternion.copy(slotQ);
-      o.scale.setScalar(scaleTo);
+      o.position.copy(local);
+      o.quaternion.copy(localQ);
       o.traverse((m) => { if (m.isMesh) m.castShadow = false; });
       st.flying = false; st.collected = true;
       markCollected(id);
       Sound.collect();
-      if (ITEMS.every((d) => S.items[d.id].collected)) basketFull();
-    });
+      tableOn();
+      if (ITEMS.every((d) => S.items[d.id].collected)) { ui.strip.classList.add("complete"); Sound.ready(); }
+    }));
+    return true;
   }
 
-  function basketFull() {
-    tableReady = true;
-    ui.strip.classList.add("complete");
-    Sound.ready();
+  // the basket is too full for it: a little bump, and the table glows
+  let bumpT = 0;
+  function bumpBasket() {
+    basketFull = true;
+    bumpT = 0.35;
+    Sound.thud();
+    tableOn();
+  }
+
+  // the table takes whatever's in the basket, whenever there's something in it
+  function tableOn() {
+    if (S.K.tableTop.userData.interact) return;
     S.K.tableTop.userData.interact = { type: "place" };
     S.pickables.push(S.K.tableTop);
   }
+  function tableOff() {
+    S.K.tableTop.userData.interact = null;
+    const i = S.pickables.indexOf(S.K.tableTop);
+    if (i >= 0) S.pickables.splice(i, 1);
+  }
 
   function unload() {
-    if (!tableReady || unloading) return;
+    const ids = packed.map((p) => p.id).filter((id) => S.items[id].collected && !S.items[id].flying);
+    if (unloading || !ids.length) return;
     unloading = true;
-    S.pickables.splice(S.pickables.indexOf(S.K.tableTop), 1);
+    tableOff();
     setHover(null);
-    ITEMS.forEach((def, i) => later(() => flyToTable(def.id), i * 90));
+    landing = ids.length;
+    ids.forEach((id, i) => later(() => flyToTable(id), i * 90));
+  }
+
+  // the table glows when the basket is full, or when everything's been
+  // gathered and is still to be put down
+  function updateGatherHint(time) {
+    const want = !unloading && packed.length > 0 && (basketFull || ITEMS.every((d) => S.items[d.id].collected));
+    if (want) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
+    else if (placed < ITEMS.length) S.glow.material.opacity = 0;
+    if (bumpT > 0) {
+      bumpT = Math.max(0, bumpT - 1 / 60);
+      S.basket.position.y = -0.56 + Math.sin(bumpT * 40) * 0.01 * (bumpT / 0.35);
+    }
+  }
+
+  // Rice is scooped from the sack into a steel bowl, and the bowl goes in.
+  function scoopRice() {
+    const st = S.items.rice, o = st.obj;
+    if (st.collected || st.flying) return;
+    o.visible = true;
+    o.position.set(2.03, 0.5, 0.55);
+    o.rotation.set(0, 0.5, 0);
+    Sound.pourRice();
+    if (collect(o) === false) { o.visible = false; return; }
+    const i = S.pickables.indexOf(S.sack);
+    if (i >= 0) S.pickables.splice(i, 1);
+    S.sack.userData.interact = null;
   }
 
   function flyToTable(id) {
@@ -1114,7 +1190,7 @@ export function initFoodLab(root) {
     S.scene.attach(o);
     o.traverse((m) => { if (m.isMesh) m.castShadow = !!m.userData.cast; });
     const [x, y, z, ry] = TABLE[id];
-    const startP = o.position.clone(), startQ = o.quaternion.clone(), s0 = o.scale.x;
+    const startP = o.position.clone(), startQ = o.quaternion.clone();
     const end = new THREE.Vector3(x, y, z);
     const endQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0));
     tween(0.7, (k) => {
@@ -1122,20 +1198,25 @@ export function initFoodLab(root) {
       o.position.lerpVectors(startP, end, e);
       o.position.y += Math.sin(Math.PI * k) * 0.15;
       o.quaternion.copy(startQ).slerp(endQ, e);
-      o.scale.setScalar(s0 + (1 - s0) * e);
       shadowsDirty = true;
     }, () => {
       const b = o.userData.blob;
       if (b) { b.position.set(x, y + 0.0015, z); b.visible = true; }
       Sound.place();
-      if (++placed === ITEMS.length) finish();
+      placed++;
+      if (--landing === 0) {
+        // this trip is down: the basket is empty again
+        for (let i = packed.length - 1; i >= 0; i--) if (!S.items[packed[i].id].flying && S.items[packed[i].id].collected) packed.splice(i, 1);
+        unloading = false;
+        basketFull = false;
+        if (placed === ITEMS.length) finish();
+      }
     });
   }
 
   function finish() {
     Sound.done();
     tween(0.8, (k) => { S.glow.material.opacity = 0.55 * (1 - k); });
-    tableReady = false;
     later(() => ui.done.classList.add("show"), 400);
     later(beginPrep, 3200);
   }
@@ -1163,7 +1244,10 @@ export function initFoodLab(root) {
       if (i >= 0) S.pickables.splice(i, 1);
       if (slotEls[def.id]) slotEls[def.id].classList.add("got");
     }
-    basketCount = placed = ITEMS.length;
+    placed = ITEMS.length;
+    S.items.rice.obj.visible = true;
+    S.sack.userData.interact = null;
+    { const i = S.pickables.indexOf(S.sack); if (i >= 0) S.pickables.splice(i, 1); }
     basketDrop = 0.45;
     S.basket.visible = false;
     ui.strip.classList.add("away");
@@ -2816,8 +2900,8 @@ export function initFoodLab(root) {
     });
   }
 
-  // The rice sack comes over from the front, tips, and pours the rice in.
-  function pourRiceSack() {
+  // The bowl of rice comes over from the table, tips, and pours the rice in.
+  function pourRiceBowl() {
     if (rc.state !== "rice" || rc.busy) return;
     rc.busy = true;
     const o = S.items.rice.obj;
@@ -2826,16 +2910,16 @@ export function initFoodLab(root) {
     const blob = o.userData.blob;
     if (blob) blob.visible = false;
     const home = o.position.clone(), homeQ = o.quaternion.clone(), b = riceBurner();
-    // held in front of the stove; tipped back over the pot (its mouth, 0.5 m
-    // up the sack, ends up 0.36 m over the middle of the pot)
-    const over = new THREE.Vector3(b.x, b.y + 0.52, b.z + 0.47);
-    // lifted straight up first, clear of the table, then carried over (checked)
+    // held beside the pot and tipped towards it: the bowl's mouth ends up
+    // over the middle of the pot, well above its rim (checked)
+    const over = new THREE.Vector3(b.x + 0.05, b.y + 0.3, b.z);
+    // lifted straight up first, clear of everything on the table, then carried over
     const up = new THREE.Vector3(home.x, 1.25, home.z);
-    const tipQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.9, 0, 0));
+    const tipQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 1.9));
     tween(0.4, (k) => { o.position.lerpVectors(home, up, ease(k)); shadowsDirty = true; }, () => tween(0.8, (k) => { o.position.lerpVectors(up, over, ease(k)); o.position.y += Math.sin(Math.PI * k) * 0.1; o.quaternion.copy(homeQ).slerp(new THREE.Quaternion(), ease(k)); shadowsDirty = true; }, () => {
       tween(0.5, (k) => { o.quaternion.copy(new THREE.Quaternion()).slerp(tipQ, ease(k)); shadowsDirty = true; }, () => {
         o.updateMatrixWorld(true);
-        const mouth = o.localToWorld(new THREE.Vector3(0, 0.5, 0)).sub(S.pateela.obj.position);
+        const mouth = o.localToWorld(new THREE.Vector3(0, 0.05, 0)).sub(S.pateela.obj.position);
         S.rice.pourIn(mouth);
         Sound.pourRice();
         later(() => {
@@ -3062,6 +3146,8 @@ export function initFoodLab(root) {
     if (d.korma !== kst) d.korma = kst;
     if (d.kadded !== kad) d.kadded = kad;
     if (d.cook !== kc) d.cook = kc;
+    const carrying = String(packed.length);
+    if (d.carry !== carrying) d.carry = carrying;
     const rs = rc.state, rcook = rc.cook.toFixed(2);
     if (d.rice !== rs) d.rice = rs;
     if (d.riceCook !== rcook) d.riceCook = rcook;
@@ -3244,7 +3330,7 @@ export function initFoodLab(root) {
     runTweens(dt);
     if (playing && !touchMode && !view.mode) setHover(pickAt(0, 0));
     if (hover && hover.userData.interact && hover.userData.interact.type === "item") glowItem(hover, 0.22 + 0.14 * Math.sin(time * 6));
-    if (tableReady && !unloading) S.glow.material.opacity = 0.32 + 0.2 * Math.sin(time * 3);
+    if (phase === "gather") updateGatherHint(time);
     if (phase !== "gather") {
       updateStove(dt);
       updateGuide(time);

@@ -31,7 +31,7 @@ export const ITEMS = [
   { id: "potatoes", loc: "sabzi", name: "Potatoes", build: P.buildPotatoes },
   { id: "adrak", loc: "sabzi", name: "Ginger", build: P.buildAdrak },
   { id: "lassan", loc: "sabzi", name: "Garlic", build: P.buildLassan },
-  { id: "rice", loc: "pantry", name: "Basmati rice", build: P.buildRiceSack },
+  { id: "rice", loc: "pantry", name: "Basmati rice", build: P.buildRiceBowl }, // scooped from the sack
   { id: "oil", loc: "pantry", name: "Cooking oil", build: P.buildOil },
 ];
 
@@ -61,7 +61,7 @@ const HOME = {
   lassan: [-1.99, 0.906, 0.25, -0.4],
   // pantry: rack shelf and the floor
   oil: [2.08, 0.866, -0.62, 0.3],
-  rice: [2.03, 0.0, 0.55, 0.5],
+  rice: [2.03, 0.5, 0.55, 0.5],   // the bowl starts hidden at the sack's mouth
 };
 
 // Where they end up on the prep table once unloaded: [x, y, z, rotationY]
@@ -72,7 +72,7 @@ export const TABLE = {
   redChilli: [-0.06, 0.9, 0.16, 0], haldi: [0.03, 0.9, 0.16, 0], salt: [0.12, 0.9, 0.16, 0], masala: [0.22, 0.9, 0.16, 0],
   garam: [0.32, 0.9, 0.16, 0], alooBukhara: [0.41, 0.9, 0.16, 0], kewra: [0.5, 0.9, 0.16, 0], zarda: [0.58, 0.9, 0.16, 0],
   onions: [0.0, 0.9, 0.38, 0], potatoes: [0.18, 0.9, 0.38, 0], adrak: [0.36, 0.9, 0.38, 0], lassan: [0.52, 0.9, 0.38, 0],
-  rice: [0.98, 0.0, 0.3, 0.4],
+  rice: [0.62, 0.9, 0.5, 0.0],    // on the table, front right
 };
 
 // Soft floor shading where furniture meets the floor (used as an aoMap).
@@ -533,13 +533,21 @@ export function buildKitchen(M, T) {
     items[def.id] = obj;
   }
 
+  // The rice sack stays on the pantry floor; you scoop from it.
+  const sack = P.buildRiceSack(M);
+  sack.position.set(2.03, 0, 0.55);
+  sack.rotation.y = 0.5;
+  sack.userData.interact = { type: "sack" };
+  add(sack);
+  blob(2.03, 0, 0.55, 0.47);
+
   root.traverse((m) => {
     if (m.isMesh && (m.material === M.wall || m.material === M.ceiling)) m.geometry.setAttribute("uv2", m.geometry.attributes.uv);
   });
 
   return {
     root, colliders, blockers, doors, items, fridgeDoor, fridgeLight, lamp, tableTop,
-    knobs, burners, lighter, board, knife, degchi, kafgir, mixBowl, spoon, plate, pateela, colander,
+    knobs, burners, lighter, board, knife, degchi, kafgir, mixBowl, spoon, plate, pateela, colander, sack,
     card: { mesh: card, canvas: cardCanvas, texture: cardTex },
     window: { x0: WX0, x1: WX1, y0: WY0, y1: WY1 },
   };

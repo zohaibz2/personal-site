@@ -683,14 +683,17 @@ export function buildTumbler(M) {
 }
 
 // The wicker basket carried in first person.
+// A proper market tokri at full size: 38 cm across, 12 cm deep. Things go
+// into it at their real size (see the engine's packing).
+export const BASKET = { inner: 0.165, rim: 0.12 };
 export function buildHandBasket(M) {
   const g = new THREE.Group();
-  const bowl = [[0.0001, 0], [0.08, 0], [0.11, 0.02], [0.13, 0.06], [0.135, 0.085], [0.13, 0.083], [0.122, 0.058], [0.104, 0.024], [0.078, 0.01], [0.0001, 0.01]];
-  g.add(mesh(lathe(bowl, 40), M.wicker));
-  const rim = mesh(new THREE.TorusGeometry(0.133, 0.006, 8, 40), M.wickerRim, 0, 0.086, 0);
+  const bowl = [[0.0001, 0], [0.12, 0], [0.16, 0.03], [0.185, 0.085], [0.19, 0.12], [0.183, 0.118], [0.176, 0.083], [0.152, 0.034], [0.114, 0.012], [0.0001, 0.012]];
+  g.add(mesh(lathe(bowl, 48), M.wicker));
+  const rim = mesh(new THREE.TorusGeometry(0.188, 0.008, 8, 48), M.wickerRim, 0, 0.121, 0);
   rim.rotation.x = Math.PI / 2;
   g.add(rim);
-  const handle = mesh(new THREE.TorusGeometry(0.13, 0.007, 8, 32, Math.PI), M.wickerRim, 0, 0.086, 0);
+  const handle = mesh(new THREE.TorusGeometry(0.185, 0.009, 8, 40, Math.PI), M.wickerRim, 0, 0.121, 0);
   g.add(handle);
   return g;
 }
@@ -852,6 +855,29 @@ export function buildColander(M) {
     const h = mesh(new THREE.TorusGeometry(0.02, 0.003, 6, 14, Math.PI), M.knife, s * 0.11, 0.07, 0);
     h.rotation.set(0, s > 0 ? 0 : Math.PI, Math.PI / 2);
     g.add(h);
+  }
+  return shadowed(g);
+}
+
+// A steel bowl of basmati, scooped from the sack. Origin at the centre of its
+// base.
+export function buildRiceBowl(M) {
+  const g = new THREE.Group();
+  const steel = M.knife.clone();
+  steel.side = THREE.DoubleSide;
+  steel.shadowSide = THREE.FrontSide;
+  g.add(mesh(lathe([[0.0001, 0.002], [0.045, 0.002], [0.065, 0.012], [0.08, 0.035], [0.086, 0.055], [0.083, 0.057]], 40), steel));
+  const rice = new THREE.MeshStandardMaterial({ color: 0xf1ece0, roughness: 0.75 });
+  const mound = mesh(new THREE.SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), rice, 0, 0.032, 0);
+  mound.scale.set(0.078, 0.03, 0.078);
+  g.add(mound);
+  // a few loose grains on top
+  for (let i = 0; i < 14; i++) {
+    const a = i * 2.4, d = 0.012 + (i % 5) * 0.012;
+    const gr = mesh(new THREE.SphereGeometry(1, 6, 4), rice, Math.cos(a) * d, 0.032 + 0.03 * Math.sqrt(1 - Math.min(1, (d / 0.078) ** 2)), Math.sin(a) * d);
+    gr.scale.set(0.0022, 0.0022, 0.007);
+    gr.rotation.y = a;
+    g.add(gr);
   }
   return shadowed(g);
 }
