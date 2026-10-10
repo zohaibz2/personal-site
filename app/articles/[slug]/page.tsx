@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ArticleCover from "../ArticleCover";
@@ -37,9 +37,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
-  if (!article) return { title: "Article â€” Zohaib Narejo" };
+  if (!article) return { title: "Article \u2014 Zohaib Narejo" };
   return {
-    title: `${article.heading} â€” Zohaib Narejo`,
+    title: `${article.heading} \u2014 Zohaib Narejo`,
     description: article.subheading ?? article.heading,
   };
 }

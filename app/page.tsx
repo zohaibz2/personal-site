@@ -12,7 +12,7 @@ export default function Home() {
       {/* Hero */}
       <section className="overflow-hidden flex flex-col md:flex-row md:min-h-screen md:items-center px-6 md:px-16 lg:px-24 py-16 md:py-0 gap-8 md:gap-12">
 
-        {/* Left â€” photo */}
+        {/* Left: photo */}
         <div className="flex justify-center md:justify-end md:w-[40%]">
           <div className="relative w-[260px] h-[340px] md:w-[360px] md:h-[460px] lg:w-[400px] lg:h-[500px]">
             <Image
@@ -25,7 +25,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right â€” text */}
+        {/* Right: text */}
         <div className="md:w-[60%] flex flex-col justify-center gap-5">
           <div className="flex flex-col gap-1">
             <p className="text-lg md:text-xl text-[#c2410c]">
@@ -47,7 +47,7 @@ export default function Home() {
       {/* Story paragraph */}
       <section id="about" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24 scroll-mt-24">
         <p className="text-lg md:text-xl text-[#1a1a1a] leading-[1.8]">
-          I have been making stuff and putting it online since I was 13 â€” a
+          I have been making stuff and putting it online since I was 13 &mdash; a
           YouTube channel, a couple of e-commerce stores, small steps trying to
           figure out what I liked the most. These days I&apos;m doing fewer,
           bigger things. I run a small studio called{" "}
@@ -67,13 +67,13 @@ export default function Home() {
         </h2>
         <ul className="list-none flex flex-col gap-4">
           {[
-            "How AI is changing what one person can build in a week â€” not just coding, but the whole stack: design, copy, research, marketing",
+            "How AI is changing what one person can build in a week \u2014 not just coding, but the whole stack: design, copy, research, marketing",
             "What it would take to make small parts of Pakistan's food system more sustainable",
             "The Pakistani startup ecosystem, and why it deserves better documentation than it gets",
             "Small teams that ship things, and what they do differently",
           ].map((item) => (
             <li key={item} className="flex gap-3 text-lg md:text-xl text-[#1a1a1a] leading-[1.7]">
-              <span className="mt-[0.35em] shrink-0 text-sm text-[#1a1a1a]/40">â€”</span>
+              <span className="mt-[0.35em] shrink-0 text-sm text-[#1a1a1a]/40">&mdash;</span>
               <span>{item}</span>
             </li>
           ))}
@@ -120,9 +120,9 @@ export default function Home() {
         </p>
         <p className="text-sm text-[#1a1a1a]/60" style={{ fontFamily: "system-ui, sans-serif" }}>
           <a href="https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">LinkedIn</a>
-          <span className="mx-2">Â·</span>
+          <span className="mx-2">&middot;</span>
           <a href="https://x.com/NarejoZohaib" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">Twitter</a>
-          <span className="mx-2">Â·</span>
+          <span className="mx-2">&middot;</span>
           <a href="https://www.instagram.com/zohaibnarejo._/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">Instagram</a>
         </p>
       </section>
