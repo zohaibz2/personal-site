@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Work from "@/components/Work";
+import Companies from "@/components/Companies";
 import Typewriter from "@/components/Typewriter";
 
 export default function Home() {
@@ -84,27 +85,7 @@ export default function Home() {
       <Work />
 
       {/* Companies I've built */}
-      <section
-        id="companies"
-        className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24"
-        style={{ fontFamily: "system-ui, sans-serif" }}
-      >
-        <h2
-          className="mb-10 md:mb-14 text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]"
-          style={{ fontFamily: "system-ui, sans-serif" }}
-        >
-          Companies I&apos;ve built
-        </h2>
-        <div className="overflow-hidden rounded-3xl border border-black/10">
-          <iframe
-            src="/startup-showcase.html"
-            title="Companies I have built"
-            loading="lazy"
-            className="w-full"
-            style={{ height: "900px", border: "0" }}
-          />
-        </div>
-      </section>
+      <Companies />
 
       {/* Contact */}
       <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-28 md:pb-36 text-center">
