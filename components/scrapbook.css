@@ -1,0 +1,194 @@
+/* The "about" scrapbook: a screenplay page, polaroids, tape, a receipt,
+   cut-out letters and a notebook page. Everything is scoped to .scrapbook.
+   Hand and typewriter fonts come in as --sb-hand and --sb-type. */
+
+.scrapbook {
+  --paper: #f6f2ea;
+  --ink: #1a1a1a;
+  --accent: #c2410c;
+  --hand: var(--sb-hand), "Segoe Print", "Bradley Hand", cursive;
+  --type: var(--sb-type), "Courier New", Courier, monospace;
+  position: relative;
+  container: scrapbook / inline-size; /* the layout follows the scrapbook's own width */
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: 44px 40px 56px;
+  border-radius: 28px;
+  background-color: var(--paper);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  color: var(--ink);
+  overflow: hidden;
+}
+.scrapbook h2.sb-title {
+  font-family: var(--hand);
+  font-size: 2.1rem;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 0 28px 6px;
+  transform: rotate(-1.5deg);
+}
+.scrapbook h2.sb-title span { color: var(--accent); }
+
+/* the board: twelve columns on wide screens, one column on phones */
+.scrapbook .sb-board {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: 18px;
+  row-gap: 26px;
+  align-items: start;
+}
+.scrapbook .sb-script { grid-column: 1 / 8; grid-row: 1 / 3; }
+.scrapbook .sb-me { grid-column: 8 / 13; grid-row: 1; margin-top: 30px; }
+.scrapbook .sb-still { grid-column: 8 / 12; grid-row: 2; margin-top: -10px; }
+.scrapbook .sb-farm { grid-column: 1 / 7; grid-row: 3; }
+.scrapbook .sb-heart { grid-column: 6 / 9; grid-row: 3; align-self: end; margin-bottom: -20px; margin-left: 20px; z-index: 2; }
+.scrapbook .sb-receipt { grid-column: 9 / 12; grid-row: 3; margin-top: 10px; }
+.scrapbook .sb-pact { grid-column: 9 / 13; grid-row: 3; align-self: end; z-index: 2; }
+.scrapbook .sb-strip { grid-column: 1 / 13; grid-row: 4; margin-top: 30px; }
+.scrapbook .sb-notebook { grid-column: 1 / 8; grid-row: 5; }
+.scrapbook .sb-sticky { grid-column: 8 / 11; grid-row: 5; margin-top: 14px; }
+.scrapbook .sb-pair { grid-column: 8 / 13; grid-row: 5; margin-top: 150px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+
+/* shared bits */
+.scrapbook .sb-tilt-l { transform: rotate(-1.6deg); }
+.scrapbook .sb-tilt-r { transform: rotate(2.2deg); }
+.scrapbook .sb-tilt-ll { transform: rotate(-3.5deg); }
+.scrapbook .sb-tilt-rr { transform: rotate(4deg); }
+.scrapbook .sb-tape { position: relative; }
+.scrapbook .sb-tape::before {
+  content: ""; position: absolute; z-index: 3; top: -12px; left: 50%; width: 96px; height: 26px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: rgba(244, 226, 184, 0.78);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.scrapbook .sb-tape.pink::before { background: rgba(247, 186, 196, 0.72); left: 18%; transform: rotate(-8deg); }
+.scrapbook .sb-tape.corner::before { left: auto; right: -18px; top: -6px; width: 72px; transform: rotate(38deg); }
+.scrapbook .sb-hand { font-family: var(--hand); }
+
+/* polaroids lift and straighten when you point at them */
+.scrapbook .sb-photo {
+  background: #fff; padding: 10px 10px 0; border-radius: 3px;
+  box-shadow: 0 14px 28px -18px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.scrapbook .sb-photo:hover { transform: rotate(0deg) translateY(-4px) scale(1.015); box-shadow: 0 22px 36px -18px rgba(0, 0, 0, 0.5); z-index: 6; }
+.scrapbook .sb-photo img { display: block; width: 100%; height: auto; border-radius: 1px; }
+.scrapbook .sb-photo figcaption { font-family: var(--hand); font-size: 1.35rem; line-height: 1.15; padding: 8px 4px 12px; text-align: center; }
+.scrapbook .sb-crop { overflow: hidden; border-radius: 1px; }
+.scrapbook .sb-crop img { width: 100%; height: 100%; object-fit: cover; }
+
+/* the screenplay page */
+.scrapbook .sb-script {
+  background: #fff; padding: 34px 38px 30px; border-radius: 2px;
+  box-shadow: 0 18px 34px -22px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-family: var(--type); font-size: 0.95rem; line-height: 1.55; color: #222;
+}
+.scrapbook .sb-script .sb-pageno { text-align: right; margin-bottom: 6px; }
+.scrapbook .sb-script .sb-scene { font-weight: 700; margin-top: 16px; }
+.scrapbook .sb-script p { margin: 4px 0 0; }
+.scrapbook .sb-script .sb-char { margin: 18px 0 0 38%; font-weight: 700; }
+.scrapbook .sb-script .sb-paren { margin: 0 0 0 31%; }
+.scrapbook .sb-script .sb-line { margin: 0 14% 0 24%; }
+.scrapbook .sb-script .sb-end { text-align: right; margin-top: 20px; font-weight: 700; }
+.scrapbook .sb-script a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.scrapbook .sb-script a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* "that's me" */
+.scrapbook .sb-me { position: relative; }
+.scrapbook .sb-arrow { position: absolute; left: -64px; top: -26px; width: 120px; color: var(--accent); pointer-events: none; z-index: 4; }
+.scrapbook .sb-melabel { position: absolute; left: -70px; top: -46px; z-index: 4; font-family: var(--hand); font-size: 1.45rem; color: var(--accent); transform: rotate(-8deg); }
+
+/* the film still from a video */
+.scrapbook .sb-still .sb-frame { position: relative; }
+.scrapbook .sb-rec { position: absolute; top: 8px; left: 10px; font: 700 0.72rem/1 var(--type); color: #fff; letter-spacing: 0.08em; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.scrapbook .sb-rec::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #ef4444; vertical-align: 0; }
+
+/* the goat, cut out in a heart */
+.scrapbook .sb-heart .sb-heartcut {
+  aspect-ratio: 1 / 0.92; background: #fff; padding: 9px;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 92'><path d='M50 92 C22 72 0 54 0 28 C0 12 12 0 27 0 C38 0 46 6 50 15 C54 6 62 0 73 0 C88 0 100 12 100 28 C100 54 78 72 50 92Z'/></svg>") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 92'><path d='M50 92 C22 72 0 54 0 28 C0 12 12 0 27 0 C38 0 46 6 50 15 C54 6 62 0 73 0 C88 0 100 12 100 28 C100 54 78 72 50 92Z'/></svg>") center / 100% 100% no-repeat;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.25));
+}
+.scrapbook .sb-heart .sb-heartcut img { width: 100%; height: 100%; object-fit: cover; object-position: 35% 40%; }
+.scrapbook .sb-heart p { font-family: var(--hand); font-size: 1.3rem; text-align: center; margin-top: 4px; transform: rotate(-2deg); }
+
+/* the Eidi receipt */
+.scrapbook .sb-receipt {
+  background: #fffdf7; padding: 16px 16px 20px; font: 0.8rem/1.6 var(--type); color: #333;
+  box-shadow: 0 12px 22px -16px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(0.0% 2.7%, 6.2% 2.0%, 12.5% 3.1%, 18.8% 1.1%, 25.0% 2.4%, 31.2% 2.1%, 37.5% 2.0%, 43.8% 1.6%, 50.0% 2.9%, 56.2% 3.3%, 62.5% 1.7%, 68.8% 2.3%, 75.0% 0.2%, 81.2% 2.5%, 87.5% 2.3%, 93.8% 3.5%, 100.0% 2.9%, 100.0% 99.0%, 93.8% 98.6%, 87.5% 97.7%, 81.2% 99.9%, 75.0% 98.4%, 68.8% 99.4%, 62.5% 99.6%, 56.2% 99.8%, 50.0% 97.3%, 43.8% 99.5%, 37.5% 99.1%, 31.2% 98.6%, 25.0% 97.0%, 18.8% 99.7%, 12.5% 98.4%, 6.2% 98.1%, 0.0% 96.9%);
+}
+.scrapbook .sb-receipt .sb-rhead { text-align: center; font-weight: 700; letter-spacing: 0.12em; border-bottom: 1px dashed #999; padding-bottom: 6px; margin-bottom: 6px; }
+.scrapbook .sb-receipt .sb-row { display: flex; justify-content: space-between; gap: 8px; }
+.scrapbook .sb-receipt .sb-total { border-top: 1px dashed #999; margin-top: 6px; padding-top: 6px; font-weight: 700; }
+
+/* the pact, in cut-out letters */
+.scrapbook .sb-pact { text-align: center; }
+.scrapbook .sb-pact .sb-letters { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 12px; }
+.scrapbook .sb-pact .sb-word { display: inline-flex; gap: 3px; white-space: nowrap; }
+.scrapbook .sb-pact .sb-l { display: inline-block; padding: 2px 5px; font-weight: 800; font-size: 1.15rem; line-height: 1.2; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+.scrapbook .sb-pact p { font-family: var(--hand); font-size: 1.2rem; margin-top: 8px; line-height: 1.15; }
+
+/* the torn strip of photos */
+.scrapbook .sb-strip {
+  background: #fff; padding: 26px 22px 18px;
+  clip-path: polygon(0.0% 0.7%, 3.6% 0.3%, 7.1% 1.4%, 10.7% 0.2%, 14.3% 1.2%, 17.9% 0.8%, 21.4% 0.1%, 25.0% 1.1%, 28.6% 0.1%, 32.1% 1.0%, 35.7% 0.2%, 39.3% 0.2%, 42.9% 0.9%, 46.4% 1.8%, 50.0% 0.3%, 53.6% 0.5%, 57.1% 1.4%, 60.7% 2.1%, 64.3% 1.3%, 67.9% 0.9%, 71.4% 2.1%, 75.0% 0.1%, 78.6% 1.9%, 82.1% 0.6%, 85.7% 0.3%, 89.3% 0.3%, 92.9% 0.7%, 96.4% 1.8%, 100.0% 0.4%, 100.0% 98.7%, 96.4% 98.6%, 92.9% 99.2%, 89.3% 98.8%, 85.7% 99.9%, 82.1% 99.9%, 78.6% 99.5%, 75.0% 98.5%, 71.4% 99.1%, 67.9% 99.3%, 64.3% 98.7%, 60.7% 99.0%, 57.1% 99.3%, 53.6% 98.3%, 50.0% 98.5%, 46.4% 99.5%, 42.9% 98.7%, 39.3% 98.8%, 35.7% 98.1%, 32.1% 98.4%, 28.6% 99.4%, 25.0% 97.8%, 21.4% 99.7%, 17.9% 99.1%, 14.3% 98.3%, 10.7% 99.7%, 7.1% 98.9%, 3.6% 99.9%, 0.0% 98.5%);
+  box-shadow: 0 10px 20px -16px rgba(0, 0, 0, 0.4);
+}
+.scrapbook .sb-strip .sb-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.scrapbook .sb-strip figure { margin: 0; }
+.scrapbook .sb-strip .sb-crop { aspect-ratio: 4 / 5; }
+.scrapbook .sb-strip figcaption { font-family: var(--hand); font-size: 1.3rem; text-align: center; margin-top: 6px; }
+
+/* the notebook page */
+.scrapbook .sb-notebook {
+  position: relative; background: #fffef9; padding: 26px 24px 24px 64px;
+  background-image: linear-gradient(to right, transparent 46px, rgba(220, 38, 38, 0.35) 46px, rgba(220, 38, 38, 0.35) 48px, transparent 48px),
+                    repeating-linear-gradient(to bottom, transparent 0, transparent 33px, rgba(37, 99, 235, 0.16) 33px, rgba(37, 99, 235, 0.16) 34px);
+  background-position: 0 0, 0 -8px;
+  box-shadow: 0 16px 30px -22px rgba(0, 0, 0, 0.5);
+  clip-path: polygon(0.0% 2.7%, 6.2% 2.0%, 12.5% 3.1%, 18.8% 1.1%, 25.0% 2.4%, 31.2% 2.1%, 37.5% 2.0%, 43.8% 1.6%, 50.0% 2.9%, 56.2% 3.3%, 62.5% 1.7%, 68.8% 2.3%, 75.0% 0.2%, 81.2% 2.5%, 87.5% 2.3%, 93.8% 3.5%, 100.0% 2.9%, 100.0% 99.0%, 93.8% 98.6%, 87.5% 97.7%, 81.2% 99.9%, 75.0% 98.4%, 68.8% 99.4%, 62.5% 99.6%, 56.2% 99.8%, 50.0% 97.3%, 43.8% 99.5%, 37.5% 99.1%, 31.2% 98.6%, 25.0% 97.0%, 18.8% 99.7%, 12.5% 98.4%, 6.2% 98.1%, 0.0% 96.9%);
+}
+.scrapbook .sb-notebook h3 { font-family: var(--hand); font-size: 1.9rem; font-weight: 700; line-height: 34px; margin: 0; }
+.scrapbook .sb-notebook ul { list-style: none; margin: 0; padding: 0; }
+.scrapbook .sb-notebook li { font-size: 1.12rem; line-height: 34px; }
+.scrapbook .sb-notebook li::before { content: "\2192\00a0"; color: var(--accent); }
+
+/* the sticky note */
+.scrapbook .sb-sticky {
+  background: #fde68a; padding: 18px 16px 22px; font-family: var(--hand); font-size: 1.6rem; line-height: 1.1; text-align: center;
+  box-shadow: 0 14px 22px -14px rgba(0, 0, 0, 0.45);
+}
+.scrapbook .sb-sticky small { display: block; font-size: 1.05rem; margin-top: 8px; opacity: 0.75; }
+
+/* phones and narrow columns: one column, gentler tilts (by the scrapbook's
+   width, since the page narrows this section on tablets too) */
+@media (max-width: 860px) {
+  .scrapbook { padding: 30px 18px 40px; border-radius: 22px; }
+}
+@container scrapbook (max-width: 760px) {
+  .scrapbook .sb-board { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 22px; }
+  .scrapbook .sb-board > * { grid-column: 1 / 3 !important; grid-row: auto !important; margin-top: 0 !important; margin-bottom: 0 !important; }
+  .scrapbook .sb-script { padding: 24px 20px; font-size: 0.86rem; }
+  .scrapbook .sb-script .sb-char { margin-left: 30%; }
+  .scrapbook .sb-script .sb-paren { margin-left: 24%; }
+  .scrapbook .sb-script .sb-line { margin: 0 6% 0 14%; }
+  .scrapbook .sb-me { padding: 30px 8% 0; }
+  .scrapbook .sb-arrow { display: none; }
+  .scrapbook .sb-melabel { left: 10%; top: -4px; }
+  .scrapbook .sb-heart, .scrapbook .sb-receipt { grid-column: auto !important; }
+  .scrapbook .sb-heart { margin-left: 0; }
+  .scrapbook .sb-receipt { font-size: 0.7rem; padding: 12px 10px 16px; }
+  .scrapbook .sb-receipt .sb-row span { white-space: nowrap; }
+  .scrapbook .sb-sticky { justify-self: center; width: min(250px, 80%); }
+  .scrapbook .sb-notebook h3 { font-size: 1.6rem; }
+  .scrapbook .sb-strip .sb-row3 { gap: 8px; }
+  .scrapbook .sb-strip figcaption { font-size: 1.05rem; }
+  .scrapbook .sb-notebook { padding-left: 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrapbook .sb-photo { transition: none; }
+  .scrapbook .sb-photo:hover { transform: none; }
+}
