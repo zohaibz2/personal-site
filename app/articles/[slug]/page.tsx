@@ -64,7 +64,7 @@ export default async function ArticlePage({
         {/* Back link */}
         <Link
           href="/articles"
-          className="text-xs uppercase tracking-[0.14em] text-[#1a1a1a]/45 transition-colors hover:text-[#c2410c]"
+          className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
           style={{ fontFamily: "var(--font-ui)" }}
         >
           &larr; Articles

@@ -8,7 +8,7 @@
   overflow: hidden;
   background: #e9e2d6;
   color: #1f1b16;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
   user-select: none;
   -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
