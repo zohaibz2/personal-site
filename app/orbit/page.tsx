@@ -29,9 +29,9 @@ const tools = [
 
 export default function OrbitPage() {
   return (
-    <main className="mx-auto max-w-5xl px-6 py-16 md:py-24">
+    <main className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       <header className="mb-10 md:mb-14">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#1a1a1a] mb-3">
+        <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a] mb-3">
           Orbit
         </h1>
         <p className="text-lg text-[#1a1a1a]/70 max-w-xl">
@@ -48,15 +48,15 @@ export default function OrbitPage() {
             className="group flex flex-col rounded-2xl border border-black/10 bg-white/60 p-6 transition-colors hover:border-black/25"
           >
             <div className="text-4xl mb-4">{t.emoji}</div>
-            <h2 className="text-xl font-semibold text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
+            <h2 className="text-lg md:text-xl font-medium text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
               {t.title}
             </h2>
             <p className="mt-1.5 text-[15px] leading-relaxed text-[#1a1a1a]/60">
               {t.blurb}
             </p>
             <span
-              className="mt-4 text-xs uppercase tracking-[0.12em] text-[#c2410c]"
-              style={{ fontFamily: "system-ui, sans-serif" }}
+              className="mt-4 text-sm text-[#c2410c]"
+              style={{ fontFamily: "var(--font-ui)" }}
             >
               Open &rarr;
             </span>

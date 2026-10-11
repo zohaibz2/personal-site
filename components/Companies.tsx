@@ -104,7 +104,7 @@ function Media({ c }: { c: Company }) {
     >
       <Image src={c.logo} alt="" width={88} height={88} className="rounded-xl shadow-md" />
       {c.panel.route && (
-        <div className="flex w-[78%] items-center gap-3 text-xs md:text-sm" style={{ fontFamily: "system-ui, sans-serif" }} aria-hidden="true">
+        <div className="flex w-[78%] items-center gap-3 text-xs md:text-sm" style={{ fontFamily: "var(--font-ui)" }} aria-hidden="true">
           <span className="font-semibold">{c.panel.route[0]}</span>
           <span className="h-px flex-1 bg-current opacity-40" />
           <span className="whitespace-nowrap text-[11px] opacity-80">{c.panel.route[1]}</span>
@@ -133,7 +133,7 @@ export default function Companies() {
                 <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">{c.name}</h3>
                 <span
                   className="ml-auto shrink-0 rounded-full bg-[#f5f5f4] px-3 py-1 text-xs font-medium text-[#1a1a1a]/75"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
+                  style={{ fontFamily: "var(--font-ui)" }}
                 >
                   {c.role}
                 </span>
@@ -148,12 +148,12 @@ export default function Companies() {
 
               {/* one honest number */}
               <p className="mt-5 flex flex-wrap items-baseline gap-x-2">
-                <span className="whitespace-nowrap text-2xl md:text-3xl font-semibold text-[#1a1a1a]" style={{ fontFamily: "system-ui, sans-serif" }}>
+                <span className="whitespace-nowrap text-2xl md:text-3xl font-semibold text-[#1a1a1a]" style={{ fontFamily: "var(--font-ui)" }}>
                   {c.number}
                 </span>
                 <span className="text-base text-[#1a1a1a]/60">{c.numberLabel}</span>
               </p>
-              <ul className="mt-3 flex list-none flex-wrap gap-2 text-xs text-[#1a1a1a]/70" style={{ fontFamily: "system-ui, sans-serif" }}>
+              <ul className="mt-3 flex list-none flex-wrap gap-2 text-xs text-[#1a1a1a]/70" style={{ fontFamily: "var(--font-ui)" }}>
                 {c.facts.map((f) => (
                   <li key={f} className="rounded-full bg-[#f5f5f4] px-2.5 py-1">
                     {f}
@@ -166,7 +166,7 @@ export default function Companies() {
               <details className="group rounded-xl bg-[#fafaf9] px-4 py-3 [&_summary::-webkit-details-marker]:hidden">
                 <summary
                   className="flex cursor-pointer list-none items-center justify-between text-sm font-medium text-[#1a1a1a] rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c2410c]"
-                  style={{ fontFamily: "system-ui, sans-serif" }}
+                  style={{ fontFamily: "var(--font-ui)" }}
                 >
                   Milestones
                   <span aria-hidden="true" className="transition-transform duration-200 group-open:rotate-45 text-lg leading-none">+</span>
@@ -186,7 +186,7 @@ export default function Companies() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-5 inline-flex w-fit items-center gap-1 text-sm text-[#c2410c] hover:text-[#ea580c] transition-colors rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#c2410c]"
-                style={{ fontFamily: "system-ui, sans-serif" }}
+                style={{ fontFamily: "var(--font-ui)" }}
               >
                 Visit {c.site} <span aria-hidden="true">&rarr;</span>
                 <span className="sr-only"> (opens in a new tab)</span>

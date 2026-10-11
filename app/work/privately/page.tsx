@@ -7,42 +7,40 @@ export const metadata: Metadata = {
   description: "Privately — peer-to-peer real estate marketplace cutting out the middleman for direct property transactions.",
 };
 
-const sansStyle = { fontFamily: "system-ui, sans-serif" } as const;
+const sansStyle = { fontFamily: "var(--font-ui)" } as const;
 
 const whatIBuilt = [
   {
-    title: "Direct-to-Consumer Onboarding & Hero UX",
+    title: "Direct-to-consumer onboarding",
     body: "Built a clean, action-oriented entry point for users to self-select their journey immediately as a buyer or seller.",
   },
   {
-    title: "Granular Search & Discovery Engine",
+    title: "Search that actually narrows things down",
     body: "Engineered an advanced filtering layout mapping out property type, price limits, exact floor/land sizes, and localized suburbs to deliver targeted matching with zero bloat.",
   },
   {
-    title: "Step-by-Step Listing Onboarding",
+    title: "Listing a property, step by step",
     body: "Designed an intuitive, visual selection matrix for property amenities featuring a real-time progress tracker to drastically lower listing drop-off rates.",
   },
   {
-    title: "Robust Multi-Role Seller Dashboard",
+    title: "A seller dashboard for every role",
     body: "Programmed a secure ecosystem dashboard allowing sellers to track active listings under offer, monitor upcoming billing schedules, review direct buyer requests, and seamlessly connect with verified attorney networks.",
   },
   {
-    title: "Smart Integrations & Core Infrastructure",
+    title: "Integrations and the plumbing underneath",
     body: "Integrated an OpenAI-backed engine for automated listing support, secure payment gateway infrastructure for subscription handling, and a custom relational database to handle lead generation pipeline metrics seamlessly.",
   },
 ];
 
 export default function Privately() {
   return (
-    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/"
+        href="/#work"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >
-        ← Zohaib Narejo
-      </Link>
+      >&larr; Work</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">

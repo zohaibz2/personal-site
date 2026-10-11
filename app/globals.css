@@ -4,6 +4,15 @@
   --font-serif: var(--font-eb-garamond);
 }
 
+/* The site's two fonts: EB Garamond for reading, and one interface font
+   for menus, labels, dates, chips and small links. */
+:root {
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.font-ui {
+  font-family: var(--font-ui);
+}
+
 body {
   background: #ffffff;
   color: #1a1a1a;
@@ -31,7 +40,7 @@ body {
   letter-spacing: 0.12em;
   color: #c2410c;
   margin-bottom: 0.5rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-title {
@@ -105,7 +114,7 @@ body {
   color: #1a1a1a;
   opacity: 0.45;
   margin-top: 0.2rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-sep {
@@ -134,7 +143,7 @@ body {
   font-size: 0.8rem;
   color: #1a1a1a;
   opacity: 0.45;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-tz-select {
@@ -145,7 +154,7 @@ body {
   background: #fff;
   color: #1a1a1a;
   cursor: pointer;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Dashboard */
@@ -182,7 +191,7 @@ body {
   letter-spacing: 0.1em;
   color: #1a1a1a;
   opacity: 0.4;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-stat-value {
@@ -224,7 +233,7 @@ body {
   font-size: 0.78rem;
   color: #1a1a1a;
   opacity: 0.5;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Section heading */
@@ -284,7 +293,7 @@ body {
   letter-spacing: 0.08em;
   color: #1a1a1a;
   opacity: 0.4;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-log-text {
@@ -324,7 +333,7 @@ body {
   color: #c2410c;
   width: 1rem;
   flex-shrink: 0;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-milestone-label {
@@ -341,7 +350,7 @@ body {
   font-size: 0.85rem;
   color: #1a1a1a;
   opacity: 0.45;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Comments */
@@ -375,7 +384,7 @@ body {
   font-size: 0.9rem;
   font-weight: 600;
   color: #1a1a1a;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-comment-name-link {
@@ -391,7 +400,7 @@ body {
   font-size: 0.75rem;
   color: #1a1a1a;
   opacity: 0.4;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-comment-body {
@@ -442,7 +451,7 @@ body {
   border: 1px solid rgba(26,26,26,0.15);
   border-radius: 9px;
   font-size: 0.95rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
   color: #1a1a1a;
   background: #fff;
   outline: none;
@@ -461,7 +470,7 @@ body {
   border: 1px solid rgba(26,26,26,0.15);
   border-radius: 9px;
   font-size: 0.95rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
   color: #1a1a1a;
   background: #fff;
   outline: none;
@@ -482,7 +491,7 @@ body {
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: background 0.15s, opacity 0.15s;
 }
@@ -500,14 +509,14 @@ body {
   font-size: 0.85rem;
   color: #16a34a;
   margin: 0 0 0.75rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-msg-error {
   font-size: 0.85rem;
   color: #dc2626;
   margin: 0 0 0.75rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Sprint header spacing */
@@ -552,7 +561,7 @@ body {
   letter-spacing: 0.15em;
   color: rgba(255, 255, 255, 0.55);
   margin: 0 0 0.5rem;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 .sprint-hero-title {
@@ -586,7 +595,7 @@ body {
   margin: 0;
   line-height: 1.6;
   max-width: 480px;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 
 @media (min-width: 768px) {

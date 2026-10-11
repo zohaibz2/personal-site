@@ -3,12 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Getlivestock — Zohaib Narejo",
+  title: "Narejo Farms — Zohaib Narejo",
   description:
-    "Getlivestock — revolutionizing the livestock supply chain through organic, farm-to-table efficiency.",
+    "Narejo Farms (formerly Getlivestock): fixing the livestock supply chain, from Mirpurkhas to Karachi.",
 };
 
-const sansStyle = { fontFamily: "system-ui, sans-serif" } as const;
+const sansStyle = { fontFamily: "var(--font-ui)" } as const;
 
 const features = [
   "Organic Production Model: Pioneered an organic, stress-free raising methodology for goats, sheep, buffaloes, and bulls, ensuring healthier end-products at a lower market price.",
@@ -19,33 +19,31 @@ const features = [
 
 export default function Getlivestock() {
   return (
-    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/"
+        href="/#work"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >
-        ← Zohaib Narejo
-      </Link>
+      >&larr; Work</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">
         <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a]">
-          Getlivestock
+          Narejo Farms
         </h1>
         <p className="mt-2 text-lg md:text-xl text-[#c2410c]">
           Revolutionizing the livestock supply chain through organic,
           farm-to-table efficiency.
         </p>
         <a
-          href="https://getivestock-site.vercel.app/"
+          href="https://www.narejofarms.com"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit site →
+          Visit narejofarms.com →
         </a>
       </header>
 
@@ -53,7 +51,7 @@ export default function Getlivestock() {
       <div className="relative aspect-[1512/982] overflow-hidden rounded-2xl border border-[#1a1a1a]/10 bg-[#f5f5f4]">
         <Image
           src="/work/getlivestock/splash.png"
-          alt="Getlivestock"
+          alt="Narejo Farms"
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 720px"
@@ -153,13 +151,13 @@ export default function Getlivestock() {
       {/* Watch demo — closing */}
       <div className="mt-14">
         <a
-          href="https://getivestock-site.vercel.app/"
+          href="https://www.narejofarms.com"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          Visit site →
+          Visit narejofarms.com →
         </a>
       </div>
     </article>

@@ -49,7 +49,7 @@ function formatDate(iso: string): string {
   });
 }
 
-const SANS = { fontFamily: "system-ui, sans-serif" } as const;
+const SANS = { fontFamily: "var(--font-ui)" } as const;
 
 export default async function ArticlesPage({
   searchParams,
@@ -78,10 +78,10 @@ export default async function ArticlesPage({
       );
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+    <main className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Page header */}
       <header className="mb-10 md:mb-14">
-        <h1 className="text-3xl md:text-4xl font-medium text-[#1a1a1a] mb-3">
+        <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a] mb-3">
           Articles
         </h1>
         <p className="text-lg text-[#1a1a1a]/70">
@@ -182,7 +182,7 @@ function ArticleCardItem({ article: a }: { article: ArticleCard }) {
 
       {/* Thumbnail — local image from /public/articles, else a branded placeholder */}
       <Link href={href} className="block overflow-hidden">
-        <div className="relative aspect-[3/2] w-full overflow-hidden bg-[#f6ede7]">
+        <div className="relative aspect-[3/2] w-full overflow-hidden bg-[#f5f5f4]">
           <ArticleCover
             slug={a.slug}
             heading={a.heading}
@@ -192,7 +192,7 @@ function ArticleCardItem({ article: a }: { article: ArticleCard }) {
       </Link>
 
       {/* Heading */}
-      <h2 className="mt-5 text-xl font-medium leading-snug text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
+      <h2 className="mt-5 text-lg md:text-xl font-medium leading-snug text-[#1a1a1a] transition-colors group-hover:text-[#c2410c]">
         <Link href={href}>{a.heading}</Link>
       </h2>
 
@@ -207,10 +207,8 @@ function ArticleCardItem({ article: a }: { article: ArticleCard }) {
       <Link
         href={href}
         style={SANS}
-        className="mt-auto pt-5 text-xs uppercase tracking-[0.12em] text-[#c2410c] underline decoration-[#c2410c]/30 underline-offset-4 transition-colors hover:decoration-[#c2410c]"
-      >
-        Read more
-      </Link>
+        className="mt-auto pt-5 text-sm text-[#c2410c] transition-colors hover:text-[#ea580c]"
+      >Read more &rarr;</Link>
     </article>
   );
 }

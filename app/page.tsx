@@ -67,7 +67,7 @@ export default function Home() {
           </a>
           . I read everything.
         </p>
-        <p className="text-sm text-[#1a1a1a]/60" style={{ fontFamily: "system-ui, sans-serif" }}>
+        <p className="text-sm text-[#1a1a1a]/60" style={{ fontFamily: "var(--font-ui)" }}>
           <a href="https://www.linkedin.com/in/zohaib-narejo-aa61192a8/" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">LinkedIn</a>
           <span className="mx-2">&middot;</span>
           <a href="https://x.com/NarejoZohaib" target="_blank" rel="noopener noreferrer" className="hover:text-[#1a1a1a] transition-colors">Twitter</a>

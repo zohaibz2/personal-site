@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "StratAI — an AI-powered strategy platform built in under 3 weeks using Bubble.io.",
 };
 
-const sansStyle = { fontFamily: "system-ui, sans-serif" } as const;
+const sansStyle = { fontFamily: "var(--font-ui)" } as const;
 
 const features = [
   "Personalized onboarding flow — users share their company, goals, challenges, and market position",
@@ -19,15 +19,13 @@ const features = [
 
 export default function StratAI() {
   return (
-    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/"
+        href="/#work"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >
-        ← Zohaib Narejo
-      </Link>
+      >&larr; Work</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">

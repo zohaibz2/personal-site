@@ -24,8 +24,8 @@ const projects: {
     href: "/work/getlivestock",
     hidden: true,
     src: "/work/getlivestock/splash.png",
-    alt: "Getlivestock",
-    title: "Getlivestock",
+    alt: "Narejo Farms",
+    title: "Narejo Farms",
     description:
       "Revolutionizing Pakistan's livestock supply chain — organic, farm-to-table.",
     category: "Nocode", // ← guess, adjust if needed
@@ -49,7 +49,7 @@ const projects: {
     title: "Venfound",
     description: "From ideas to MVPs in 3-4 weeks.",
     category: "Vibecoded", // ← guess, adjust if needed
-    bg: "bg-[#f4f4f5]",
+    bg: "bg-[#f5f5f4]",
   },
   {
     href: "/work/stratai",
@@ -58,7 +58,7 @@ const projects: {
     title: "StratAI",
     description: "AI strategy platform — built and launched in under 3 weeks.",
     category: "Nocode",
-    bg: "bg-[#f4f4f5]",
+    bg: "bg-[#f5f5f4]",
   },
   {
     href: "/work/kodex",
@@ -154,9 +154,7 @@ export default function Work() {
               <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">
                 {p.description}
               </p>
-              <span className="mt-4 text-sm text-[#c2410c] group-hover:text-[#ea580c] transition-colors">
-                View more
-              </span>
+              <span className="font-ui mt-4 text-sm text-[#c2410c] group-hover:text-[#ea580c] transition-colors">View more &rarr;</span>
             </div>
           </Link>
         ))}
@@ -166,9 +164,9 @@ export default function Work() {
       <div className="flex justify-center mt-12">
         <a
           href="mailto:narejozohaib33@gmail.com"
-          className="rounded-full bg-[#1a1a1a] px-8 py-3 text-base font-medium text-white transition-colors duration-150 hover:bg-[#333]"
+          className="rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
         >
-          Let&apos;s Build Together
+          Let&apos;s build together
         </a>
       </div>
     </section>

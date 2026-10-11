@@ -7,42 +7,40 @@ export const metadata: Metadata = {
   description: "Kodex — video-first knowledge platform for fast, searchable team onboarding.",
 };
 
-const sansStyle = { fontFamily: "system-ui, sans-serif" } as const;
+const sansStyle = { fontFamily: "var(--font-ui)" } as const;
 
 const whatIBuilt = [
   {
-    title: "User-Centric Architecture",
+    title: "User-centric architecture",
     body: "Grounded the entire system in insights from 10 in-depth user interviews across product, engineering, and operations.",
   },
   {
-    title: "Seamless Video Capture",
+    title: "Seamless video capture",
     body: "Built a streamlined video recording and upload pipeline based on the insight that employees prefer explaining over writing.",
   },
   {
-    title: "AI-Powered Automation",
+    title: "AI-powered automation",
     body: "Integrated automated transcription and summary generation so documentation stays low-effort and easy to maintain.",
   },
   {
-    title: "Centralized Team Workspace",
+    title: "A shared team workspace",
     body: "Created a unified onboarding space for teams and departments to prevent information from getting scattered across Slack or Notion.",
   },
   {
-    title: "Smart Content Taxonomy",
+    title: "Content that organises itself",
     body: "Designed a structured organization layer utilizing teams, categories, and tags to keep knowledge easily searchable.",
   },
 ];
 
 export default function Kodex() {
   return (
-    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/"
+        href="/#work"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >
-        ← Zohaib Narejo
-      </Link>
+      >&larr; Work</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">

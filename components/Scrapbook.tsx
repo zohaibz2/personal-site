@@ -41,7 +41,7 @@ function Polaroid({ src, alt, w, h, caption, className = "" }: { src: string; al
 export default function Scrapbook() {
   let n = 0;
   return (
-    <section id="about" className="mx-auto max-w-[640px] lg:max-w-5xl px-4 md:px-6 py-16 md:py-24 scroll-mt-24">
+    <section id="about" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24 scroll-mt-24">
       <div className={`scrapbook ${hand.variable} ${type.variable}`}>
         <h2 className="sb-title">
           Pages from <span>my story</span>

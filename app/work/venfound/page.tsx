@@ -7,12 +7,12 @@ export const metadata: Metadata = {
   description: "Venfound — from ideas to MVPs in 3-4 weeks.",
 };
 
-const sansStyle = { fontFamily: "system-ui, sans-serif" } as const;
+const sansStyle = { fontFamily: "var(--font-ui)" } as const;
 
 const process = [
   {
     timeline: "1–3 days",
-    title: "Discovery & Planning",
+    title: "Discovery and planning",
     body: "We dive deep into your goals, target audience, and technical requirements so we are aligned and set on a clear path forward.",
   },
   {
@@ -35,37 +35,35 @@ const selectedWork = [
 
 export default function Venfound() {
   return (
-    <article className="mx-auto max-w-[720px] lg:max-w-5xl px-6 py-16 md:py-24">
+    <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/"
+        href="/#work"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >
-        ← Zohaib Narejo
-      </Link>
+      >&larr; Work</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#091747]">
+        <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a]">
           Venfound
         </h1>
-        <p className="mt-2 text-lg md:text-xl text-[#8f0397]">
+        <p className="mt-2 text-lg md:text-xl text-[#c2410c]">
           From ideas to MVPs in 3-4 weeks.
         </p>
         <a
           href="https://venfound.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#8f0397] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#b30dbd]"
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          venfound.com ↗
+          Visit venfound.com →
         </a>
       </header>
 
       {/* Splash */}
-      <div className="relative aspect-[1600/734] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
+      <div className="relative aspect-[1600/734] overflow-hidden rounded-2xl border border-black/[0.072] bg-[#f5f5f4]">
         <Image
           src="/work/venfound/main-header-v2.png"
           alt="Venfound — From Ideas to Impact"
@@ -79,7 +77,7 @@ export default function Venfound() {
       {/* What it is */}
       <section className="mt-14">
         <h2
-          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           What it is
@@ -95,7 +93,7 @@ export default function Venfound() {
       {/* My role */}
       <section className="mt-12">
         <h2
-          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           My role
@@ -110,7 +108,7 @@ export default function Venfound() {
       {/* How we work */}
       <section className="mt-12">
         <h2
-          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           How we work
@@ -119,12 +117,12 @@ export default function Venfound() {
           {process.map((step) => (
             <div key={step.title} className="flex flex-col gap-1">
               <span
-                className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8f0397]/80"
+                className="text-xs font-semibold uppercase tracking-[0.15em] text-[#c2410c]/80"
                 style={sansStyle}
               >
                 Timeline: {step.timeline}
               </span>
-              <h3 className="text-lg md:text-xl font-medium text-[#091747]">
+              <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">
                 {step.title}
               </h3>
               <p className="text-base md:text-lg text-[#1a1a1a]/80 leading-[1.7]">
@@ -133,7 +131,7 @@ export default function Venfound() {
             </div>
           ))}
         </div>
-        <figure className="relative mt-8 aspect-[1307/711] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
+        <figure className="relative mt-8 aspect-[1307/711] overflow-hidden rounded-2xl border border-black/[0.072] bg-[#f5f5f4]">
           <Image
             src="/work/venfound/our-process-v2.png"
             alt="Venfound process — Discovery, Design, Development"
@@ -147,7 +145,7 @@ export default function Venfound() {
       {/* The team */}
       <section className="mt-12">
         <h2
-          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           The team
@@ -157,7 +155,7 @@ export default function Venfound() {
           founders turn raw ideas into MVPs in under three to four weeks on
           average.
         </p>
-        <figure className="relative mt-6 aspect-[1293/759] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
+        <figure className="relative mt-6 aspect-[1293/759] overflow-hidden rounded-2xl border border-black/[0.072] bg-[#f5f5f4]">
           <Image
             src="/work/venfound/our-team-v2.png"
             alt="Meet the builders behind Venfound"
@@ -171,7 +169,7 @@ export default function Venfound() {
       {/* Selected work */}
       <section className="mt-12">
         <h2
-          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-4 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           Selected work
@@ -189,7 +187,7 @@ export default function Venfound() {
             </li>
           ))}
         </ul>
-        <figure className="relative mt-6 aspect-[1321/733] overflow-hidden rounded-2xl border border-[#091747]/10 bg-[#f4f4f5]">
+        <figure className="relative mt-6 aspect-[1321/733] overflow-hidden rounded-2xl border border-black/[0.072] bg-[#f5f5f4]">
           <Image
             src="/work/venfound/our-work-v2.png"
             alt="Recent Venfound work — Kodex, StratAI, Odycy"
@@ -203,7 +201,7 @@ export default function Venfound() {
       {/* Stack */}
       <section className="mt-12">
         <h2
-          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           Stack
@@ -217,7 +215,7 @@ export default function Venfound() {
       {/* Status */}
       <section className="mt-12">
         <h2
-          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#8f0397]"
+          className="mb-3 text-xs md:text-sm font-semibold uppercase tracking-[0.15em] text-[#c2410c]"
           style={sansStyle}
         >
           Status
@@ -233,10 +231,10 @@ export default function Venfound() {
           href="https://venfound.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-full bg-[#8f0397] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#b30dbd]"
+          className="inline-flex items-center gap-2 rounded-full bg-[#c2410c] px-6 py-3 text-base md:text-lg text-white transition-colors duration-150 hover:bg-[#ea580c]"
           style={sansStyle}
         >
-          venfound.com ↗
+          Visit venfound.com →
         </a>
       </div>
     </article>

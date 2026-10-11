@@ -201,18 +201,18 @@ export default function CatchGame() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-14 md:py-20">
-      <Link href="/orbit" className="text-xs uppercase tracking-[0.14em] text-[#1a1a1a]/45 transition-colors hover:text-[#c2410c]" style={{ fontFamily: "system-ui, sans-serif" }}>
+      <Link href="/orbit" className="text-xs uppercase tracking-[0.14em] text-[#1a1a1a]/45 transition-colors hover:text-[#c2410c]" style={{ fontFamily: "var(--font-ui)" }}>
         &larr; Orbit
       </Link>
 
-      <h1 className="mt-6 text-3xl md:text-4xl font-bold tracking-tight text-[#1a1a1a]">Catch Yourself</h1>
+      <h1 className="mt-6 text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a]">Catch Yourself</h1>
       <p className="mt-2 mb-6 text-[#1a1a1a]/65">
         Slash through the ten things that call to you — swipe your cursor (or drag
         your finger) across them. What you grab says more than you&apos;d like.
       </p>
 
       {phase === "playing" && (
-        <div className="mb-3 text-sm font-medium text-[#1a1a1a]/60" style={{ fontFamily: "system-ui, sans-serif" }}>
+        <div className="mb-3 text-sm font-medium text-[#1a1a1a]/60" style={{ fontFamily: "var(--font-ui)" }}>
           Caught {caught.length}/{TOTAL}
         </div>
       )}
@@ -262,7 +262,7 @@ export default function CatchGame() {
               Things will start falling. Swipe your cursor or finger through the ten
               that pull at you — gut, not brain. Then meet yourself.
             </p>
-            <button onClick={start} className="mt-1 rounded-full bg-[#1a1a1a] px-6 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03]" style={{ fontFamily: "system-ui, sans-serif" }}>
+            <button onClick={start} className="mt-1 rounded-full bg-[#1a1a1a] px-6 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03]" style={{ fontFamily: "var(--font-ui)" }}>
               Start
             </button>
           </div>
@@ -273,7 +273,7 @@ export default function CatchGame() {
             <div className="text-6xl">{result.emoji}</div>
             <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-[#1a1a1a]">{result.name}</h2>
             <p className="max-w-sm text-[#1a1a1a]/70">{result.blurb}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5" style={{ fontFamily: "system-ui, sans-serif" }}>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2.5" style={{ fontFamily: "var(--font-ui)" }}>
               <button onClick={start} className="rounded-full bg-[#1a1a1a] px-5 py-2 text-sm font-medium text-white transition-transform hover:scale-[1.03]">Play again</button>
               <button onClick={share} className="rounded-full border border-[#1a1a1a]/25 px-5 py-2 text-sm font-medium text-[#1a1a1a] transition-colors hover:border-[#1a1a1a]/50">
                 {copied ? "Copied!" : "Share result"}

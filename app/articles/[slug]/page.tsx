@@ -59,13 +59,13 @@ export default async function ArticlePage({
     .filter(Boolean);
 
   return (
-    <main className="article-page min-h-screen bg-[#f4f1ea]">
-      <article className="mx-auto w-full max-w-[640px] px-6 py-14 md:py-20">
+    <main className="article-page min-h-screen bg-white">
+      <article className="mx-auto w-full max-w-[640px] px-6 py-16 md:py-24">
         {/* Back link */}
         <Link
           href="/articles"
           className="text-xs uppercase tracking-[0.14em] text-[#1a1a1a]/45 transition-colors hover:text-[#c2410c]"
-          style={{ fontFamily: "system-ui, sans-serif" }}
+          style={{ fontFamily: "var(--font-ui)" }}
         >
           &larr; Articles
         </Link>
@@ -76,7 +76,7 @@ export default async function ArticlePage({
         </h1>
 
         {/* Cover image */}
-        <div className="relative mt-8 aspect-[3/2] w-full overflow-hidden bg-[#e7e2d7]">
+        <div className="relative mt-8 aspect-[3/2] w-full overflow-hidden bg-[#f5f5f4]">
           <ArticleCover slug={article.slug} heading={article.heading} imageUrl={article.cover_image} />
         </div>
 
@@ -92,7 +92,7 @@ export default async function ArticlePage({
           {paragraphs.map((p, i) => (
             <p
               key={i}
-              className="text-justify text-[1.0625rem] leading-[1.75] text-[#221f1b] [hyphens:auto] md:text-[1.125rem]"
+              className="text-justify text-[1.0625rem] leading-[1.75] text-[#1a1a1a] [hyphens:auto] md:text-[1.125rem]"
             >
               {p}
             </p>

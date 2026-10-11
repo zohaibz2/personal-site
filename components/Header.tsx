@@ -14,7 +14,7 @@ export default function Header() {
   return (
     <header
       className="sticky top-0 z-50 bg-white px-6 pt-4"
-      style={{ fontFamily: "system-ui, sans-serif" }}
+      style={{ fontFamily: "var(--font-ui)" }}
     >
       <nav className="relative mx-auto flex max-w-[1118px] items-center justify-between gap-6 rounded-full border border-black/[0.05] bg-white px-[19.36px] py-[17.5px] shadow-[0_12px_36px_-16px_rgba(0,0,0,0.20)] md:px-[29.04px]">
         {/* Logo */}
