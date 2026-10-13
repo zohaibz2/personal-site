@@ -80,6 +80,33 @@ const projects: {
     category: "Development",
     bg: "bg-[#f5f5f4]",
   },
+  {
+    href: "/work/steady",
+    src: "/work/branding/steady.jpg",
+    alt: "The Steady brand board",
+    title: "Steady",
+    description: "Brand identity: wordmark, palette and packaging.",
+    category: "Branding and Design",
+    bg: "bg-[#f5f5f4]",
+  },
+  {
+    href: "/work/frylab",
+    src: "/work/branding/frylab.jpg",
+    alt: "The FryLab brand board",
+    title: "FryLab",
+    description: "Brand identity: logo, packaging and storefront.",
+    category: "Branding and Design",
+    bg: "bg-[#f5f5f4]",
+  },
+  {
+    href: "/work/narejo-farms-brand",
+    src: "/work/branding/narejo-farms.jpg",
+    alt: "The Narejo Farms brand board",
+    title: "Narejo Farms",
+    description: "Brand identity for my own farm.",
+    category: "Branding and Design",
+    bg: "bg-[#f5f5f4]",
+  },
 ];
 
 const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
