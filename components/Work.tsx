@@ -125,6 +125,15 @@ const projects: {
     category: "Social Media",
     bg: "bg-[#f5f5f4]",
   },
+  {
+    href: "/work/narejo-farms-social",
+    src: "/work/narejo-farms-social/cover.jpg",
+    alt: "Narejo Farms reels",
+    title: "Narejo Farms",
+    description: "Reels from the farm\u2019s mango season, back when it was Getlivestock.",
+    category: "Social Media",
+    bg: "bg-[#f5f5f4]",
+  },
 ];
 
 const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
