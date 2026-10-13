@@ -107,6 +107,15 @@ const projects: {
     category: "Branding and Design",
     bg: "bg-[#f5f5f4]",
   },
+  {
+    href: "/work/venfound-social",
+    src: "/work/social/cover.jpg",
+    alt: "Venfound reels and posts",
+    title: "Venfound on social media",
+    description: "Reels and posts for Venfound\u2019s LinkedIn and Instagram.",
+    category: "Social Media",
+    bg: "bg-[#f5f5f4]",
+  },
 ];
 
 const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
