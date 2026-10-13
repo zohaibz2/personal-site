@@ -32,6 +32,21 @@ const TESTIMONIALS: Testimonial[] = [
     ],
     highlight: "he knows how to turn a product into a story people want to be part of",
   },
+  {
+    // drafted for Urooj to read and approve before it goes live
+    name: "Urooj Haider",
+    photo: "/testimonials/urooj.jpg",
+    initials: "UH",
+    job: "UX Researcher \u00b7 MFA Experience Design, Northeastern",
+    tag: "Cofounder, Venfound",
+    quote: [
+      "I co-founded Venfound with Zohaib, and one thing has been true from day one: he thinks big. Not in a vague, dreamy way. He sees where something could go, and then he actually goes after it.",
+      "He thinks out of the box, too. Where most people see a wall, Zohaib sees a way around it. And when things go wrong, which in a studio they do, he doesn\u2019t waste time worrying about how bad it looks. He stays calm, finds the next move and gets everyone moving again.",
+      "He\u2019s also the reason a lot of our projects exist. Zohaib works with our clients across the US, the UK and South Africa, and he makes it look easy. He builds trust quickly, understands what a founder actually needs, and locks in projects like it\u2019s a piece of cake. As the one who loves the research and design side, I can tell you a partner who brings the work in is priceless.",
+      "If you want someone who will dream bigger than you and still close the deal, Zohaib is your person.",
+    ],
+    highlight: "locks in projects like it\u2019s a piece of cake",
+  },
 ];
 
 const EMAIL = "narejozohaib33@gmail.com";
