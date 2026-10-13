@@ -116,6 +116,15 @@ const projects: {
     category: "Social Media",
     bg: "bg-[#f5f5f4]",
   },
+  {
+    href: "/work/ai-society",
+    src: "/work/ai-society/cover.jpg",
+    alt: "The AI Society reels",
+    title: "The AI Society",
+    description: "Reels on new AI tools, grown from 0 to 6,000 followers.",
+    category: "Social Media",
+    bg: "bg-[#f5f5f4]",
+  },
 ];
 
 const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
