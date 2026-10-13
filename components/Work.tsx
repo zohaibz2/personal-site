@@ -155,6 +155,16 @@ const projects: {
     category: "YouTube",
     bg: "bg-black",
   },
+  {
+    href: "https://www.youtube.com/watch?v=eXgxtqKCFN4",
+    youtube: "eXgxtqKCFN4",
+    src: "/work/youtube/kashmir-ep03.jpg",
+    alt: "2nd day in Kashmir, episode 3: Shaal",
+    title: "2nd day in Kashmir",
+    description: "Episode 3: Shaal, on my second day in Kashmir.",
+    category: "YouTube",
+    bg: "bg-black",
+  },
 ];
 
 type Project = (typeof projects)[number];
