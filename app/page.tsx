@@ -1,6 +1,4 @@
 import Image from "next/image";
-import Work from "@/components/Work";
-import Companies from "@/components/Companies";
 import Testimonials from "@/components/Testimonials";
 import Typewriter from "@/components/Typewriter";
 
@@ -85,11 +83,7 @@ export default function Home() {
         </ul>
       </section>
 
-      {/* Work */}
-      <Work />
 
-      {/* Companies I've built */}
-      <Companies />
 
       {/* In their words */}
       <Testimonials />

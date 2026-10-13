@@ -1,9 +1,8 @@
 import Link from "next/link";
 
 const navLinks: { label: string; href: string; newTab?: boolean }[] = [
-  { label: "Journey", href: "/#about" },
-  { label: "Portfolio", href: "/#work" },
-  { label: "Ventures", href: "/#companies" },
+  { label: "Portfolio", href: "/portfolio" },
+  { label: "Ventures", href: "/ventures" },
   { label: "Articles", href: "/articles" },
 ];
 

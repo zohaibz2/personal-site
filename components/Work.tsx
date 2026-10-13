@@ -97,10 +97,15 @@ export default function Work() {
   );
 
   return (
-    <section id="work" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24 scroll-mt-24">
-      <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-6">
-        Work
-      </h2>
+    <section id="work" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
+      <header className="mb-10 md:mb-14">
+        <h1 className="text-3xl md:text-4xl font-bold leading-tight tracking-tight text-[#1a1a1a] mb-3">
+          Portfolio
+        </h1>
+        <p className="text-lg text-[#1a1a1a]/70">
+          Products I&apos;ve built with founders, from the first idea to launch.
+        </p>
+      </header>
 
       {/* Filter tabs */}
       <div className="flex justify-center mb-10">

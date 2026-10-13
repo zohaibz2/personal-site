@@ -38,10 +38,10 @@ export default function Venfound() {
     <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       {/* Back link */}
       <Link
-        href="/#work"
+        href="/portfolio"
         className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]"
         style={sansStyle}
-      >&larr; Work</Link>
+      >&larr; Portfolio</Link>
 
       {/* Title */}
       <header className="mt-8 mb-10">
