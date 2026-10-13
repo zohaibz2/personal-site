@@ -5,10 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 
 // ─── Project data ─────────────────────────────────────────────────────────────
-// `category` drives the filter tabs. Allowed values: "Vibecoded" | "Nocode".
-// Three are confirmed from the reference (FitTree, StratAI, Kodex); the other
-// three are best guesses — flip any `category` below to correct them.
-type Category = "Vibecoded" | "Nocode";
+// `category` puts each project under a filter tab: "Development",
+// "Branding and Design" or "Social Media". Every tab always shows; one with
+// no projects yet says its work is on the way.
+type Category = "Development" | "Branding and Design" | "Social Media";
 
 const projects: {
   href: string;
@@ -28,7 +28,7 @@ const projects: {
     title: "Narejo Farms",
     description:
       "Revolutionizing Pakistan's livestock supply chain — organic, farm-to-table.",
-    category: "Nocode", // ← guess, adjust if needed
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
   {
@@ -38,7 +38,7 @@ const projects: {
     alt: "FitTree",
     title: "FitTree",
     description: "Custom training plans with one shared link.",
-    category: "Vibecoded",
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
   {
@@ -48,7 +48,7 @@ const projects: {
     alt: "Venfound",
     title: "Venfound",
     description: "From ideas to MVPs in 3-4 weeks.",
-    category: "Vibecoded", // ← guess, adjust if needed
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
   {
@@ -57,7 +57,7 @@ const projects: {
     alt: "StratAI",
     title: "StratAI",
     description: "AI strategy platform — built and launched in under 3 weeks.",
-    category: "Nocode",
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
   {
@@ -67,7 +67,7 @@ const projects: {
     title: "Kodex",
     description:
       "Video-first knowledge platform for fast, searchable team onboarding.",
-    category: "Nocode",
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
   {
@@ -77,21 +77,19 @@ const projects: {
     title: "Privately Property",
     description:
       "Peer-to-peer real estate marketplace cutting out the middleman.",
-    category: "Nocode", // ← guess, adjust if needed
+    category: "Development",
     bg: "bg-[#f5f5f4]",
   },
 ];
 
-const filters = ["All", "Vibecoded", "Nocode"] as const;
+const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
 type Filter = (typeof filters)[number];
 
 export default function Work() {
   const [active, setActive] = useState<Filter>("All");
 
   const shown = projects.filter((p) => !p.hidden);
-  const availableFilters = filters.filter(
-    (f) => f === "All" || shown.some((p) => p.category === f)
-  );
+  const availableFilters = filters; // every tab always shows
   const visible = shown.filter(
     (p) => active === "All" || p.category === active
   );
@@ -109,7 +107,7 @@ export default function Work() {
 
       {/* Filter tabs */}
       <div className="flex justify-center mb-10">
-        <div className="inline-flex items-center gap-1 rounded-full bg-[#f5f5f4] p-1">
+        <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-1 rounded-3xl bg-[#f5f5f4] p-1">
           {availableFilters.map((f) => {
             const isActive = active === f;
             return (
@@ -118,7 +116,7 @@ export default function Work() {
                 type="button"
                 onClick={() => setActive(f)}
                 aria-pressed={isActive}
-                className={`rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c2410c] ${
                   isActive
                     ? "bg-white text-[#1a1a1a] shadow-sm"
                     : "text-[#1a1a1a]/55 hover:text-[#1a1a1a]"
@@ -163,6 +161,11 @@ export default function Work() {
             </div>
           </Link>
         ))}
+        {visible.length === 0 && (
+          <div className="col-span-full rounded-2xl border border-dashed border-black/15 px-6 py-14 text-center">
+            <p className="text-lg md:text-xl text-[#1a1a1a]/70">This work is on its way. I&apos;m putting it together now.</p>
+          </div>
+        )}
       </div>
 
       {/* CTA */}
