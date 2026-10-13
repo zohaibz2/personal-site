@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Work from "@/components/Work";
 import Companies from "@/components/Companies";
-import Scrapbook from "@/components/Scrapbook";
 import Testimonials from "@/components/Testimonials";
 import Typewriter from "@/components/Typewriter";
 
@@ -47,8 +46,44 @@ export default function Home() {
 
       </section>
 
-      {/* About me: the scrapbook (story, photos, things on my mind) */}
-      <Scrapbook />
+      {/* The scrapbook (components/Scrapbook.tsx, its photos in public/about) is
+          parked for now. To bring it back: import it above and put <Scrapbook />
+          here in place of the two sections below. */}
+      {/* Story paragraph */}
+      <section id="about" className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24 scroll-mt-24">
+        <p className="text-lg md:text-xl text-[#1a1a1a] leading-[1.8]">
+          I have been making stuff and putting it online since I was 13 &mdash; a
+          YouTube channel, a couple of e-commerce stores, small steps trying to
+          figure out what I liked the most. These days I&apos;m doing fewer,
+          bigger things. I run a small studio called{" "}
+          <span className="text-[#c2410c]">Venfound</span>, where we build web
+          products for founders. I also host{" "}
+          <span className="text-[#c2410c]">StaLab</span>, where we explore the
+          realities of building startups with the founders behind them.
+          I&apos;m also doing my BBA at FCCU in Lahore, which I&apos;m slowly
+          getting through.
+        </p>
+      </section>
+
+      {/* Things on my mind */}
+      <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-16 md:pb-24">
+        <h2 className="text-xl md:text-2xl font-medium text-[#1a1a1a] mb-10">
+          Things on my mind lately
+        </h2>
+        <ul className="list-none flex flex-col gap-4">
+          {[
+            "How AI is changing what one person can build in a week \u2014 not just coding, but the whole stack: design, copy, research, marketing",
+            "What it would take to make small parts of Pakistan's food system more sustainable",
+            "The Pakistani startup ecosystem, and why it deserves better documentation than it gets",
+            "Small teams that ship things, and what they do differently",
+          ].map((item) => (
+            <li key={item} className="flex gap-3 text-lg md:text-xl text-[#1a1a1a] leading-[1.7]">
+              <span className="mt-[0.35em] shrink-0 text-sm text-[#1a1a1a]/40">&mdash;</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       {/* Work */}
       <Work />
