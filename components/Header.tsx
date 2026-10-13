@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MobileMenu from "./MobileMenu";
 
 const navLinks: { label: string; href: string; newTab?: boolean }[] = [
   { label: "Portfolio", href: "/portfolio" },
@@ -53,9 +54,11 @@ export default function Header() {
         </div>
         <style>{`@keyframes hdr-twinkle{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.1;transform:scale(0.7)}}`}</style>
 
-        {/* Email */}
+        {/* Email, and on phones the menu button */}
+        <div className="flex shrink-0 items-center gap-3">
         <Link
           href="mailto:narejozohaib33@gmail.com"
+          aria-label="Email Zohaib"
           className="flex shrink-0 items-center gap-2 text-[15px] font-normal transition-opacity hover:opacity-80"
           style={{ color: ACCENT }}
         >
@@ -65,6 +68,8 @@ export default function Header() {
           </svg>
           <span className="hidden lg:inline">narejozohaib33@gmail.com</span>
         </Link>
+        <MobileMenu links={navLinks} />
+        </div>
       </nav>
     </header>
   );
