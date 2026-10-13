@@ -19,6 +19,7 @@ const projects: {
   category: Category;
   bg: string;
   hidden?: boolean;
+  youtube?: string; // a YouTube video's id: its card plays it in place
 }[] = [
   {
     href: "/work/getlivestock",
@@ -134,7 +135,74 @@ const projects: {
     category: "Social Media",
     bg: "bg-[#f5f5f4]",
   },
+  {
+    href: "https://www.youtube.com/watch?v=AaD7kLkEkw8",
+    youtube: "AaD7kLkEkw8",
+    src: "/work/youtube/kashmir-ep02.jpg",
+    alt: "First day in Kashmir, episode 2: Kutton Waterfall",
+    title: "First day in Kashmir",
+    description: "Episode 2 of my Kashmir series: Kutton Waterfall.",
+    category: "YouTube",
+    bg: "bg-black",
+  },
 ];
+
+type Project = (typeof projects)[number];
+
+function YouTubeCard({ p }: { p: Project }) {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <div className="flex h-full flex-col rounded-2xl bg-white p-3 border border-black/[0.072] shadow-[0_8px_20px_-14px_rgba(234,88,12,0.18)]">
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
+        {playing ? (
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${p.youtube}?autoplay=1&rel=0`}
+            title={p.title}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPlaying(true)}
+            aria-label={`Play ${p.title}`}
+            className="group absolute inset-0 h-full w-full cursor-pointer rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c2410c]"
+          >
+            {/* no category badge here: a YouTube thumbnail is designed edge to edge */}
+            <Image
+              src={p.src}
+              alt={p.alt}
+              fill
+              className="object-cover transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transform-none"
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 320px"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute bottom-3 right-3 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#c2410c] text-white shadow-lg transition-colors group-hover:bg-[#ea580c]"
+            >
+              <svg viewBox="0 0 24 24" className="ml-0.5 h-5 w-5" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col px-2 pt-4 pb-2">
+        <h3 className="text-lg md:text-xl font-medium text-[#1a1a1a]">{p.title}</h3>
+        <p className="text-base md:text-lg text-[#1a1a1a]/70 leading-relaxed">{p.description}</p>
+        <a
+          href={p.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-ui mt-4 w-fit text-sm text-[#c2410c] transition-colors hover:text-[#ea580c] rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c2410c]"
+        >
+          Watch on YouTube &rarr;<span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      </div>
+    </div>
+  );
+}
 
 const filters = ["All", "Development", "Branding and Design", "Social Media", "YouTube"] as const;
 type Filter = (typeof filters)[number];
@@ -185,7 +253,10 @@ export default function Work() {
 
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visible.map((p) => (
+        {visible.map((p) =>
+          p.youtube ? (
+            <YouTubeCard key={p.href} p={p} />
+          ) : (
           <Link
             key={p.href}
             href={p.href}
@@ -214,7 +285,8 @@ export default function Work() {
               <span className="font-ui mt-4 text-sm text-[#c2410c] group-hover:text-[#ea580c] transition-colors">View more &rarr;</span>
             </div>
           </Link>
-        ))}
+          )
+        )}
         {visible.length === 0 && (
           <div className="col-span-full rounded-2xl border border-dashed border-black/15 px-6 py-14 text-center">
             <p className="text-lg md:text-xl text-[#1a1a1a]/70">This work is on its way. I&apos;m putting it together now.</p>
