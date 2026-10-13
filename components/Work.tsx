@@ -6,9 +6,9 @@ import { useState } from "react";
 
 // ─── Project data ─────────────────────────────────────────────────────────────
 // `category` puts each project under a filter tab: "Development",
-// "Branding and Design" or "Social Media". Every tab always shows; one with
-// no projects yet says its work is on the way.
-type Category = "Development" | "Branding and Design" | "Social Media";
+// "Branding and Design", "Social Media" or "YouTube". Every tab always shows;
+// one with no projects yet says its work is on the way.
+type Category = "Development" | "Branding and Design" | "Social Media" | "YouTube";
 
 const projects: {
   href: string;
@@ -136,7 +136,7 @@ const projects: {
   },
 ];
 
-const filters = ["All", "Development", "Branding and Design", "Social Media"] as const;
+const filters = ["All", "Development", "Branding and Design", "Social Media", "YouTube"] as const;
 type Filter = (typeof filters)[number];
 
 export default function Work() {
