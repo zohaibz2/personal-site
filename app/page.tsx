@@ -2,6 +2,7 @@ import Image from "next/image";
 import Work from "@/components/Work";
 import Companies from "@/components/Companies";
 import Scrapbook from "@/components/Scrapbook";
+import Testimonials from "@/components/Testimonials";
 import Typewriter from "@/components/Typewriter";
 
 export default function Home() {
@@ -54,6 +55,9 @@ export default function Home() {
 
       {/* Companies I've built */}
       <Companies />
+
+      {/* In their words */}
+      <Testimonials />
 
       {/* Contact */}
       <section className="mx-auto max-w-[640px] lg:max-w-5xl px-6 pb-28 md:pb-36 text-center">
