@@ -24,7 +24,9 @@ const EYEBROW = "mb-5 text-xs md:text-sm font-semibold uppercase tracking-[0.15e
 const SHADOW = "shadow-[0_8px_20px_-14px_rgba(234,88,12,0.18)]";
 
 export default function SocialCase({ title, tagline, about, stats, reels, posts }: Props) {
-  const reelCols = reels.length === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3";
+  // one reel sits on its own under the heading; four make a row; otherwise rows of three
+  const single = reels.length === 1;
+  const reelCols = single ? "" : reels.length === 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3";
   return (
     <article className="mx-auto max-w-[640px] lg:max-w-5xl px-6 py-16 md:py-24">
       <Link href="/portfolio" className="inline-block text-sm text-[#1a1a1a]/60 transition-colors hover:text-[#1a1a1a]" style={ui}>
@@ -58,7 +60,7 @@ export default function SocialCase({ title, tagline, about, stats, reels, posts 
         <h2 className={EYEBROW} style={ui}>Reels</h2>
         <div className={`grid grid-cols-1 ${reelCols} gap-6`}>
           {reels.map((r) => (
-            <figure key={r.src} className="mx-auto w-full max-w-[320px] sm:max-w-none">
+            <figure key={r.src} className={single ? "w-full max-w-[320px]" : "mx-auto w-full max-w-[320px] sm:max-w-none"}>
               <video
                 src={r.src}
                 poster={r.still}

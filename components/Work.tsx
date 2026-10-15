@@ -136,6 +136,15 @@ const projects: {
     bg: "bg-[#f5f5f4]",
   },
   {
+    href: "/work/trainwithzohaib",
+    src: "/work/trainwithzohaib/cover.jpg",
+    alt: "Trainwithzohaib: How muscle grows",
+    title: "Trainwithzohaib",
+    description: "Fitness explainers in English. Own your training.",
+    category: "Social Media",
+    bg: "bg-[#f5f5f4]",
+  },
+  {
     href: "https://www.youtube.com/watch?v=0o8G1siXLNI",
     youtube: "0o8G1siXLNI",
     src: "/work/youtube/islamabad-ep01.jpg",
