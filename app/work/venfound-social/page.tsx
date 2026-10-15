@@ -13,9 +13,12 @@ export default function VenfoundSocial() {
       tagline="Reels and posts for Venfound&rsquo;s LinkedIn and Instagram."
       about="Content for Venfound, the studio I co-founded: short reels about what we build, a post that says it in one line, and covers for the articles we write for founders."
       reels={[
+        { src: "/work/social/reel-intro.mp4", still: "/work/social/reel-intro.jpg", caption: "Idea, design, build, impact: the Venfound intro." },
         { src: "/work/social/reel-lets-build-it.mp4", still: "/work/social/reel-lets-build-it.jpg", caption: "Got an idea? Need an MVP? Let\u2019s build it." },
         { src: "/work/social/reel-clients-online.mp4", still: "/work/social/reel-clients-online.jpg", caption: "Hey, business owner: get your clients online." },
         { src: "/work/social/reel-websites-that-grow.mp4", still: "/work/social/reel-websites-that-grow.jpg", caption: "We build websites that grow your business." },
+        { src: "/work/social/reel-11-ways.mp4", still: "/work/social/reel-11-ways.jpg", caption: "11 ways to grow: web, MVPs, branding, content, apps, SEO and AI." },
+        { src: "/work/social/reel-cut-it-down.mp4", still: "/work/social/reel-cut-it-down.jpg", caption: "Cut it down: three features, launched in weeks. That\u2019s your MVP." },
       ]}
       posts={[
         { src: "/work/social/post-ideas-to-impact.jpg", alt: "Venfound post: From ideas to impact, we build for founders!", caption: "The studio, in one line.", width: 1080, height: 1350 },
