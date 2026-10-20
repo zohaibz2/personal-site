@@ -17,6 +17,7 @@ export default function TrainWithZohaib() {
       reels={[
         { src: R + "reel-how-muscle-grows.mp4", still: R + "reel-how-muscle-grows.jpg", caption: "How muscle grows: it grows after." },
         { src: R + "reel-progressive-overload.mp4", still: R + "reel-progressive-overload.jpg", caption: "Same weight every week? Progressive overload, explained." },
+        { src: R + "reel-skinny-to-strong.mp4", still: R + "reel-skinny-to-strong.jpg", caption: "Skinny to strong: six years, five mistakes." },
       ]}
     />
   );
